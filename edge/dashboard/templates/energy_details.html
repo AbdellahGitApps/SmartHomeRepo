@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Energy Details</h1>
+
+<!-- Overview -->
+<div class="card">
+    <h2>⚡ Energy Overview</h2>
+    <p>Home: Home A</p>
+    <p>Status: Stable</p>
+</div>
+
+<!-- Charts Placeholder -->
+<div class="card">
+    <h2>Daily Consumption</h2>
+    <p>[Chart will be rendered here - JS later]</p>
+</div>
+
+<div class="card">
+    <h2>Weekly Trend</h2>
+    <p>[Line chart placeholder]</p>
+</div>
+
+<div class="card">
+    <h2>Monthly Usage</h2>
+    <p>[Bar chart placeholder]</p>
+</div>
+
+<!-- AI Prediction -->
+<div class="card">
+    <h2>🤖 AI Prediction</h2>
+    <p>Next week expected increase: +7%</p>
+    <p>Peak usage time: 7PM - 11PM</p>
+</div>
+
+<!-- Insights -->
+<div class="card">
+    <h2>Insights</h2>
+    <ul>
+        <li>High usage detected in evening hours</li>
+        <li>Device inefficiency detected in AC system</li>
+        <li>Recommendation: Reduce peak load usage</li>
+    </ul>
+</div>
+
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Home Details</h1>
+
+<!-- Home Info -->
+<div class="card">
+    <h2>🏠 Home A</h2>
+    <p><strong>Home ID:</strong> HOME-001</p>
+    <p><strong>Status:</strong> 🟢 Online</p>
+    <p><strong>Admin:</strong> Omar</p>
+</div>
+
+<!-- Devices -->
+<h2>Devices</h2>
+
+<div class="grid">
+
+    <div class="card">
+        <h3>Device 1</h3>
+        <p>Status: 🟢 Online</p>
+    </div>
+
+    <div class="card">
+        <h3>Device 2</h3>
+        <p>Status: 🔴 Offline</p>
+    </div>
+
+    <div class="card">
+        <h3>Device 3</h3>
+        <p>Status: 🟢 Online</p>
+    </div>
+
+</div>
+
+<!-- Energy Summary -->
+<h2>Energy Summary</h2>
+
+<div class="card">
+    <p>Daily Usage: 12.4 kWh</p>
+    <p>Weekly Average: 85 kWh</p>
+</div>
+
+<!-- Actions -->
+<div class="card">
+    <button>Refresh Data</button>
+    <button>Revoke Home Access</button>
+</div>
+
+{% endblock %}

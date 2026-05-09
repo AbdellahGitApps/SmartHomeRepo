@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Create New Home</h1>
+
+<form action="/create-home" method="POST" class="form-box">
+
+    <label for="home_name">Home Name</label>
+    <input type="text" id="home_name" name="home_name" required>
+
+    <label for="admin_name">Admin Name</label>
+    <input type="text" id="admin_name" name="admin_name" required>
+
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required>
+
+    <label for="meter_id">Electric Meter ID</label>
+    <input type="text" id="meter_id" name="meter_id" required>
+
+    <button type="submit">Create Home</button>
+
+</form>
+
+{% endblock %}

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Home Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>SmartHome</h2>
+
+    <a href="/">🏠 Homes</a>
+    <a href="/create-home">➕ Create Home</a>
+    <a href="/keys">🔑 Keys</a>
+    <a href="/energy">⚡ Energy</a>
+    <a href="/status">📡 Status</a>
+    <a href="/mobile">📱 Mobile</a>
+    <a href="/users">👤 Users</a>
+</div>
+
+<div class="main">
+    {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>
