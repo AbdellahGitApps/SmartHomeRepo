@@ -1,13 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
-import '../models/door_event.dart';
-import '../models/energy_forecast.dart';
-import '../models/energy_reading.dart';
-import '../models/family_member.dart';
-import '../services/api_service.dart';
-import '../services/direct_device_service.dart';
+import 'door_screen.dart';
+import 'energy_screen.dart';
+import 'family_screen.dart';
+import 'home_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -17,343 +13,14 @@ class AdminHomeScreen extends StatefulWidget {
 }
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
-  final ApiService _apiService = ApiService();
-  final DirectDeviceService _directDeviceService = DirectDeviceService();
+  int _currentIndex = 0;
 
-  final TextEditingController _familyNameController = TextEditingController();
-  final TextEditingController _familyMemberIdController =
-      TextEditingController();
-  final TextEditingController _doorEventIdController = TextEditingController();
-  final TextEditingController _unknownPersonNameController =
-      TextEditingController();
-
-  bool _isLoading = false;
-  String _result = 'No request yet.';
-
-  @override
-  void dispose() {
-    _familyNameController.dispose();
-    _familyMemberIdController.dispose();
-    _doorEventIdController.dispose();
-    _unknownPersonNameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _runRequest(Future<dynamic> Function() request) async {
-    setState(() {
-      _isLoading = true;
-      _result = 'Loading...';
-    });
-
-    try {
-      final data = await request();
-
-      setState(() {
-        _result = _formatResult(data);
-      });
-    } catch (error) {
-      setState(() {
-        _result = 'Error:\n$error';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  int _readDoorEventId() {
-    final rawId = _doorEventIdController.text.trim();
-    final eventId = int.tryParse(rawId);
-
-    if (eventId == null) {
-      throw Exception('Please enter a valid door event ID.');
-    }
-
-    return eventId;
-  }
-
-  Future<Map<String, dynamic>> _directOpenDoorAndLog() async {
-    final directResult = await _directDeviceService.directOpenDoor();
-    final logResult = await _apiService.logDirectDoorOpen();
-
-    return {
-      'direct_open_result': directResult,
-      'server_log_result': logResult,
-    };
-  }
-
-  Future<Map<String, dynamic>> _addFamilyMemberFromInput() async {
-    final name = _familyNameController.text.trim();
-
-    if (name.isEmpty) {
-      throw Exception('Please enter a family member name.');
-    }
-
-    final result = await _apiService.addFamilyMember(name: name);
-
-    _familyNameController.clear();
-
-    return result;
-  }
-
-  Future<Map<String, dynamic>> _attachTestFaceEmbeddingFromInput() async {
-    final rawId = _familyMemberIdController.text.trim();
-    final memberId = int.tryParse(rawId);
-
-    if (memberId == null) {
-      throw Exception('Please enter a valid family member ID.');
-    }
-
-    return _apiService.attachTestFaceEmbedding(memberId: memberId);
-  }
-
-  Future<Map<String, dynamic>> _openPendingDoorEventFromInput() async {
-    final eventId = _readDoorEventId();
-
-    return _apiService.openPendingDoorEvent(eventId: eventId);
-  }
-
-  Future<Map<String, dynamic>> _denyPendingDoorEventFromInput() async {
-    final eventId = _readDoorEventId();
-
-    return _apiService.denyPendingDoorEvent(eventId: eventId);
-  }
-
-  Future<Map<String, dynamic>> _addPendingEventToFamilyFromInput() async {
-    final eventId = _readDoorEventId();
-    final name = _unknownPersonNameController.text.trim();
-
-    if (name.isEmpty) {
-      throw Exception('Please enter a name for the unknown person.');
-    }
-
-    final result = await _apiService.addPendingEventToFamily(
-      eventId: eventId,
-      name: name,
-    );
-
-    _unknownPersonNameController.clear();
-
-    return result;
-  }
-
-  String _formatResult(dynamic data) {
-    if (data == null) {
-      return 'No data found.';
-    }
-
-    if (data is DoorEvent) {
-      return _toPrettyJson(data.toJson());
-    }
-
-    if (data is EnergyReading) {
-      return _toPrettyJson(data.toJson());
-    }
-
-    if (data is EnergyForecast) {
-      return _toPrettyJson(data.toJson());
-    }
-
-    if (data is FamilyMember) {
-      return _toPrettyJson(data.toJson());
-    }
-
-    if (data is List<DoorEvent>) {
-      return _toPrettyJson(data.map((event) => event.toJson()).toList());
-    }
-
-    if (data is List<FamilyMember>) {
-      return _toPrettyJson(data.map((member) => member.toJson()).toList());
-    }
-
-    return _toPrettyJson(data);
-  }
-
-  String _toPrettyJson(dynamic data) {
-    try {
-      const encoder = JsonEncoder.withIndent('  ');
-      return encoder.convert(data);
-    } catch (_) {
-      return data.toString();
-    }
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required String label,
-    required Future<dynamic> Function() onPressed,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _isLoading ? null : () => _runRequest(onPressed),
-          child: Text(label),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildControls() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildSectionTitle('Server'),
-          _buildActionButton(
-            label: 'Check Server',
-            onPressed: _apiService.healthCheck,
-          ),
-
-          _buildSectionTitle('Door Control'),
-          _buildActionButton(
-            label: 'Open Door Through Server',
-            onPressed: _apiService.openDoor,
-          ),
-          _buildActionButton(
-            label: 'Direct Open Door',
-            onPressed: _directOpenDoorAndLog,
-          ),
-          _buildActionButton(
-            label: 'Latest Door Event',
-            onPressed: _apiService.getLatestDoorEvent,
-          ),
-          _buildActionButton(
-            label: 'Door Logs',
-            onPressed: _apiService.getDoorLogs,
-          ),
-
-          _buildSectionTitle('Unknown Door Event'),
-          _buildActionButton(
-            label: 'Create Test Unknown Event',
-            onPressed: _apiService.createTestUnknownDoorEvent,
-          ),
-          _buildActionButton(
-            label: 'Get Pending Unknown Event',
-            onPressed: _apiService.getPendingDoorEvent,
-          ),
-          TextField(
-            controller: _doorEventIdController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Door Event ID',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildActionButton(
-            label: 'Open Pending Event',
-            onPressed: _openPendingDoorEventFromInput,
-          ),
-          _buildActionButton(
-            label: 'Deny Pending Event',
-            onPressed: _denyPendingDoorEventFromInput,
-          ),
-          TextField(
-            controller: _unknownPersonNameController,
-            decoration: const InputDecoration(
-              labelText: 'Unknown Person Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildActionButton(
-            label: 'Add Pending Person to Family',
-            onPressed: _addPendingEventToFamilyFromInput,
-          ),
-
-          _buildSectionTitle('Face Verification'),
-          _buildActionButton(
-            label: 'Verify Test Known Face',
-            onPressed: _apiService.verifyTestKnownFace,
-          ),
-          _buildActionButton(
-            label: 'Verify Test Unknown Face',
-            onPressed: _apiService.verifyTestUnknownFace,
-          ),
-
-          _buildSectionTitle('Family Members'),
-          TextField(
-            controller: _familyNameController,
-            decoration: const InputDecoration(
-              labelText: 'Family Member Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildActionButton(
-            label: 'Add Family Member',
-            onPressed: _addFamilyMemberFromInput,
-          ),
-          _buildActionButton(
-            label: 'Add Test Family Member',
-            onPressed: _apiService.addTestFamilyMember,
-          ),
-          _buildActionButton(
-            label: 'Family Members List',
-            onPressed: _apiService.getFamilyMembers,
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _familyMemberIdController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Family Member ID',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildActionButton(
-            label: 'Attach Test Face Embedding',
-            onPressed: _attachTestFaceEmbeddingFromInput,
-          ),
-
-          _buildSectionTitle('Energy'),
-          _buildActionButton(
-            label: 'Latest Energy Reading',
-            onPressed: _apiService.getLatestEnergyReading,
-          ),
-          _buildActionButton(
-            label: 'Latest Energy Forecast',
-            onPressed: _apiService.getLatestEnergyForecast,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultBox() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: SingleChildScrollView(
-        child: Text(
-          _result,
-          style: const TextStyle(fontFamily: 'monospace'),
-        ),
-      ),
-    );
-  }
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const DoorScreen(),
+    const FamilyScreen(),
+    const EnergyScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -362,22 +29,33 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         title: const Text('Smart Home Admin'),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Expanded(
-              flex: 3,
-              child: _buildControls(),
-            ),
-            const SizedBox(height: 12),
-            _buildSectionTitle('Result'),
-            Expanded(
-              flex: 2,
-              child: _buildResultBox(),
-            ),
-          ],
-        ),
+      body: _screens[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.door_front_door),
+            label: 'Door',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.family_restroom),
+            label: 'Family',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bolt),
+            label: 'Energy',
+          ),
+        ],
       ),
     );
   }
