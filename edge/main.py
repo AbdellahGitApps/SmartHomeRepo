@@ -57,8 +57,12 @@ class DoorOpenRequest(BaseModel):
 
 class FamilyMemberCreate(BaseModel):
     name: str
-    role: str = "familyMember"
+    role: str = "family_member"
     face_embedding: Optional[list[float]] = None
+
+
+class FaceEmbeddingUpdate(BaseModel):
+    face_embedding: list[float]
 
 
 # =========================
@@ -207,6 +211,7 @@ def add_family_member(member: FamilyMemberCreate):
         "has_face_embedding": member.face_embedding is not None,
         "face_embedding": member.face_embedding,
         "created_at": now,
+        "updated_at": now,
     }
 
     family_members.append(new_member)
@@ -225,10 +230,11 @@ def add_test_family_member():
     new_member = {
         "id": len(family_members) + 1,
         "name": f"Test Family Member {len(family_members) + 1}",
-        "role": "familyMember",
+        "role": "family_member",
         "has_face_embedding": False,
         "face_embedding": None,
         "created_at": now,
+        "updated_at": now,
     }
 
     family_members.append(new_member)
@@ -237,6 +243,29 @@ def add_test_family_member():
         "success": True,
         "message": "Test family member added",
         "member": new_member,
+    }
+
+
+@app.post("/family/members/{member_id}/face-embedding")
+def attach_face_embedding(member_id: int, payload: FaceEmbeddingUpdate):
+    for member in family_members:
+        if member.get("id") == member_id:
+            now = datetime.now().isoformat()
+
+            member["face_embedding"] = payload.face_embedding
+            member["has_face_embedding"] = True
+            member["updated_at"] = now
+
+            return {
+                "success": True,
+                "message": "Face embedding attached to family member",
+                "member": member,
+            }
+
+    return {
+        "success": False,
+        "message": "Family member not found",
+        "member_id": member_id,
     }
 
 

@@ -112,6 +112,28 @@ class ApiService {
     return _asMap(data);
   }
 
+  Future<Map<String, dynamic>> attachTestFaceEmbedding({
+    required int memberId,
+  }) async {
+    final data = await _post(
+      '/family/members/$memberId/face-embedding',
+      body: {
+        'face_embedding': [
+          0.11,
+          0.22,
+          0.33,
+          0.44,
+          0.55,
+          0.66,
+          0.77,
+          0.88,
+        ],
+      },
+    );
+
+    return _asMap(data);
+  }
+
   Future<List<FamilyMember>> getFamilyMembers() async {
     final data = await _get('/family/members');
     final map = _asMap(data);

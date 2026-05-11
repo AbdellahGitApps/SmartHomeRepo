@@ -20,6 +20,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final ApiService _apiService = ApiService();
   final DirectDeviceService _directDeviceService = DirectDeviceService();
   final TextEditingController _familyNameController = TextEditingController();
+  final TextEditingController _familyMemberIdController =
+      TextEditingController();
 
   bool _isLoading = false;
   String _result = 'No request yet.';
@@ -27,6 +29,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   void dispose() {
     _familyNameController.dispose();
+    _familyMemberIdController.dispose();
     super.dispose();
   }
 
@@ -75,6 +78,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _familyNameController.clear();
 
     return result;
+  }
+
+  Future<Map<String, dynamic>> _attachTestFaceEmbeddingFromInput() async {
+    final rawId = _familyMemberIdController.text.trim();
+    final memberId = int.tryParse(rawId);
+
+    if (memberId == null) {
+      throw Exception('Please enter a valid family member ID.');
+    }
+
+    return _apiService.attachTestFaceEmbedding(memberId: memberId);
   }
 
   String _formatResult(dynamic data) {
@@ -196,6 +210,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           _buildActionButton(
             label: 'Family Members List',
             onPressed: _apiService.getFamilyMembers,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _familyMemberIdController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Family Member ID',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildActionButton(
+            label: 'Attach Test Face Embedding',
+            onPressed: _attachTestFaceEmbeddingFromInput,
           ),
           _buildSectionTitle('Energy'),
           _buildActionButton(
