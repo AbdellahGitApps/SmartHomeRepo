@@ -92,6 +92,44 @@ class ApiService {
     return _asMap(data);
   }
 
+  Future<Map<String, dynamic>> createTestUnknownDoorEvent() async {
+    final data = await _post('/door/events/unknown/test');
+    return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> getPendingDoorEvent() async {
+    final data = await _get('/door/pending');
+    return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> openPendingDoorEvent({
+    required int eventId,
+  }) async {
+    final data = await _post('/door/events/$eventId/open');
+    return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> denyPendingDoorEvent({
+    required int eventId,
+  }) async {
+    final data = await _post('/door/events/$eventId/deny');
+    return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> addPendingEventToFamily({
+    required int eventId,
+    required String name,
+  }) async {
+    final data = await _post(
+      '/door/events/$eventId/add-to-family',
+      body: {
+        'name': name,
+      },
+    );
+
+    return _asMap(data);
+  }
+
   Future<Map<String, dynamic>> addFamilyMember({
     required String name,
   }) async {
@@ -128,6 +166,32 @@ class ApiService {
           0.77,
           0.88,
         ],
+      },
+    );
+
+    return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> verifyTestKnownFace() async {
+    final data = await _post(
+      '/face/verify',
+      body: {
+        'face_embedding': [0.11, 0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88],
+        'source': 'flutter_face_engine',
+        'threshold': 0.75,
+      },
+    );
+
+    return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> verifyTestUnknownFace() async {
+    final data = await _post(
+      '/face/verify',
+      body: {
+        'face_embedding': [-0.11, -0.22, -0.33, -0.44, -0.55, -0.66, -0.77, -0.88],
+        'source': 'flutter_face_engine',
+        'threshold': 0.75,
       },
     );
 

@@ -19,8 +19,12 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final ApiService _apiService = ApiService();
   final DirectDeviceService _directDeviceService = DirectDeviceService();
+
   final TextEditingController _familyNameController = TextEditingController();
   final TextEditingController _familyMemberIdController =
+      TextEditingController();
+  final TextEditingController _doorEventIdController = TextEditingController();
+  final TextEditingController _unknownPersonNameController =
       TextEditingController();
 
   bool _isLoading = false;
@@ -30,6 +34,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   void dispose() {
     _familyNameController.dispose();
     _familyMemberIdController.dispose();
+    _doorEventIdController.dispose();
+    _unknownPersonNameController.dispose();
     super.dispose();
   }
 
@@ -54,6 +60,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  int _readDoorEventId() {
+    final rawId = _doorEventIdController.text.trim();
+    final eventId = int.tryParse(rawId);
+
+    if (eventId == null) {
+      throw Exception('Please enter a valid door event ID.');
+    }
+
+    return eventId;
   }
 
   Future<Map<String, dynamic>> _directOpenDoorAndLog() async {
@@ -89,6 +106,36 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
 
     return _apiService.attachTestFaceEmbedding(memberId: memberId);
+  }
+
+  Future<Map<String, dynamic>> _openPendingDoorEventFromInput() async {
+    final eventId = _readDoorEventId();
+
+    return _apiService.openPendingDoorEvent(eventId: eventId);
+  }
+
+  Future<Map<String, dynamic>> _denyPendingDoorEventFromInput() async {
+    final eventId = _readDoorEventId();
+
+    return _apiService.denyPendingDoorEvent(eventId: eventId);
+  }
+
+  Future<Map<String, dynamic>> _addPendingEventToFamilyFromInput() async {
+    final eventId = _readDoorEventId();
+    final name = _unknownPersonNameController.text.trim();
+
+    if (name.isEmpty) {
+      throw Exception('Please enter a name for the unknown person.');
+    }
+
+    final result = await _apiService.addPendingEventToFamily(
+      eventId: eventId,
+      name: name,
+    );
+
+    _unknownPersonNameController.clear();
+
+    return result;
   }
 
   String _formatResult(dynamic data) {
@@ -173,6 +220,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             label: 'Check Server',
             onPressed: _apiService.healthCheck,
           ),
+
           _buildSectionTitle('Door Control'),
           _buildActionButton(
             label: 'Open Door Through Server',
@@ -190,6 +238,56 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             label: 'Door Logs',
             onPressed: _apiService.getDoorLogs,
           ),
+
+          _buildSectionTitle('Unknown Door Event'),
+          _buildActionButton(
+            label: 'Create Test Unknown Event',
+            onPressed: _apiService.createTestUnknownDoorEvent,
+          ),
+          _buildActionButton(
+            label: 'Get Pending Unknown Event',
+            onPressed: _apiService.getPendingDoorEvent,
+          ),
+          TextField(
+            controller: _doorEventIdController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Door Event ID',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildActionButton(
+            label: 'Open Pending Event',
+            onPressed: _openPendingDoorEventFromInput,
+          ),
+          _buildActionButton(
+            label: 'Deny Pending Event',
+            onPressed: _denyPendingDoorEventFromInput,
+          ),
+          TextField(
+            controller: _unknownPersonNameController,
+            decoration: const InputDecoration(
+              labelText: 'Unknown Person Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildActionButton(
+            label: 'Add Pending Person to Family',
+            onPressed: _addPendingEventToFamilyFromInput,
+          ),
+
+          _buildSectionTitle('Face Verification'),
+          _buildActionButton(
+            label: 'Verify Test Known Face',
+            onPressed: _apiService.verifyTestKnownFace,
+          ),
+          _buildActionButton(
+            label: 'Verify Test Unknown Face',
+            onPressed: _apiService.verifyTestUnknownFace,
+          ),
+
           _buildSectionTitle('Family Members'),
           TextField(
             controller: _familyNameController,
@@ -225,6 +323,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             label: 'Attach Test Face Embedding',
             onPressed: _attachTestFaceEmbeddingFromInput,
           ),
+
           _buildSectionTitle('Energy'),
           _buildActionButton(
             label: 'Latest Energy Reading',
