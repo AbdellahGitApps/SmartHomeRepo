@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local SQLite database
+edge/database/*.db
+edge/database/*.db-journal
+edge/database/*.db-wal
+edge/database/*.db-shm
