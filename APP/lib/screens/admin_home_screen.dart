@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/door_event.dart';
 import '../models/energy_forecast.dart';
 import '../models/energy_reading.dart';
+import '../models/family_member.dart';
 import '../services/api_service.dart';
 import '../services/direct_device_service.dart';
 
@@ -72,8 +73,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       return _toPrettyJson(data.toJson());
     }
 
+    if (data is FamilyMember) {
+      return _toPrettyJson(data.toJson());
+    }
+
     if (data is List<DoorEvent>) {
       return _toPrettyJson(data.map((event) => event.toJson()).toList());
+    }
+
+    if (data is List<FamilyMember>) {
+      return _toPrettyJson(data.map((member) => member.toJson()).toList());
     }
 
     return _toPrettyJson(data);
@@ -120,20 +129,70 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _buildResultBox() {
-    return Expanded(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: SingleChildScrollView(
-          child: Text(
-            _result,
-            style: const TextStyle(fontFamily: 'monospace'),
+  Widget _buildControls() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildSectionTitle('Server'),
+          _buildActionButton(
+            label: 'Check Server',
+            onPressed: _apiService.healthCheck,
           ),
+
+          _buildSectionTitle('Door Control'),
+          _buildActionButton(
+            label: 'Open Door Through Server',
+            onPressed: _apiService.openDoor,
+          ),
+          _buildActionButton(
+            label: 'Direct Open Door',
+            onPressed: _directOpenDoorAndLog,
+          ),
+          _buildActionButton(
+            label: 'Latest Door Event',
+            onPressed: _apiService.getLatestDoorEvent,
+          ),
+          _buildActionButton(
+            label: 'Door Logs',
+            onPressed: _apiService.getDoorLogs,
+          ),
+
+          _buildSectionTitle('Family Members'),
+          _buildActionButton(
+            label: 'Add Test Family Member',
+            onPressed: _apiService.addTestFamilyMember,
+          ),
+          _buildActionButton(
+            label: 'Family Members List',
+            onPressed: _apiService.getFamilyMembers,
+          ),
+
+          _buildSectionTitle('Energy'),
+          _buildActionButton(
+            label: 'Latest Energy Reading',
+            onPressed: _apiService.getLatestEnergyReading,
+          ),
+          _buildActionButton(
+            label: 'Latest Energy Forecast',
+            onPressed: _apiService.getLatestEnergyForecast,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultBox() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        child: Text(
+          _result,
+          style: const TextStyle(fontFamily: 'monospace'),
         ),
       ),
     );
@@ -150,42 +209,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildSectionTitle('Server'),
-            _buildActionButton(
-              label: 'Check Server',
-              onPressed: _apiService.healthCheck,
+            Expanded(
+              flex: 3,
+              child: _buildControls(),
             ),
-
-            _buildSectionTitle('Door Control'),
-            _buildActionButton(
-              label: 'Open Door Through Server',
-              onPressed: _apiService.openDoor,
-            ),
-            _buildActionButton(
-              label: 'Direct Open Door',
-              onPressed: _directOpenDoorAndLog,
-            ),
-            _buildActionButton(
-              label: 'Latest Door Event',
-              onPressed: _apiService.getLatestDoorEvent,
-            ),
-            _buildActionButton(
-              label: 'Door Logs',
-              onPressed: _apiService.getDoorLogs,
-            ),
-
-            _buildSectionTitle('Energy'),
-            _buildActionButton(
-              label: 'Latest Energy Reading',
-              onPressed: _apiService.getLatestEnergyReading,
-            ),
-            _buildActionButton(
-              label: 'Latest Energy Forecast',
-              onPressed: _apiService.getLatestEnergyForecast,
-            ),
-
+            const SizedBox(height: 12),
             _buildSectionTitle('Result'),
-            _buildResultBox(),
+            Expanded(
+              flex: 2,
+              child: _buildResultBox(),
+            ),
           ],
         ),
       ),

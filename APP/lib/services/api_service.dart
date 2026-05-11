@@ -6,6 +6,7 @@ import '../config/app_config.dart';
 import '../models/door_event.dart';
 import '../models/energy_forecast.dart';
 import '../models/energy_reading.dart';
+import '../models/family_member.dart';
 
 class ApiService {
   final http.Client _client;
@@ -89,6 +90,27 @@ class ApiService {
   Future<Map<String, dynamic>> logDirectDoorOpen() async {
     final data = await _post('/door/log/direct-open');
     return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> addTestFamilyMember() async {
+    final data = await _post('/family/members/test');
+    return _asMap(data);
+  }
+
+  Future<List<FamilyMember>> getFamilyMembers() async {
+    final data = await _get('/family/members');
+    final map = _asMap(data);
+
+    final items = map['items'];
+
+    if (items is! List) {
+      return [];
+    }
+
+    return items
+        .whereType<Map>()
+        .map((item) => FamilyMember.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
   }
 
   Future<DoorEvent?> getLatestDoorEvent() async {

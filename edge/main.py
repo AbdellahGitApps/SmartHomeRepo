@@ -1,6 +1,6 @@
 from datetime import datetime
 import json
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,9 +29,10 @@ app.add_middleware(
 
 # =========================
 # TEMP IN-MEMORY DATA
-# سيتم استبدالها لاحقًا بقاعدة البيانات
+# لاحقًا سيتم استبدالها بقاعدة البيانات
 # =========================
 door_events: list[dict[str, Any]] = []
+family_members: list[dict[str, Any]] = []
 
 latest_energy_reading = {
     "voltage": 220.0,
@@ -52,6 +53,12 @@ latest_energy_forecast = {
 class DoorOpenRequest(BaseModel):
     source: str = "flutter_admin"
     reason: str = "manual_open_from_app"
+
+
+class FamilyMemberCreate(BaseModel):
+    name: str = "Test Family Member"
+    role: str = "resident"
+    face_embedding: Optional[list[float]] = None
 
 
 # =========================
@@ -112,7 +119,6 @@ def get_door_logs():
     }
 
 
-@app.post("/door/open")
 @app.post("/door/open")
 def open_door(request: DoorOpenRequest):
     now = datetime.now().isoformat()
@@ -177,6 +183,62 @@ def log_direct_door_open():
         "message": "Direct door open event logged",
         "event": event,
     }
+
+
+# =========================
+# FAMILY MEMBERS ENDPOINTS
+# =========================
+@app.get("/family/members")
+def get_family_members():
+    return {
+        "count": len(family_members),
+        "items": family_members,
+    }
+
+
+@app.post("/family/members")
+def add_family_member(member: FamilyMemberCreate):
+    now = datetime.now().isoformat()
+
+    new_member = {
+        "id": len(family_members) + 1,
+        "name": member.name,
+        "role": member.role,
+        "has_face_embedding": member.face_embedding is not None,
+        "face_embedding": member.face_embedding,
+        "created_at": now,
+    }
+
+    family_members.append(new_member)
+
+    return {
+        "success": True,
+        "message": "Family member added",
+        "member": new_member,
+    }
+
+
+@app.post("/family/members/test")
+def add_test_family_member():
+    now = datetime.now().isoformat()
+
+    new_member = {
+        "id": len(family_members) + 1,
+        "name": f"Test Family Member {len(family_members) + 1}",
+        "role": "resident",
+        "has_face_embedding": False,
+        "face_embedding": None,
+        "created_at": now,
+    }
+
+    family_members.append(new_member)
+
+    return {
+        "success": True,
+        "message": "Test family member added",
+        "member": new_member,
+    }
+
 
 # =========================
 # ENERGY ENDPOINTS
