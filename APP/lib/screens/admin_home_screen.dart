@@ -6,6 +6,7 @@ import '../models/door_event.dart';
 import '../models/energy_forecast.dart';
 import '../models/energy_reading.dart';
 import '../services/api_service.dart';
+import '../services/direct_device_service.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -16,6 +17,7 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final ApiService _apiService = ApiService();
+  final DirectDeviceService _directDeviceService = DirectDeviceService();
 
   bool _isLoading = false;
   String _result = 'No request yet.';
@@ -107,6 +109,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             _buildActionButton(
               label: 'Open Door',
               onPressed: _apiService.openDoor,
+            ),
+            _buildActionButton(
+            label: 'Direct Open Door',
+              onPressed: _directDeviceService.directOpenDoor,
             ),
             _buildActionButton(
               label: 'Latest Door Event',
