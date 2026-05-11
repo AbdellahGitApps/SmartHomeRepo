@@ -86,26 +86,31 @@ class ApiService {
     return _asMap(data);
   }
 
+  Future<Map<String, dynamic>> logDirectDoorOpen() async {
+    final data = await _post('/door/log/direct-open');
+    return _asMap(data);
+  }
+
   Future<DoorEvent?> getLatestDoorEvent() async {
-  final data = await _get('/door/latest');
-  final map = _asMap(data);
+    final data = await _get('/door/latest');
+    final map = _asMap(data);
 
-  if (map.containsKey('latest')) {
-    final latest = map['latest'];
+    if (map.containsKey('latest')) {
+      final latest = map['latest'];
 
-    if (latest == null) {
+      if (latest == null) {
+        return null;
+      }
+
+      if (latest is Map) {
+        return DoorEvent.fromJson(Map<String, dynamic>.from(latest));
+      }
+
       return null;
     }
 
-    if (latest is Map) {
-      return DoorEvent.fromJson(Map<String, dynamic>.from(latest));
-    }
-
-    return null;
+    return DoorEvent.fromJson(map);
   }
-
-  return DoorEvent.fromJson(map);
-}
 
   Future<List<DoorEvent>> getDoorLogs() async {
     final data = await _get('/door/logs');

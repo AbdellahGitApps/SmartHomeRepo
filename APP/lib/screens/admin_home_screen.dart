@@ -45,6 +45,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
+  Future<Map<String, dynamic>> _directOpenDoorAndLog() async {
+    final directResult = await _directDeviceService.directOpenDoor();
+    final logResult = await _apiService.logDirectDoorOpen();
+
+    return {
+      'direct_open_result': directResult,
+      'server_log_result': logResult,
+    };
+  }
+
   String _formatResult(dynamic data) {
     if (data == null) {
       return 'No data found.';
@@ -78,15 +88,53 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButton({
     required String label,
     required Future<dynamic> Function() onPressed,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : () => _runRequest(onPressed),
-        child: Text(label),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _isLoading ? null : () => _runRequest(onPressed),
+          child: Text(label),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultBox() {
+    return Expanded(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: SingleChildScrollView(
+          child: Text(
+            _result,
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+        ),
       ),
     );
   }
@@ -102,17 +150,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            _buildSectionTitle('Server'),
             _buildActionButton(
               label: 'Check Server',
               onPressed: _apiService.healthCheck,
             ),
+
+            _buildSectionTitle('Door Control'),
             _buildActionButton(
-              label: 'Open Door',
+              label: 'Open Door Through Server',
               onPressed: _apiService.openDoor,
             ),
             _buildActionButton(
-            label: 'Direct Open Door',
-              onPressed: _directDeviceService.directOpenDoor,
+              label: 'Direct Open Door',
+              onPressed: _directOpenDoorAndLog,
             ),
             _buildActionButton(
               label: 'Latest Door Event',
@@ -122,6 +173,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               label: 'Door Logs',
               onPressed: _apiService.getDoorLogs,
             ),
+
+            _buildSectionTitle('Energy'),
             _buildActionButton(
               label: 'Latest Energy Reading',
               onPressed: _apiService.getLatestEnergyReading,
@@ -130,23 +183,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               label: 'Latest Energy Forecast',
               onPressed: _apiService.getLatestEnergyForecast,
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: SingleChildScrollView(
-                  child: Text(
-                    _result,
-                    style: const TextStyle(fontFamily: 'monospace'),
-                  ),
-                ),
-              ),
-            ),
+
+            _buildSectionTitle('Result'),
+            _buildResultBox(),
           ],
         ),
       ),
