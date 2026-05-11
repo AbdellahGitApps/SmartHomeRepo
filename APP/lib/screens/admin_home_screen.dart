@@ -19,9 +19,16 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final ApiService _apiService = ApiService();
   final DirectDeviceService _directDeviceService = DirectDeviceService();
+  final TextEditingController _familyNameController = TextEditingController();
 
   bool _isLoading = false;
   String _result = 'No request yet.';
+
+  @override
+  void dispose() {
+    _familyNameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _runRequest(Future<dynamic> Function() request) async {
     setState(() {
@@ -54,6 +61,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       'direct_open_result': directResult,
       'server_log_result': logResult,
     };
+  }
+
+  Future<Map<String, dynamic>> _addFamilyMemberFromInput() async {
+    final name = _familyNameController.text.trim();
+
+    if (name.isEmpty) {
+      throw Exception('Please enter a family member name.');
+    }
+
+    final result = await _apiService.addFamilyMember(name: name);
+
+    _familyNameController.clear();
+
+    return result;
   }
 
   String _formatResult(dynamic data) {
@@ -138,7 +159,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             label: 'Check Server',
             onPressed: _apiService.healthCheck,
           ),
-
           _buildSectionTitle('Door Control'),
           _buildActionButton(
             label: 'Open Door Through Server',
@@ -156,8 +176,19 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             label: 'Door Logs',
             onPressed: _apiService.getDoorLogs,
           ),
-
           _buildSectionTitle('Family Members'),
+          TextField(
+            controller: _familyNameController,
+            decoration: const InputDecoration(
+              labelText: 'Family Member Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildActionButton(
+            label: 'Add Family Member',
+            onPressed: _addFamilyMemberFromInput,
+          ),
           _buildActionButton(
             label: 'Add Test Family Member',
             onPressed: _apiService.addTestFamilyMember,
@@ -166,7 +197,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             label: 'Family Members List',
             onPressed: _apiService.getFamilyMembers,
           ),
-
           _buildSectionTitle('Energy'),
           _buildActionButton(
             label: 'Latest Energy Reading',

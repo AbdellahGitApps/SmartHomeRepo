@@ -92,6 +92,21 @@ class ApiService {
     return _asMap(data);
   }
 
+  Future<Map<String, dynamic>> addFamilyMember({
+    required String name,
+  }) async {
+    final data = await _post(
+      '/family/members',
+      body: {
+        'name': name,
+        'role': 'family_member',
+        'face_embedding': null,
+      },
+    );
+
+    return _asMap(data);
+  }
+
   Future<Map<String, dynamic>> addTestFamilyMember() async {
     final data = await _post('/family/members/test');
     return _asMap(data);

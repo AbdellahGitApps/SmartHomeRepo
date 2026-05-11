@@ -56,8 +56,8 @@ class DoorOpenRequest(BaseModel):
 
 
 class FamilyMemberCreate(BaseModel):
-    name: str = "Test Family Member"
-    role: str = "resident"
+    name: str
+    role: str = "familyMember"
     face_embedding: Optional[list[float]] = None
 
 
@@ -225,7 +225,7 @@ def add_test_family_member():
     new_member = {
         "id": len(family_members) + 1,
         "name": f"Test Family Member {len(family_members) + 1}",
-        "role": "resident",
+        "role": "familyMember",
         "has_face_embedding": False,
         "face_embedding": None,
         "created_at": now,
