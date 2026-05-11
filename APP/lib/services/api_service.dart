@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import '../models/door_event.dart';
+import '../models/energy_forecast.dart';
+import '../models/energy_reading.dart';
 
 class ApiService {
   final http.Client _client;
@@ -54,33 +57,79 @@ class ApiService {
     throw Exception('Request failed: $statusCode\n$responseBody');
   }
 
-  Future<dynamic> healthCheck() {
-    return _get('/health');
+  Map<String, dynamic> _asMap(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+
+    throw Exception('Expected JSON object but received ${data.runtimeType}');
   }
 
-  Future<dynamic> openDoor() {
-    return _post(
+  Future<Map<String, dynamic>> healthCheck() async {
+    final data = await _get('/health');
+    return _asMap(data);
+  }
+
+  Future<Map<String, dynamic>> openDoor() async {
+    final data = await _post(
       '/door/open',
       body: {
         'source': 'flutter_admin',
         'reason': 'manual_open_from_app',
       },
     );
+
+    return _asMap(data);
   }
 
-  Future<dynamic> getLatestDoorEvent() {
-    return _get('/door/latest');
+  Future<DoorEvent?> getLatestDoorEvent() async {
+  final data = await _get('/door/latest');
+  final map = _asMap(data);
+
+  if (map.containsKey('latest')) {
+    final latest = map['latest'];
+
+    if (latest == null) {
+      return null;
+    }
+
+    if (latest is Map) {
+      return DoorEvent.fromJson(Map<String, dynamic>.from(latest));
+    }
+
+    return null;
   }
 
-  Future<dynamic> getDoorLogs() {
-    return _get('/door/logs');
+  return DoorEvent.fromJson(map);
+}
+
+  Future<List<DoorEvent>> getDoorLogs() async {
+    final data = await _get('/door/logs');
+    final map = _asMap(data);
+
+    final items = map['items'];
+
+    if (items is! List) {
+      return [];
+    }
+
+    return items
+        .whereType<Map>()
+        .map((item) => DoorEvent.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
   }
 
-  Future<dynamic> getLatestEnergyReading() {
-    return _get('/energy/latest');
+  Future<EnergyReading> getLatestEnergyReading() async {
+    final data = await _get('/energy/latest');
+    return EnergyReading.fromJson(_asMap(data));
   }
 
-  Future<dynamic> getLatestEnergyForecast() {
-    return _get('/energy/forecast/latest');
+  Future<EnergyForecast> getLatestEnergyForecast() async {
+    final data = await _get('/energy/forecast/latest');
+    return EnergyForecast.fromJson(_asMap(data));
   }
 }

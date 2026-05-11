@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../models/door_event.dart';
+import '../models/energy_forecast.dart';
+import '../models/energy_reading.dart';
 import '../services/api_service.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -41,6 +44,30 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   String _formatResult(dynamic data) {
+    if (data == null) {
+      return 'No data found.';
+    }
+
+    if (data is DoorEvent) {
+      return _toPrettyJson(data.toJson());
+    }
+
+    if (data is EnergyReading) {
+      return _toPrettyJson(data.toJson());
+    }
+
+    if (data is EnergyForecast) {
+      return _toPrettyJson(data.toJson());
+    }
+
+    if (data is List<DoorEvent>) {
+      return _toPrettyJson(data.map((event) => event.toJson()).toList());
+    }
+
+    return _toPrettyJson(data);
+  }
+
+  String _toPrettyJson(dynamic data) {
     try {
       const encoder = JsonEncoder.withIndent('  ');
       return encoder.convert(data);
