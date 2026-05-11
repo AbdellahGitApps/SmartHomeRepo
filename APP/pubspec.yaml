@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
   intl: ^0.20.2
@@ -16,6 +17,11 @@ dependencies:
   lucide_icons: ^0.257.0
   flutter_localizations:
     sdk: flutter
+
+  http: ^1.2.2
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.2
+  
 
 dev_dependencies:
   flutter_test:
@@ -30,7 +36,7 @@ dev_dependencies:
 #   adaptive_icon_background: "#ffffff" # Default background
 
 flutter:
-  generate: true
+  generate: false
   uses-material-design: true
   
   assets:
