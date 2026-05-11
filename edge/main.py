@@ -113,6 +113,7 @@ def get_door_logs():
 
 
 @app.post("/door/open")
+@app.post("/door/open")
 def open_door(request: DoorOpenRequest):
     now = datetime.now().isoformat()
 
@@ -152,6 +153,30 @@ def open_door(request: DoorOpenRequest):
         "event": event,
     }
 
+
+@app.post("/door/log/direct-open")
+def log_direct_door_open():
+    now = datetime.now().isoformat()
+
+    event = {
+        "id": len(door_events) + 1,
+        "type": "direct_manual_open",
+        "status": "direct_open_logged",
+        "source": "flutter_direct",
+        "reason": "door_opened_directly_from_app_to_esp32",
+        "mqtt_topic": None,
+        "mqtt_published": False,
+        "mqtt_error": None,
+        "created_at": now,
+    }
+
+    door_events.append(event)
+
+    return {
+        "success": True,
+        "message": "Direct door open event logged",
+        "event": event,
+    }
 
 # =========================
 # ENERGY ENDPOINTS
