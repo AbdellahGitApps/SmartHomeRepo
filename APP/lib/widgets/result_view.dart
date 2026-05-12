@@ -1,150 +1,342 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-
-import '../models/door_event.dart';
-import '../models/energy_forecast.dart';
-import '../models/energy_reading.dart';
-import '../models/family_member.dart';
 
 class ResultView extends StatelessWidget {
   final dynamic data;
   final String? error;
 
-  const ResultView({super.key, this.data, this.error});
+  const ResultView({
+    super.key,
+    this.data,
+    this.error,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (error != null) {
-      return Card(
-        color: Colors.red.shade50,
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            error!,
-            style: const TextStyle(color: Colors.red),
-          ),
+    if (error != null && error!.trim().isNotEmpty) {
+      return _buildScrollableCard(
+        context,
+        child: _buildErrorContent(context, error!),
+      );
+    }
+
+    final normalizedData = _normalizeValue(data);
+
+    if (normalizedData == null) {
+      return _buildScrollableCard(
+        context,
+        child: Text(
+          'No data found.',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       );
     }
 
-    if (data == null) {
-      return const Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('No data found.', style: TextStyle(color: Colors.grey)),
+    return _buildScrollableCard(
+      context,
+      child: _buildReadableValue(context, normalizedData),
+    );
+  }
+
+  dynamic _normalizeValue(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is String || value is num || value is bool) {
+      return value;
+    }
+
+    if (value is Map) {
+      return value.map(
+        (key, item) => MapEntry(key.toString(), _normalizeValue(item)),
+      );
+    }
+
+    if (value is Iterable) {
+      return value.map(_normalizeValue).toList();
+    }
+
+    try {
+      final dynamic jsonValue = value.toJson();
+      return _normalizeValue(jsonValue);
+    } catch (_) {
+      return value.toString();
+    }
+  }
+
+  Widget _buildScrollableCard(
+    BuildContext context, {
+    required Widget child,
+  }) {
+    return Card(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxHeight: 360,
         ),
-      );
-    }
-
-    dynamic resolvedData = _resolveData(data);
-
-    if (resolvedData is List) {
-      if (resolvedData.isEmpty) {
-        return const Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('List is empty.', style: TextStyle(color: Colors.grey)),
-          ),
-        );
-      }
-      return ListView.builder(
-        itemCount: resolvedData.length,
-        itemBuilder: (context, index) {
-          return _buildMapCard(resolvedData[index]);
-        },
-      );
-    }
-
-    if (resolvedData is Map) {
-      return SingleChildScrollView(
-        child: _buildMapCard(resolvedData),
-      );
-    }
-
-    return SingleChildScrollView(
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(resolvedData.toString()),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(14),
+          child: child,
         ),
       ),
     );
   }
 
-  dynamic _resolveData(dynamic data) {
-    if (data is DoorEvent) return data.toJson();
-    if (data is EnergyReading) return data.toJson();
-    if (data is EnergyForecast) return data.toJson();
-    if (data is FamilyMember) return data.toJson();
-    
-    if (data is List) {
-      return data.map((e) => _resolveData(e)).toList();
-    }
-    
-    return data;
+  Widget _buildErrorContent(BuildContext context, String message) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.error_outline),
+        const SizedBox(width: 10),
+        Expanded(
+          child: SelectableText(
+            message,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildMapCard(dynamic item) {
-    if (item is! Map) {
-      return Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(item.toString()),
+  Widget _buildReadableValue(BuildContext context, dynamic value) {
+    if (value == null) {
+      return const Text('No data');
+    }
+
+    if (value is Map) {
+      return _buildMap(
+        context,
+        Map<String, dynamic>.from(value),
+      );
+    }
+
+    if (value is List) {
+      return _buildList(context, value);
+    }
+
+    return SelectableText(_formatSimpleValue(value));
+  }
+
+  Widget _buildMap(
+    BuildContext context,
+    Map<String, dynamic> map, {
+    int level = 0,
+  }) {
+    if (map.isEmpty) {
+      return const Text('No data');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: map.entries.map((entry) {
+        return _buildEntry(
+          context,
+          entry.key,
+          entry.value,
+          level: level,
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildEntry(
+    BuildContext context,
+    String key,
+    dynamic value, {
+    required int level,
+  }) {
+    final leftPadding = level * 12.0;
+
+    if (value is Map) {
+      return Padding(
+        padding: EdgeInsets.only(
+          left: leftPadding,
+          bottom: 10,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _formatKey(key),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Theme.of(context).dividerColor,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _buildMap(
+                context,
+                Map<String, dynamic>.from(value),
+                level: level + 1,
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    final map = item;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+    if (value is List) {
+      return Padding(
+        padding: EdgeInsets.only(
+          left: leftPadding,
+          bottom: 10,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: map.entries.map<Widget>((entry) {
-            final key = entry.key.toString();
-            final value = entry.value;
-            
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
+          children: [
+            Text(
+              _formatKey(key),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Theme.of(context).dividerColor,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _buildList(context, value, level: level + 1),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: leftPadding,
+        bottom: 8,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 180,
+            child: Text(
+              '${_formatKey(key)}:',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              _formatSimpleValue(value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildList(
+    BuildContext context,
+    List list, {
+    int level = 0,
+  }) {
+    if (list.isEmpty) {
+      return const Text('No data');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(list.length, (index) {
+        final item = list[index];
+
+        if (item is Map) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Theme.of(context).dividerColor,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      '$key:',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                  Text(
+                    'Item ${index + 1}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Expanded(
-                    flex: 3,
-                    child: _buildValueText(value),
+                  const SizedBox(height: 6),
+                  _buildMap(
+                    context,
+                    Map<String, dynamic>.from(item),
+                    level: level + 1,
                   ),
                 ],
               ),
-            );
-          }).toList(),
-        ),
-      ),
+            ),
+          );
+        }
+
+        if (item is List) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildList(
+              context,
+              item,
+              level: level + 1,
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: SelectableText(
+            '${index + 1}. ${_formatSimpleValue(item)}',
+          ),
+        );
+      }),
     );
   }
 
-  Widget _buildValueText(dynamic value) {
+  String _formatKey(String key) {
+    final words = key
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .split(' ')
+        .where((word) => word.trim().isNotEmpty)
+        .toList();
+
+    if (words.isEmpty) {
+      return key;
+    }
+
+    return words.map((word) {
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
+  }
+
+  String _formatSimpleValue(dynamic value) {
     if (value == null) {
-      return const Text('null', style: TextStyle(color: Colors.grey));
+      return 'No data';
     }
-    if (value is Map || value is List) {
-      return Text(
-        const JsonEncoder.withIndent('  ').convert(value),
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-      );
+
+    if (value is bool) {
+      return value ? 'Yes' : 'No';
     }
-    return Text(value.toString());
+
+    return value.toString();
   }
 }

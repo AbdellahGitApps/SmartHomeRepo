@@ -11,29 +11,38 @@ import 'app_settings_service.dart';
 
 class ApiService {
   final http.Client _client;
-  final AppSettingsService _appSettingsService = AppSettingsService();
+  final AppSettingsService _settingsService;
 
-  ApiService({http.Client? client}) : _client = client ?? http.Client();
+  ApiService({
+    http.Client? client,
+    AppSettingsService? settingsService,
+  })  : _client = client ?? http.Client(),
+        _settingsService = settingsService ?? AppSettingsService();
 
   Future<Uri> _buildUri(String path) async {
-    final baseUrl = await _appSettingsService.getApiBaseUrl();
-    return Uri.parse('$baseUrl$path');
+    final baseUrl = await _settingsService.getApiBaseUrl();
+    final normalizedBaseUrl = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+
+    return Uri.parse('$normalizedBaseUrl$path');
   }
 
   Future<dynamic> _get(String path) async {
-    final uri = await _buildUri(path);
     final response = await _client
-        .get(uri)
+        .get(await _buildUri(path))
         .timeout(AppConfig.requestTimeout);
 
     return _handleResponse(response);
   }
 
-  Future<dynamic> _post(String path, {Map<String, dynamic>? body}) async {
-    final uri = await _buildUri(path);
+  Future<dynamic> _post(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
     final response = await _client
         .post(
-          uri,
+          await _buildUri(path),
           headers: {
             'Content-Type': 'application/json',
           },
@@ -177,30 +186,55 @@ class ApiService {
     return _asMap(data);
   }
 
-  Future<Map<String, dynamic>> verifyTestKnownFace() async {
+  Future<Map<String, dynamic>> verifyFaceEmbedding({
+    required List<double> faceEmbedding,
+    String source = 'flutter_face_engine',
+    double threshold = 0.75,
+  }) async {
     final data = await _post(
       '/face/verify',
       body: {
-        'face_embedding': [0.11, 0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88],
-        'source': 'flutter_face_engine',
-        'threshold': 0.75,
+        'face_embedding': faceEmbedding,
+        'source': source,
+        'threshold': threshold,
       },
     );
 
     return _asMap(data);
   }
 
-  Future<Map<String, dynamic>> verifyTestUnknownFace() async {
-    final data = await _post(
-      '/face/verify',
-      body: {
-        'face_embedding': [-0.11, -0.22, -0.33, -0.44, -0.55, -0.66, -0.77, -0.88],
-        'source': 'flutter_face_engine',
-        'threshold': 0.75,
-      },
+  Future<Map<String, dynamic>> verifyTestKnownFace() async {
+    return verifyFaceEmbedding(
+      faceEmbedding: [
+        0.11,
+        0.22,
+        0.33,
+        0.44,
+        0.55,
+        0.66,
+        0.77,
+        0.88,
+      ],
+      source: 'flutter_face_engine',
+      threshold: 0.75,
     );
+  }
 
-    return _asMap(data);
+  Future<Map<String, dynamic>> verifyTestUnknownFace() async {
+    return verifyFaceEmbedding(
+      faceEmbedding: [
+        -0.11,
+        -0.22,
+        -0.33,
+        -0.44,
+        -0.55,
+        -0.66,
+        -0.77,
+        -0.88,
+      ],
+      source: 'flutter_face_engine',
+      threshold: 0.75,
+    );
   }
 
   Future<List<FamilyMember>> getFamilyMembers() async {
