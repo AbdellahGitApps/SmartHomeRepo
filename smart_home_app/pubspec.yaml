@@ -1,0 +1,44 @@
+name: smart_home_app
+description: "A premium Smart Home Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  intl: ^0.20.2
+  google_fonts: ^6.3.2
+  lucide_icons: ^0.257.0
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+# flutter_launcher_icons:
+#   android: "ic_launcher"
+#   ios: true
+#   image_path: "assets/images/app_icon.png"
+#   adaptive_icon_background: "#ffffff" # Default background
+
+flutter:
+  generate: true
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+  
+#   fonts:
+#     - family: DIN Next Arabic
+#       fonts:
+#         - asset: assets/fonts/DINNextLTArabic-Regular.ttf
+#         - asset: assets/fonts/DINNextLTArabic-Bold.ttf
+#           weight: 700
