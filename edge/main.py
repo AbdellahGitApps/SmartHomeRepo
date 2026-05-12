@@ -5,8 +5,10 @@ import sqlite3
 from typing import Any, Optional
 import math
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 # MQTT
@@ -29,6 +31,61 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =========================
+# STATIC FILES (CSS / JS)
+# =========================
+app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
+
+# =========================
+# TEMPLATES (HTML Dashboard)
+# =========================
+templates = Jinja2Templates(directory="dashboard/templates")
+
+# =========================
+# DASHBOARD ROUTES
+# =========================
+
+@app.get("/")
+def dashboard(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/create-home")
+def create_home_page(request: Request):
+    return templates.TemplateResponse("create_home.html", {"request": request})
+
+
+
+
+@app.get("/energy")
+def energy(request: Request):
+    return templates.TemplateResponse("energy.html", {"request": request})
+
+
+@app.get("/energy-details")
+def energy_details(request: Request):
+    return templates.TemplateResponse("energy_details.html", {"request": request})
+
+
+@app.get("/keys")
+def keys(request: Request):
+    return templates.TemplateResponse("keys.html", {"request": request})
+
+
+@app.get("/mobile")
+def mobile(request: Request):
+    return templates.TemplateResponse("mobile.html", {"request": request})
+
+
+@app.get("/status")
+def status(request: Request):
+    return templates.TemplateResponse("status.html", {"request": request})
+
+
+@app.get("/users")
+def users(request: Request):
+    return templates.TemplateResponse("users.html", {"request": request})
 
 # =========================
 # DATABASE
