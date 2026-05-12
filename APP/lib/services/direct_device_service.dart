@@ -3,19 +3,23 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'app_settings_service.dart';
 
 class DirectDeviceService {
   final http.Client _client;
+  final AppSettingsService _appSettingsService = AppSettingsService();
 
   DirectDeviceService({http.Client? client}) : _client = client ?? http.Client();
 
-  Uri _buildUri(String path) {
-    return Uri.parse('${AppConfig.esp32BaseUrl}$path');
+  Future<Uri> _buildUri(String path) async {
+    final baseUrl = await _appSettingsService.getEsp32BaseUrl();
+    return Uri.parse('$baseUrl$path');
   }
 
   Future<Map<String, dynamic>> directOpenDoor() async {
+    final uri = await _buildUri('/open');
     final response = await _client
-        .get(_buildUri('/open'))
+        .get(uri)
         .timeout(AppConfig.requestTimeout);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

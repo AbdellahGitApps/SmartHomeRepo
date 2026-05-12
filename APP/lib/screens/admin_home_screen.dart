@@ -4,6 +4,7 @@ import 'door_screen.dart';
 import 'energy_screen.dart';
 import 'family_screen.dart';
 import 'home_screen.dart';
+import 'settings_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -28,6 +29,19 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       appBar: AppBar(
         title: const Text('Smart Home Admin'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(

@@ -7,28 +7,33 @@ import '../models/door_event.dart';
 import '../models/energy_forecast.dart';
 import '../models/energy_reading.dart';
 import '../models/family_member.dart';
+import 'app_settings_service.dart';
 
 class ApiService {
   final http.Client _client;
+  final AppSettingsService _appSettingsService = AppSettingsService();
 
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
-  Uri _buildUri(String path) {
-    return Uri.parse('${AppConfig.baseUrl}$path');
+  Future<Uri> _buildUri(String path) async {
+    final baseUrl = await _appSettingsService.getApiBaseUrl();
+    return Uri.parse('$baseUrl$path');
   }
 
   Future<dynamic> _get(String path) async {
+    final uri = await _buildUri(path);
     final response = await _client
-        .get(_buildUri(path))
+        .get(uri)
         .timeout(AppConfig.requestTimeout);
 
     return _handleResponse(response);
   }
 
   Future<dynamic> _post(String path, {Map<String, dynamic>? body}) async {
+    final uri = await _buildUri(path);
     final response = await _client
         .post(
-          _buildUri(path),
+          uri,
           headers: {
             'Content-Type': 'application/json',
           },
