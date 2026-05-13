@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Security Logs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Security Logs</h1>
+        <p>Review all access and security events across registered homes</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-outline"><i class="ph ph-download-simple"></i> Export CSV</button>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+        <input type="text" class="form-control" placeholder="Search events..." style="flex: 1;">
+        <select class="form-control" style="width: 200px;">
+            <option value="all">All Events</option>
+            <option value="door">Door Access</option>
+            <option value="face">Face Recognition</option>
+            <option value="system">System</option>
+        </select>
+        <select class="form-control" style="width: 200px;">
+            <option value="all">All Severities</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="critical">Critical</option>
+        </select>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Severity</th>
+                    <th>Home</th>
+                    <th>Event Type</th>
+                    <th>Details</th>
+                    <th>Action Taken</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="color: var(--text-secondary);">Today, 10:45 AM</td>
+                    <td><span class="badge badge-success">Info</span></td>
+                    <td>Villa 101</td>
+                    <td><i class="ph ph-face-recognition" style="margin-right: 4px;"></i> Known Face</td>
+                    <td>John Doe recognized (98% match)</td>
+                    <td>Door Opened</td>
+                </tr>
+                <tr>
+                    <td style="color: var(--text-secondary);">Today, 08:30 AM</td>
+                    <td><span class="badge badge-warning">Warning</span></td>
+                    <td>Apt 4B</td>
+                    <td><i class="ph ph-warning-circle" style="margin-right: 4px;"></i> Unknown Face</td>
+                    <td>Unrecognized person at front door</td>
+                    <td>Alert sent to Admin</td>
+                </tr>
+                <tr>
+                    <td style="color: var(--text-secondary);">Yesterday, 11:20 PM</td>
+                    <td><span class="badge badge-danger">Critical</span></td>
+                    <td>Villa 205</td>
+                    <td><i class="ph ph-camera-slash" style="margin-right: 4px;"></i> Camera Offline</td>
+                    <td>CAM-205-A lost connection</td>
+                    <td>Flagged Offline</td>
+                </tr>
+                <tr>
+                    <td style="color: var(--text-secondary);">Yesterday, 06:15 PM</td>
+                    <td><span class="badge badge-success">Info</span></td>
+                    <td>Villa 101</td>
+                    <td><i class="ph ph-device-mobile" style="margin-right: 4px;"></i> App Override</td>
+                    <td>Door opened manually via Owner App</td>
+                    <td>Door Opened</td>
+                </tr>
+                <tr>
+                    <td style="color: var(--text-secondary);">Yesterday, 02:00 PM</td>
+                    <td><span class="badge badge-warning">Warning</span></td>
+                    <td>Villa 101</td>
+                    <td><i class="ph ph-prohibit" style="margin-right: 4px;"></i> Failed Access</td>
+                    <td>Multiple failed API attempts for lock</td>
+                    <td>Blocked IP for 10m</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

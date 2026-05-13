@@ -1,27 +1,57 @@
 {% extends "base.html" %}
+{% block title %}Create Home{% endblock %}
 
 {% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Register New Home</h1>
+        <p>Add a new home to the Edge Smart System</p>
+    </div>
+</div>
 
-<h1>Create New Home</h1>
+<div class="glass-card" style="max-width: 800px;">
+    <form action="#" method="POST" onsubmit="event.preventDefault(); alert('Home Created!');">
+        
+        <h3 style="margin-bottom: 20px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">Home Details</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+                <label for="homeName">Home Name / Identifier</label>
+                <input type="text" id="homeName" class="form-control" placeholder="e.g. Villa 102" required>
+            </div>
+            <div class="form-group">
+                <label for="ownerName">Owner Name</label>
+                <input type="text" id="ownerName" class="form-control" placeholder="Full Name" required>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="ownerEmail">Owner Email</label>
+            <input type="email" id="ownerEmail" class="form-control" placeholder="email@example.com" required>
+        </div>
 
-<form action="/create-home" method="POST" class="form-box">
+        <h3 style="margin-bottom: 20px; margin-top: 30px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">Device Registration</h3>
 
-    <label for="home_name">Home Name</label>
-    <input type="text" id="home_name" name="home_name" required>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+                <label for="meterId">Smart Meter Device ID</label>
+                <input type="text" id="meterId" class="form-control" placeholder="METER-XXXX" required>
+            </div>
+            <div class="form-group">
+                <label for="cameraId">ESP32-CAM Device ID</label>
+                <input type="text" id="cameraId" class="form-control" placeholder="CAM-XXXX" required>
+            </div>
+        </div>
 
-    <label for="admin_name">Admin Name</label>
-    <input type="text" id="admin_name" name="admin_name" required>
+        <div class="form-group">
+            <label for="notes">Administrative Notes</label>
+            <textarea id="notes" class="form-control" rows="4" placeholder="Any additional notes..."></textarea>
+        </div>
 
-    <label for="email">Email</label>
-    <input type="email" id="email" name="email" required>
-
-    <label for="meter_id">Electric Meter ID</label>
-    <input type="text" id="meter_id" name="meter_id" required>
-
-    <button type="submit">Create Home</button>
-
-</form>
-
-<!-- ℹ️ ملاحظة: تحتاج endpoint POST في FastAPI لاحقًا -->
-
+        <div style="display: flex; gap: 16px; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+            <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> Register Home</button>
+            <button type="reset" class="btn btn-outline"><i class="ph ph-arrow-counter-clockwise"></i> Reset Form</button>
+        </div>
+    </form>
+</div>
 {% endblock %}

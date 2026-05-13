@@ -1,13 +1,112 @@
 {% extends "base.html" %}
+{% block title %}System Status{% endblock %}
 
 {% block content %}
-
-<h1>System Status</h1>
-
-<div class="card">
-    <p>MQTT Broker: 🟢 Connected</p>
-    <p>Active Homes: 3</p>
-    <p>Total Devices: 14</p>
+<div class="page-header">
+    <div class="page-title">
+        <h1>System Status</h1>
+        <p>Monitor backend infrastructure and services</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-outline" onclick="window.location.reload()"><i class="ph ph-arrows-clockwise"></i> Refresh</button>
+    </div>
 </div>
 
+<div class="card-grid" style="margin-bottom: 32px;">
+    <!-- MQTT Broker -->
+    <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-broadcast" style="color: var(--accent-primary);"></i> MQTT Broker</h3>
+            <span class="badge badge-success">Healthy</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Status:</span>
+                <span>Connected</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Host:</span>
+                <span>localhost:1883</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Messages/min:</span>
+                <span>~145</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database -->
+    <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-database" style="color: var(--accent-primary);"></i> SQLite Database</h3>
+            <span class="badge badge-success">Healthy</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Status:</span>
+                <span>Connected</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Size:</span>
+                <span>14.2 MB</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Location:</span>
+                <span style="font-size: 0.8rem;">/database/smart_home_edge.db</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Server Hardware Mock -->
+    <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-hard-drives" style="color: var(--accent-primary);"></i> Edge Server</h3>
+            <span class="badge badge-success">Running</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem;">
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--text-secondary);">CPU Usage</span>
+                    <span>24%</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
+                    <div style="width: 24%; background: var(--status-success); height: 100%; border-radius: 3px;"></div>
+                </div>
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--text-secondary);">Memory (RAM)</span>
+                    <span>1.2 / 4.0 GB (30%)</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
+                    <div style="width: 30%; background: var(--status-success); height: 100%; border-radius: 3px;"></div>
+                </div>
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--text-secondary);">Storage</span>
+                    <span>12 / 64 GB (18%)</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
+                    <div style="width: 18%; background: var(--status-success); height: 100%; border-radius: 3px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card">
+    <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <i class="ph ph-terminal-window"></i> Recent System Logs
+    </h3>
+    <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: var(--border-radius-md); font-family: monospace; font-size: 0.85rem; color: #A7F3D0; max-height: 250px; overflow-y: auto;">
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:15 - MQTT client connected successfully.</div>
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:16 - Subscribed to topic: home/+/cam</div>
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:16 - Subscribed to topic: home/+/meter</div>
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:35:22 - Received heartbeat from CAM-101-A</div>
+        <div style="margin-bottom: 4px; color: #FCD34D;">[WARN] 2026-05-13 20:42:10 - Missed heartbeat from CAM-205-A</div>
+        <div style="margin-bottom: 4px; color: #FCA5A5;">[ERROR] 2026-05-13 20:45:00 - Failed to parse payload from METER-205-M</div>
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:50:00 - Database backup created successfully.</div>
+    </div>
+</div>
 {% endblock %}

@@ -1,5 +1,6 @@
 import time
 import logging
+# pyrefly: ignore [missing-import]
 import paho.mqtt.client as mqtt
 from typing import Callable, Dict
 

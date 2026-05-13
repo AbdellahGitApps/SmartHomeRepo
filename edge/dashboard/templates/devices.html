@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Device Provisioning{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Device Provisioning</h1>
+        <p>Register and configure ESP32-CAM devices and electricity meters</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-outline"><i class="ph ph-arrows-clockwise"></i> Refresh Status</button>
+        <button class="btn btn-primary"><i class="ph ph-plus"></i> Register Device</button>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Device ID</th>
+                    <th>Type</th>
+                    <th>Assigned Home</th>
+                    <th>MQTT Topic</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>CAM-101-A</td>
+                    <td>ESP32-CAM</td>
+                    <td>Villa 101</td>
+                    <td>home/101/cam</td>
+                    <td><span class="badge badge-success">Online</span></td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>METER-101-M</td>
+                    <td>Smart Meter</td>
+                    <td>Villa 101</td>
+                    <td>home/101/meter</td>
+                    <td><span class="badge badge-success">Online</span></td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>CAM-205-A</td>
+                    <td>ESP32-CAM</td>
+                    <td>Villa 205</td>
+                    <td>home/205/cam</td>
+                    <td><span class="badge badge-offline">Offline</span></td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>METER-205-M</td>
+                    <td>Smart Meter</td>
+                    <td>Villa 205</td>
+                    <td>home/205/meter</td>
+                    <td><span class="badge badge-warning">Pairing...</span></td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

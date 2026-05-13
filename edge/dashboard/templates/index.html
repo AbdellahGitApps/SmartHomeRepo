@@ -1,25 +1,124 @@
 {% extends "base.html" %}
+{% block title %}Homes Overview{% endblock %}
 
 {% block content %}
-
-<h1>Homes Overview</h1>
-
-<div class="grid">
-
-    <div class="card">
-        <h3>Home A</h3>
-        <p>Status: 🟢 Online</p>
-        <p>Devices: 5</p>
+<div class="page-header">
+    <div class="page-title">
+        <h1>Homes Overview</h1>
+        <p>Monitor all registered homes and system status</p>
     </div>
-
-    <div class="card">
-        <h3>Home B</h3>
-        <p>Status: 🔴 Offline</p>
-        <p>Devices: 3</p>
+    <div class="header-actions">
+        <a href="/create-home" class="btn btn-primary"><i class="ph ph-plus"></i> Add Home</a>
     </div>
-
 </div>
 
-<!-- ℹ️ No changes needed هنا (بس يعتمد على base.html الصحيح) -->
+<!-- System Summary Stats -->
+<div class="stats-grid">
+    <div class="glass-card stat-card">
+        <div class="stat-icon primary"><i class="ph-fill ph-house"></i></div>
+        <div class="stat-details">
+            <h3>Total Homes</h3>
+            <p>12</p>
+        </div>
+    </div>
+    <div class="glass-card stat-card">
+        <div class="stat-icon success"><i class="ph-fill ph-devices"></i></div>
+        <div class="stat-details">
+            <h3>Active Devices</h3>
+            <p>48</p>
+        </div>
+    </div>
+    <div class="glass-card stat-card">
+        <div class="stat-icon warning"><i class="ph-fill ph-camera"></i></div>
+        <div class="stat-details">
+            <h3>Camera Alerts</h3>
+            <p>3</p>
+        </div>
+    </div>
+    <div class="glass-card stat-card">
+        <div class="stat-icon danger"><i class="ph-fill ph-warning-circle"></i></div>
+        <div class="stat-details">
+            <h3>System Errors</h3>
+            <p>0</p>
+        </div>
+    </div>
+</div>
 
+<!-- Homes Grid -->
+<div class="page-header" style="margin-top: 40px; margin-bottom: 20px;">
+    <div class="page-title">
+        <h2 style="font-size: 1.4rem;">Registered Homes</h2>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" class="form-control" placeholder="Search homes..." style="width: 250px;">
+    </div>
+</div>
+
+<div class="card-grid">
+    <!-- Mock Home Card 1 -->
+    <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h3 style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                    Villa 101 <span class="badge badge-success">Online</span>
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Owner: John Doe</p>
+            </div>
+            <button class="btn btn-outline" style="padding: 6px 10px;"><i class="ph ph-dots-three"></i></button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; color: var(--text-secondary);">
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-door"></i> Door: Locked</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-camera"></i> Cam: Active</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> 4.2 kWh today</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 3 Members</div>
+        </div>
+        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--glass-border);">
+            <a href="/home-details" class="btn btn-primary" style="width: 100%; justify-content: center;">View Details</a>
+        </div>
+    </div>
+    
+    <!-- Mock Home Card 2 -->
+    <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h3 style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                    Apt 4B <span class="badge badge-success">Online</span>
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Owner: Sarah Smith</p>
+            </div>
+            <button class="btn btn-outline" style="padding: 6px 10px;"><i class="ph ph-dots-three"></i></button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; color: var(--text-secondary);">
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-door"></i> Door: Locked</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-camera"></i> Cam: Active</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> 2.8 kWh today</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 1 Member</div>
+        </div>
+        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--glass-border);">
+            <a href="/home-details" class="btn btn-primary" style="width: 100%; justify-content: center;">View Details</a>
+        </div>
+    </div>
+
+    <!-- Mock Home Card 3 -->
+    <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px; opacity: 0.7;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h3 style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                    Villa 205 <span class="badge badge-offline">Offline</span>
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Owner: Mike Johnson</p>
+            </div>
+            <button class="btn btn-outline" style="padding: 6px 10px;"><i class="ph ph-dots-three"></i></button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; color: var(--text-secondary);">
+            <div style="display: flex; align-items: center; gap: 6px; color: var(--status-danger);"><i class="ph ph-door"></i> Door: Unknown</div>
+            <div style="display: flex; align-items: center; gap: 6px; color: var(--status-danger);"><i class="ph ph-camera"></i> Cam: Offline</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> -- kWh</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 4 Members</div>
+        </div>
+        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--glass-border);">
+            <a href="/home-details" class="btn btn-outline" style="width: 100%; justify-content: center;">View Details</a>
+        </div>
+    </div>
+</div>
 {% endblock %}

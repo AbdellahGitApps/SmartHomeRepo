@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Camera Monitoring{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Camera Monitoring</h1>
+        <p>Monitor all smart door cameras across the system</p>
+    </div>
+</div>
+
+<div class="card-grid">
+    <!-- Camera 1 -->
+    <div class="glass-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="background: #000; height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
+            <!-- Placeholder for video stream -->
+            <i class="ph ph-video-camera" style="font-size: 3rem; color: #333;"></i>
+            <div style="position: absolute; top: 10px; right: 10px;">
+                <span class="badge badge-success" style="background: rgba(16, 185, 129, 0.8);">LIVE</span>
+            </div>
+            <div style="position: absolute; bottom: 10px; left: 10px;">
+                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Villa 101 - Front Door</span>
+            </div>
+        </div>
+        <div style="padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1.1rem;">CAM-101-A</h3>
+                <span class="badge badge-success">Online</span>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-user-focus"></i> Last detect: Known Face (2m ago)
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera 2 -->
+    <div class="glass-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="background: #000; height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
+            <!-- Placeholder for video stream -->
+            <i class="ph ph-video-camera" style="font-size: 3rem; color: #333;"></i>
+            <div style="position: absolute; top: 10px; right: 10px;">
+                <span class="badge badge-success" style="background: rgba(16, 185, 129, 0.8);">LIVE</span>
+            </div>
+            <div style="position: absolute; bottom: 10px; left: 10px;">
+                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Apt 4B - Main Door</span>
+            </div>
+            <!-- Alert Overlay -->
+            <div style="position: absolute; inset: 0; border: 3px solid var(--status-warning); pointer-events: none;"></div>
+        </div>
+        <div style="padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1.1rem;">CAM-4B-A</h3>
+                <span class="badge badge-warning">Unknown Face</span>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--status-warning); display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-warning-circle"></i> Waiting for admin decision
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="btn btn-outline" style="flex: 1; padding: 6px; font-size: 0.8rem; color: var(--status-success); border-color: var(--status-success);">Open</button>
+                <button class="btn btn-outline" style="flex: 1; padding: 6px; font-size: 0.8rem; color: var(--status-danger); border-color: var(--status-danger);">Deny</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera 3 -->
+    <div class="glass-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; opacity: 0.6;">
+        <div style="background: #111; height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
+            <i class="ph ph-video-camera-slash" style="font-size: 3rem; color: #444;"></i>
+            <div style="position: absolute; top: 10px; right: 10px;">
+                <span class="badge badge-offline" style="background: rgba(100, 116, 139, 0.8);">OFFLINE</span>
+            </div>
+            <div style="position: absolute; bottom: 10px; left: 10px;">
+                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Villa 205 - Front Door</span>
+            </div>
+        </div>
+        <div style="padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1.1rem;">CAM-205-A</h3>
+                <span class="badge badge-offline">Offline</span>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-clock"></i> Last seen: 3 hours ago
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

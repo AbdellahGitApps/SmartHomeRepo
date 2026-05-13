@@ -2,32 +2,91 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Smart Home Dashboard</title>
-
-    <!-- ✅ FIX: استخدام url_for بدل path مباشر (FastAPI static binding) -->
-    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} | Edge Admin</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block extra_css %}{% endblock %}
 </head>
-
 <body>
 
-<div class="sidebar">
-    <h2>SmartHome</h2>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="ph-fill ph-cpu"></i> EdgeAdmin</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <i class="ph ph-squares-four"></i> Dashboard
+            </a>
+            <a href="/create-home" class="nav-item">
+                <i class="ph ph-house-line"></i> Create Home
+            </a>
+            <a href="/devices" class="nav-item">
+                <i class="ph ph-devices"></i> Devices
+            </a>
+            <a href="/cameras" class="nav-item">
+                <i class="ph ph-camera"></i> Cameras
+            </a>
+            <a href="/energy" class="nav-item">
+                <i class="ph ph-lightning"></i> Energy
+            </a>
+            <a href="/users" class="nav-item">
+                <i class="ph ph-users"></i> Users
+            </a>
+            <a href="/status" class="nav-item">
+                <i class="ph ph-activity"></i> System Status
+            </a>
+            <a href="/logs" class="nav-item">
+                <i class="ph ph-shield-warning"></i> Security Logs
+            </a>
+        </nav>
+    </aside>
 
-    <a href="/">🏠 Homes</a>
-    <a href="/create-home">➕ Create Home</a>
-    <a href="/keys">🔑 Keys</a>
-    <a href="/energy">⚡ Energy</a>
-    <a href="/status">📡 Status</a>
-    <a href="/mobile">📱 Mobile</a>
-    <a href="/users">👤 Users</a>
-</div>
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Navbar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" id="menu-toggle">
+                    <i class="ph ph-list"></i>
+                </button>
+                <div class="server-status">
+                    <span class="badge badge-success"><i class="ph-fill ph-circle"></i> Server Online</span>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <a href="#" class="nav-item" style="padding: 8px;">
+                    <i class="ph ph-bell"></i>
+                </a>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="ph-fill ph-user"></i>
+                    </div>
+                    <span>System Admin</span>
+                </div>
+            </div>
+        </header>
 
-<div class="main">
+        <!-- Dynamic Content Area -->
+        <section class="content-area">
+            {% block content %}
+            <!-- Content will be injected here -->
+            {% endblock %}
+        </section>
+    </main>
 
-    <!-- (No change) مكان المحتوى الديناميكي -->
-    {% block content %}{% endblock %}
-
-</div>
-
+    <!-- Custom JS -->
+    <script src="/static/js/main.js"></script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

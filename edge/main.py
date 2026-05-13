@@ -11,9 +11,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-# MQTT
-from mqtt import start_mqtt, stop_mqtt, mqtt_client
+import sys
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.append(str(BASE_DIR))
+
+from mqtt import start_mqtt, stop_mqtt, mqtt_client
 
 app = FastAPI(
     title="Smart Home Edge API",
@@ -35,12 +40,15 @@ app.add_middleware(
 # =========================
 # STATIC FILES (CSS / JS)
 # =========================
-app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
-
+app.mount(
+    "/static",
+    StaticFiles(directory=str(BASE_DIR / "dashboard" / "static")),
+    name="static"
+)
 # =========================
 # TEMPLATES (HTML Dashboard)
 # =========================
-templates = Jinja2Templates(directory="dashboard/templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "dashboard" / "templates"))
 
 # =========================
 # DASHBOARD ROUTES
@@ -48,49 +56,52 @@ templates = Jinja2Templates(directory="dashboard/templates")
 
 @app.get("/")
 def dashboard(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.get("/create-home")
 def create_home_page(request: Request):
-    return templates.TemplateResponse("create_home.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="create_home.html")
 
 
+
+@app.get("/home-details")
+def home_details(request: Request):
+    return templates.TemplateResponse(request=request, name="home_details.html")
+
+
+@app.get("/devices")
+def devices(request: Request):
+    return templates.TemplateResponse(request=request, name="devices.html")
+
+
+@app.get("/cameras")
+def cameras(request: Request):
+    return templates.TemplateResponse(request=request, name="cameras.html")
 
 
 @app.get("/energy")
 def energy(request: Request):
-    return templates.TemplateResponse("energy.html", {"request": request})
-
-
-@app.get("/energy-details")
-def energy_details(request: Request):
-    return templates.TemplateResponse("energy_details.html", {"request": request})
-
-
-@app.get("/keys")
-def keys(request: Request):
-    return templates.TemplateResponse("keys.html", {"request": request})
-
-
-@app.get("/mobile")
-def mobile(request: Request):
-    return templates.TemplateResponse("mobile.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="energy.html")
 
 
 @app.get("/status")
 def status(request: Request):
-    return templates.TemplateResponse("status.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="status.html")
 
 
 @app.get("/users")
 def users(request: Request):
-    return templates.TemplateResponse("users.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="users.html")
+
+
+@app.get("/logs")
+def logs(request: Request):
+    return templates.TemplateResponse(request=request, name="logs.html")
 
 # =========================
 # DATABASE
 # =========================
-BASE_DIR = Path(__file__).resolve().parent
 DATABASE_DIR = BASE_DIR / "database"
 DATABASE_DIR.mkdir(exist_ok=True)
 
@@ -213,22 +224,22 @@ class FaceVerifyRequest(BaseModel):
 # =========================
 @app.on_event("startup")
 def startup_event():
-    print("🚀 Starting Smart Home Backend...")
+    print("Starting Smart Home Backend...")
     init_database()
     start_mqtt()
-    print("📡 MQTT Connected & Subscribed")
+    print("MQTT Connected & Subscribed")
 
 
 @app.on_event("shutdown")
 def shutdown_event():
-    print("🛑 Shutting down system...")
+    print("Shutting down system...")
     stop_mqtt()
 
 
 # =========================
 # HEALTH CHECK
 # =========================
-@app.get("/")
+@app.get("/api")
 def home():
     return {
         "status": "running",

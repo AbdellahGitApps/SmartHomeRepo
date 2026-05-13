@@ -1,26 +1,139 @@
 {% extends "base.html" %}
+{% block title %}Energy Monitoring{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
 
 {% block content %}
-
-<h1>Energy Analytics</h1>
-
-<div class="grid">
-
-    <div class="card">
-        <h3>Daily Usage</h3>
-        <p>12.4 kWh</p>
+<div class="page-header">
+    <div class="page-title">
+        <h1>Energy Monitoring</h1>
+        <p>Monitor electricity consumption across all registered homes</p>
     </div>
-
-    <div class="card">
-        <h3>Weekly Trend</h3>
-        <p>Stable 📊</p>
+    <div class="header-actions">
+        <select class="form-control" style="width: 200px; padding: 8px 12px;">
+            <option>All Homes</option>
+            <option>Villa 101</option>
+            <option>Apt 4B</option>
+            <option>Villa 205</option>
+        </select>
     </div>
-
-    <div class="card">
-        <h3>Prediction</h3>
-        <p>+5% increase next week</p>
-    </div>
-
 </div>
 
+<div class="stats-grid">
+    <div class="glass-card stat-card">
+        <div class="stat-icon warning"><i class="ph-fill ph-lightning"></i></div>
+        <div class="stat-details">
+            <h3>Total Daily Usage</h3>
+            <p>145.2 <span style="font-size: 1rem; color: var(--text-secondary);">kWh</span></p>
+        </div>
+    </div>
+    <div class="glass-card stat-card">
+        <div class="stat-icon primary"><i class="ph-fill ph-chart-line-up"></i></div>
+        <div class="stat-details">
+            <h3>Monthly Forecast</h3>
+            <p>4,250 <span style="font-size: 1rem; color: var(--text-secondary);">kWh</span></p>
+        </div>
+    </div>
+    <div class="glass-card stat-card">
+        <div class="stat-icon danger"><i class="ph-fill ph-trend-up"></i></div>
+        <div class="stat-details">
+            <h3>Peak Time</h3>
+            <p>18:00 - 21:00</p>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+    <div class="glass-card">
+        <h3 style="margin-bottom: 20px;">System-wide Daily Consumption</h3>
+        <canvas id="energyChart" width="400" height="200"></canvas>
+    </div>
+    
+    <div class="glass-card">
+        <h3 style="margin-bottom: 20px;">Top Consumers Today</h3>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>Villa 101</span>
+                    <span style="font-weight: bold; color: var(--status-warning);">4.2 kWh</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div style="width: 80%; background: var(--status-warning); height: 100%;"></div>
+                </div>
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>Apt 4B</span>
+                    <span style="font-weight: bold; color: var(--accent-primary);">2.8 kWh</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div style="width: 50%; background: var(--accent-primary); height: 100%;"></div>
+                </div>
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>Villa 205</span>
+                    <span style="font-weight: bold; color: var(--status-success);">1.1 kWh</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div style="width: 20%; background: var(--status-success); height: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('energyChart').getContext('2d');
+    
+    // Gradient
+    let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(245, 158, 11, 0.5)'); // warning color
+    gradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+    
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
+            datasets: [{
+                label: 'System Consumption (kWh)',
+                data: [12, 10, 15, 35, 42, 38, 65, 45],
+                borderColor: '#F59E0B',
+                backgroundColor: gradient,
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#0F172A',
+                pointBorderColor: '#F59E0B',
+                pointBorderWidth: 2,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#94A3B8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94A3B8' }
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

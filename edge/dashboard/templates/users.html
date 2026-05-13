@@ -1,12 +1,98 @@
 {% extends "base.html" %}
+{% block title %}Users Management{% endblock %}
 
 {% block content %}
-
-<h1>Users & Admins</h1>
-
-<div class="card">
-    <h3>Admin: Omar</h3>
-    <p>Home: Home A</p>
+<div class="page-header">
+    <div class="page-title">
+        <h1>Users Management</h1>
+        <p>Manage system administrators and home owners</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-primary"><i class="ph ph-plus"></i> Add User</button>
+    </div>
 </div>
 
+<div class="glass-card">
+    <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+        <input type="text" class="form-control" placeholder="Search users by name or email..." style="max-width: 300px;">
+        <select class="form-control" style="max-width: 150px;">
+            <option value="all">All Roles</option>
+            <option value="admin">System Admin</option>
+            <option value="owner">Home Owner</option>
+        </select>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Associated Home</th>
+                    <th>Status</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem;">SA</div>
+                            <div>
+                                <div style="font-weight: 500;">System Admin</div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">admin@edge-system.local</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-primary);">System Admin</span></td>
+                    <td><span style="color: var(--text-secondary);">-- (All)</span></td>
+                    <td><span class="badge badge-success">Active</span></td>
+                    <td>Just now</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit"><i class="ph ph-pencil"></i></button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem; background: #64748B;">JD</div>
+                            <div>
+                                <div style="font-weight: 500;">John Doe</div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">john.doe@example.com</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);">Home Owner</span></td>
+                    <td>Villa 101</td>
+                    <td><span class="badge badge-success">Active</span></td>
+                    <td>2 hours ago</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit"><i class="ph ph-pencil"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-warning); border-color: rgba(245, 158, 11, 0.3);" title="Disable"><i class="ph ph-prohibit"></i></button>
+                    </td>
+                </tr>
+                <tr style="opacity: 0.6;">
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem; background: #64748B;">MJ</div>
+                            <div>
+                                <div style="font-weight: 500;">Mike Johnson</div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">mike.j@example.com</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);">Home Owner</span></td>
+                    <td>Villa 205</td>
+                    <td><span class="badge badge-offline">Disabled</span></td>
+                    <td>1 month ago</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit"><i class="ph ph-pencil"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-success); border-color: rgba(16, 185, 129, 0.3);" title="Enable"><i class="ph ph-check-circle"></i></button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
