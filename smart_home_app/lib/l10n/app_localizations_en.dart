@@ -316,4 +316,172 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get biometricAuth => 'Biometric Authentication';
+
+  @override
+  String get signInFirstLogin => 'Sign in (First login)';
+
+  @override
+  String get usernameOrEmail => 'User name Or Email';
+
+  @override
+  String get homeCode => 'Home Code';
+
+  @override
+  String get userPinOrPassword => 'User PIN / User Password';
+
+  @override
+  String get enterAsUser => 'Enter as A User';
+
+  @override
+  String get deviceOffline => 'Device Offline';
+
+  @override
+  String get pendingDecision => 'Pending Decision';
+
+  @override
+  String get cameraLabel => 'Camera';
+
+  @override
+  String get statusLabel => 'Status';
+
+  @override
+  String get openAction => 'Open';
+
+  @override
+  String get denyAction => 'Deny';
+
+  @override
+  String get addToFamily => 'Add to Family';
+
+  @override
+  String get securityAlerts => 'Security';
+
+  @override
+  String get security => 'Security';
+
+  @override
+  String get systemAlerts => 'System';
+
+  @override
+  String get allAlerts => 'All';
+
+  @override
+  String get account => 'Account';
+
+  @override
+  String get adminName => 'Admin Name';
+
+  @override
+  String get changePassword => 'Change Password';
+
+  @override
+  String get appLock => 'App Lock';
+
+  @override
+  String get localNetwork => 'Local Network';
+
+  @override
+  String get serverIp => 'Server IP';
+
+  @override
+  String get cameraStreamUrl => 'Camera Stream URL';
+
+  @override
+  String get homeCodeLabel => 'Home Code / ESP32';
+
+  @override
+  String get testConnection => 'Test Connection';
+
+  @override
+  String get saveSettings => 'Save Settings';
+
+  @override
+  String get resetDefaults => 'Reset Defaults';
+
+  @override
+  String get connectionSuccess => 'Connection Successful';
+
+  @override
+  String get connectionFailed => 'Connection Failed';
+
+  @override
+  String get copiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get family => 'Family';
+
+  @override
+  String get addMember => 'Add Member';
+
+  @override
+  String get deleteMember => 'Delete Member';
+
+  @override
+  String get faceEnrolled => 'Face Enrolled';
+
+  @override
+  String get noFace => 'No Face';
+
+  @override
+  String get enrollFace => 'Enroll Face';
+
+  @override
+  String get captureFromCamera => 'Capture from Camera';
+
+  @override
+  String get pickFromGallery => 'Pick from Gallery';
+
+  @override
+  String get memberName => 'Member Name';
+
+  @override
+  String get memberRole => 'Role';
+
+  @override
+  String get unknownFace => 'Unknown Face';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get saveMember => 'Save Member';
+
+  @override
+  String removeMemberPrompt(String name) {
+    return 'Are you sure you want to remove $name?';
+  }
+
+  @override
+  String get systemSecure => 'SYSTEM SECURE & ONLINE';
+
+  @override
+  String get frontDoor => 'Front Door';
+
+  @override
+  String get livingRoomSensor => 'Living Room Sensor';
+
+  @override
+  String get permissionDenied => 'Permission Denied';
+
+  @override
+  String get permissionDeniedPermanently =>
+      'Permission denied permanently. Please enable it in settings.';
+
+  @override
+  String get openSettings => 'Open Settings';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get smartHome => 'Smart Home';
+
+  @override
+  String get appTagline => 'Secure • Connected • Intelligent';
 }

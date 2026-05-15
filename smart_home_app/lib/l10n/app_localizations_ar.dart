@@ -9,7 +9,7 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get appTitle => 'تطبيق المنزل الذكي';
+  String get appTitle => 'Axis   أكســــيس';
 
   @override
   String get home => 'الرئيسية';
@@ -27,7 +27,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get camera => 'الكاميرا';
 
   @override
-  String get greeting => 'أهلاً، عبدالله';
+  String get greeting => 'مرحباً، عبد الله';
 
   @override
   String get welcomeBack => 'مرحباً بعودتك';
@@ -36,7 +36,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get electricity => 'الكهرباء';
 
   @override
-  String get devicesActive => 'جهاز نشط';
+  String get devicesActive => 'الأجهزة النشطة';
 
   @override
   String get energyConsumption => 'الاستهلاك';
@@ -48,16 +48,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get statusActive => 'نشط';
 
   @override
-  String get statusLocked => 'مغلقة بالكامل';
+  String get statusLocked => 'مغلق تماماً';
 
   @override
-  String get statusUnlocked => 'مفتوح';
+  String get statusUnlocked => 'غير مغلق';
 
   @override
   String get mainDoor => 'الباب الرئيسي';
 
   @override
-  String get garageDoor => 'باب المرآب';
+  String get garageDoor => 'باب الكراج';
 
   @override
   String get backDoor => 'الباب الخلفي';
@@ -84,31 +84,31 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noAlerts => 'لا توجد تنبيهات حالياً';
 
   @override
-  String get kW => 'كيلو واط';
+  String get kW => 'كيلوواط';
 
   @override
   String get clear => 'مسح';
 
   @override
-  String get weeklyOverview => 'نظرة أسبوعية';
+  String get weeklyOverview => 'نظرة أسبوعية عامة';
 
   @override
-  String get highEnergyUsage => 'استهلاك طاقة مرتفع';
+  String get highEnergyUsage => 'استهلاك عالٍ للطاقة';
 
   @override
   String get mainDoorUnlocked => 'الباب الرئيسي مفتوح';
 
   @override
-  String get systemUpdateCompleted => 'تم تحديث النظام';
+  String get systemUpdateCompleted => 'اكتمل تحديث النظام';
 
   @override
   String get justNow => 'الآن';
 
   @override
-  String get minsAgo => 'منذ 10 دقائق';
+  String get minsAgo => 'قبل 10 دقائق';
 
   @override
-  String get hoursAgo => 'منذ ساعتين';
+  String get hoursAgo => 'قبل ساعتين';
 
   @override
   String get cameraEvents => 'أحداث الكاميرا';
@@ -117,19 +117,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noCameraEvents => 'لا توجد أحداث كاميرا حالياً';
 
   @override
-  String get frontDoorCamera => 'كاميرا الباب الأمامي';
+  String get frontDoorCamera => 'كاميرا الباب الرئيسي';
 
   @override
-  String get garageCamera => 'كاميرا المرآب';
+  String get garageCamera => 'كاميرا الكراج';
 
   @override
-  String get backyardCamera => 'كاميرا الفناء الخلفي';
+  String get backyardCamera => 'كاميرا الحديقة الخلفية';
 
   @override
-  String get motionDetected => 'تم رصد حركة';
+  String get motionDetected => 'تم اكتشاف حركة';
 
   @override
-  String get personDetected => 'تم رصد شخص';
+  String get personDetected => 'تم اكتشاف شخص';
 
   @override
   String get noMotion => 'لا توجد حركة';
@@ -144,10 +144,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get viewRecordings => 'عرض التسجيلات';
 
   @override
-  String get accessLog => 'سجل الوصول';
+  String get accessLog => 'سجل الدخول';
 
   @override
-  String get noAccessLogs => 'لا توجد سجلات وصول بعد';
+  String get noAccessLogs => 'لا يوجد سجل دخول بعد';
 
   @override
   String get accessGranted => 'تم السماح بالدخول';
@@ -180,13 +180,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get totalConsumption => 'إجمالي الاستهلاك';
 
   @override
-  String get averageUsage => 'متوسط الاستخدام';
+  String get averageUsage => 'متوسط الاستهلاك';
 
   @override
-  String get peakUsage => 'ذروة الاستخدام';
+  String get peakUsage => 'ذروة الاستهلاك';
 
   @override
-  String get kWh => 'كيلو واط/ساعة';
+  String get kWh => 'كيلوواط ساعة';
 
   @override
   String get predictions => 'التوقعات';
@@ -204,7 +204,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get nextMonth => 'الشهر التالي';
 
   @override
-  String get basedOnHistory => 'بناءً على البيانات السابقة';
+  String get basedOnHistory => 'بناءً على البيانات التاريخية';
 
   @override
   String get voltage => 'الجهد';
@@ -216,7 +216,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get power => 'القدرة';
 
   @override
-  String get realTimeReadings => 'القراءات الفورية';
+  String get realTimeReadings => 'قراءات حقيقية';
 
   @override
   String get volts => 'فولت';
@@ -231,7 +231,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get alertTypeUnknownFace => 'وجه غير معروف';
 
   @override
-  String get alertTypeHighEnergy => 'استهلاك طاقة مرتفع';
+  String get alertTypeHighEnergy => 'استهلاك عالٍ للطاقة';
 
   @override
   String get resolve => 'حل';
@@ -249,19 +249,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String get higherThanAverage => 'أعلى من المتوسط';
 
   @override
-  String get faceDetected => 'تم رصد وجه';
+  String get faceDetected => 'تم اكتشاف وجه';
 
   @override
-  String get unknownFaceDetected => 'تم رصد وجه غير معروف';
+  String get unknownFaceDetected => 'تم اكتشاف وجه غير معروف';
 
   @override
   String get registeredFace => 'وجه مسجل';
 
   @override
-  String get detectionTime => 'وقت الرصد';
+  String get detectionTime => 'وقت الاكتشاف';
 
   @override
-  String get faceEvents => 'أحداث الوجوه';
+  String get faceEvents => 'أحداث الوجه';
 
   @override
   String get login => 'تسجيل الدخول';
@@ -316,4 +316,172 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get biometricAuth => 'المصادقة البيومترية';
+
+  @override
+  String get signInFirstLogin => 'تسجيل الدخول (أول مرة)';
+
+  @override
+  String get usernameOrEmail => 'اسم المستخدم أو البريد الإلكتروني';
+
+  @override
+  String get homeCode => 'كود المنزل';
+
+  @override
+  String get userPinOrPassword => 'رمز PIN / كلمة المرور';
+
+  @override
+  String get enterAsUser => 'الدخول كمستخدم';
+
+  @override
+  String get deviceOffline => 'الجهاز غير متصل';
+
+  @override
+  String get pendingDecision => 'في انتظار القرار';
+
+  @override
+  String get cameraLabel => 'الكاميرا';
+
+  @override
+  String get statusLabel => 'الحالة';
+
+  @override
+  String get openAction => 'فتح';
+
+  @override
+  String get denyAction => 'رفض';
+
+  @override
+  String get addToFamily => 'إضافة للعائلة';
+
+  @override
+  String get securityAlerts => 'الأمان';
+
+  @override
+  String get security => 'الأمان';
+
+  @override
+  String get systemAlerts => 'النظام';
+
+  @override
+  String get allAlerts => 'الكل';
+
+  @override
+  String get account => 'الحساب';
+
+  @override
+  String get adminName => 'اسم المسؤول';
+
+  @override
+  String get changePassword => 'تغيير كلمة المرور';
+
+  @override
+  String get appLock => 'قفل التطبيق';
+
+  @override
+  String get localNetwork => 'شبكة الاتصال المحلية';
+
+  @override
+  String get serverIp => 'عنوان IP للسيرفر';
+
+  @override
+  String get cameraStreamUrl => 'رابط بث الكاميرا';
+
+  @override
+  String get homeCodeLabel => 'كود المنزل / ESP32';
+
+  @override
+  String get testConnection => 'اختبار الاتصال';
+
+  @override
+  String get saveSettings => 'حفظ الإعدادات';
+
+  @override
+  String get resetDefaults => 'استعادة الافتراضيات';
+
+  @override
+  String get connectionSuccess => 'تم الاتصال بنجاح';
+
+  @override
+  String get connectionFailed => 'فشل الاتصال';
+
+  @override
+  String get copiedToClipboard => 'تم النسخ إلى الحافظة';
+
+  @override
+  String get appearance => 'المظهر';
+
+  @override
+  String get family => 'العائلة';
+
+  @override
+  String get addMember => 'إضافة فرد';
+
+  @override
+  String get deleteMember => 'حذف فرد';
+
+  @override
+  String get faceEnrolled => 'الوجه مسجل';
+
+  @override
+  String get noFace => 'لا يوجد وجه';
+
+  @override
+  String get enrollFace => 'تسجيل الوجه';
+
+  @override
+  String get captureFromCamera => 'التقاط من الكاميرا';
+
+  @override
+  String get pickFromGallery => 'اختيار من الاستوديو';
+
+  @override
+  String get memberName => 'اسم الفرد';
+
+  @override
+  String get memberRole => 'الدور';
+
+  @override
+  String get unknownFace => 'وجه غير معروف';
+
+  @override
+  String get delete => 'حذف';
+
+  @override
+  String get saveMember => 'حفظ الفرد';
+
+  @override
+  String removeMemberPrompt(String name) {
+    return 'هل أنت متأكد أنك تريد حذف $name؟';
+  }
+
+  @override
+  String get systemSecure => 'النظام آمن ومتصل';
+
+  @override
+  String get frontDoor => 'الباب الأمامي';
+
+  @override
+  String get livingRoomSensor => 'مستشعر غرفة المعيشة';
+
+  @override
+  String get permissionDenied => 'تم رفض الإذن';
+
+  @override
+  String get permissionDeniedPermanently =>
+      'تم رفض الإذن بشكل دائم. يرجى تفعيله من الإعدادات.';
+
+  @override
+  String get openSettings => 'فتح الإعدادات';
+
+  @override
+  String get retry => 'إعادة المحاولة';
+
+  @override
+  String get edit => 'تعديل';
+
+  @override
+  String get smartHome => 'المنزل الذكي';
+
+  @override
+  String get appTagline => 'آمن • متصل • ذكي';
 }

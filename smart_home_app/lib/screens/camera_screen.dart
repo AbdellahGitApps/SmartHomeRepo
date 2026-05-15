@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state_provider.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -64,6 +66,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Widget _buildCamerasTab(BuildContext context, AppLocalizations l10n) {
+    final appState = Provider.of<AppStateProvider>(context);
     bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     final List<Map<String, dynamic>> cameras = [
@@ -242,11 +245,15 @@ class _CameraScreenState extends State<CameraScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          cam['isLive'] == true ? l10n.live : l10n.recording,
+                          cam['isLive'] == true 
+                            ? (index == 0 ? appState.cameraUrl : l10n.live)
+                            : l10n.recording,
                           style: Theme.of(context).textTheme.bodyMedium!
                               .copyWith(
                                 color: isDark ? Colors.white30 : Colors.grey,
+                                fontSize: index == 0 ? 10 : 12,
                               ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),

@@ -6,6 +6,7 @@ import 'doors_screen.dart';
 import 'energy_screen.dart';
 import 'alerts_screen.dart';
 import 'camera_screen.dart';
+import 'family_screen.dart';
 import 'profile_screen.dart';
 
 class MainLayout extends StatefulWidget {
@@ -24,6 +25,7 @@ class _MainLayoutState extends State<MainLayout> {
     const EnergyScreen(),
     const AlertsScreen(),
     const CameraScreen(),
+    const FamilyScreen(),
     const ProfileScreen(),
   ];
 
@@ -47,6 +49,8 @@ class _MainLayoutState extends State<MainLayout> {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -54,27 +58,31 @@ class _MainLayoutState extends State<MainLayout> {
         },
         items: [
           BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.home),
+            icon: const Icon(LucideIcons.home, size: 20),
             label: l10n.home,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.doorClosed),
+            icon: const Icon(LucideIcons.doorClosed, size: 20),
             label: l10n.doors,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.zap),
+            icon: const Icon(LucideIcons.zap, size: 20),
             label: l10n.energy,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.bellRing),
+            icon: const Icon(LucideIcons.bellRing, size: 20),
             label: l10n.alerts,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.camera),
+            icon: const Icon(LucideIcons.camera, size: 20),
             label: l10n.camera,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.user),
+            icon: const Icon(LucideIcons.users, size: 20),
+            label: l10n.family,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(LucideIcons.user, size: 20),
             label: l10n.settings,
           ),
         ],

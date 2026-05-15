@@ -161,7 +161,7 @@ class _HomeDashboardState extends State<HomeDashboard>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'SYSTEM SECURE & ONLINE', // Localize later if needed, but decorating now
+                        l10n.systemSecure,
                         style: TextStyle(
                           color: Colors.green.shade700,
                           fontSize: 10,
