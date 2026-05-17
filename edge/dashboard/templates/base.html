@@ -14,7 +14,10 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=2">
+    
+    <!-- i18n Dictionary -->
+    <script src="/static/js/i18n.js?v=2"></script>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -25,28 +28,28 @@
             <h2><i class="ph-fill ph-cpu"></i> EdgeAdmin</h2>
         </div>
         <nav class="sidebar-nav">
-            <a href="/" class="nav-item">
+            <a href="/" class="nav-item" data-i18n="nav_dashboard">
                 <i class="ph ph-squares-four"></i> Dashboard
             </a>
-            <a href="/create-home" class="nav-item">
+            <a href="/create-home" class="nav-item" data-i18n="nav_create_home">
                 <i class="ph ph-house-line"></i> Create Home
             </a>
-            <a href="/devices" class="nav-item">
+            <a href="/devices" class="nav-item" data-i18n="nav_devices">
                 <i class="ph ph-devices"></i> Devices
             </a>
-            <a href="/cameras" class="nav-item">
+            <a href="/cameras" class="nav-item" data-i18n="nav_cameras">
                 <i class="ph ph-camera"></i> Cameras
             </a>
-            <a href="/energy" class="nav-item">
+            <a href="/energy" class="nav-item" data-i18n="nav_energy">
                 <i class="ph ph-lightning"></i> Energy
             </a>
-            <a href="/users" class="nav-item">
+            <a href="/users" class="nav-item" data-i18n="nav_users">
                 <i class="ph ph-users"></i> Users
             </a>
-            <a href="/status" class="nav-item">
+            <a href="/status" class="nav-item" data-i18n="nav_status">
                 <i class="ph ph-activity"></i> System Status
             </a>
-            <a href="/logs" class="nav-item">
+            <a href="/logs" class="nav-item" data-i18n="nav_logs">
                 <i class="ph ph-shield-warning"></i> Security Logs
             </a>
         </nav>
@@ -61,10 +64,16 @@
                     <i class="ph ph-list"></i>
                 </button>
                 <div class="server-status">
-                    <span class="badge badge-success"><i class="ph-fill ph-circle"></i> Server Online</span>
+                    <span class="badge badge-success" data-i18n="server_online"><i class="ph-fill ph-circle"></i> Server Online</span>
                 </div>
             </div>
             <div class="topbar-right">
+                <button onclick="toggleTheme()" class="btn btn-icon" style="padding: 8px; background: transparent; border: none; color: var(--text-primary); cursor: pointer;" title="Toggle Theme">
+                    <i id="themeIcon" class="ph ph-sun" style="font-size: 1.2rem;"></i>
+                </button>
+                <button onclick="toggleLanguage()" class="btn" style="padding: 4px 8px; background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 0.8rem;" title="Toggle Language">
+                    <span id="langLabel">EN</span>
+                </button>
                 <a href="#" class="nav-item" style="padding: 8px;">
                     <i class="ph ph-bell"></i>
                 </a>
@@ -72,7 +81,7 @@
                     <div class="user-avatar">
                         <i class="ph-fill ph-user"></i>
                     </div>
-                    <span>System Admin</span>
+                    <span data-i18n="system_admin">System Admin</span>
                 </div>
             </div>
         </header>
@@ -86,7 +95,7 @@
     </main>
 
     <!-- Custom JS -->
-    <script src="/static/js/main.js"></script>
+    <script src="/static/js/main.js?v=2"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

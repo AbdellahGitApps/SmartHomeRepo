@@ -4,11 +4,11 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>System Status</h1>
-        <p>Monitor backend infrastructure and services</p>
+        <h1 data-i18n="system_status">System Status</h1>
+        <p data-i18n="system_status_desc">Monitor backend infrastructure and services</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline" onclick="window.location.reload()"><i class="ph ph-arrows-clockwise"></i> Refresh</button>
+        <button class="btn btn-outline" onclick="window.location.reload()"><i class="ph ph-arrows-clockwise"></i> <span data-i18n="btn_refresh">Refresh</span></button>
     </div>
 </div>
 
@@ -16,20 +16,20 @@
     <!-- MQTT Broker -->
     <div class="glass-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-broadcast" style="color: var(--accent-primary);"></i> MQTT Broker</h3>
-            <span class="badge badge-success">Healthy</span>
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-broadcast" style="color: var(--accent-primary);"></i> <span data-i18n="mqtt_broker">MQTT Broker</span></h3>
+            <span class="badge badge-success" data-i18n="badge_healthy">Healthy</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;">
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Status:</span>
-                <span>Connected</span>
+                <span style="color: var(--text-secondary);" data-i18n="label_status">Status:</span>
+                <span data-i18n="status_connected">Connected</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Host:</span>
+                <span style="color: var(--text-secondary);" data-i18n="label_host">Host:</span>
                 <span>localhost:1883</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Messages/min:</span>
+                <span style="color: var(--text-secondary);" data-i18n="label_messages_min">Messages/min:</span>
                 <span>~145</span>
             </div>
         </div>
@@ -38,20 +38,20 @@
     <!-- Database -->
     <div class="glass-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-database" style="color: var(--accent-primary);"></i> SQLite Database</h3>
-            <span class="badge badge-success">Healthy</span>
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-database" style="color: var(--accent-primary);"></i> <span data-i18n="sqlite_db">SQLite Database</span></h3>
+            <span class="badge badge-success" data-i18n="badge_healthy">Healthy</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;">
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Status:</span>
-                <span>Connected</span>
+                <span style="color: var(--text-secondary);" data-i18n="label_status">Status:</span>
+                <span data-i18n="status_connected">Connected</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Size:</span>
+                <span style="color: var(--text-secondary);" data-i18n="label_size">Size:</span>
                 <span>14.2 MB</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Location:</span>
+                <span style="color: var(--text-secondary);" data-i18n="label_location">Location:</span>
                 <span style="font-size: 0.8rem;">/database/smart_home_edge.db</span>
             </div>
         </div>
@@ -60,13 +60,13 @@
     <!-- Server Hardware Mock -->
     <div class="glass-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-hard-drives" style="color: var(--accent-primary);"></i> Edge Server</h3>
-            <span class="badge badge-success">Running</span>
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-hard-drives" style="color: var(--accent-primary);"></i> <span data-i18n="edge_server">Edge Server</span></h3>
+            <span class="badge badge-success" data-i18n="badge_running">Running</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem;">
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-secondary);">CPU Usage</span>
+                    <span style="color: var(--text-secondary);" data-i18n="cpu_usage">CPU Usage</span>
                     <span>24%</span>
                 </div>
                 <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
@@ -75,7 +75,7 @@
             </div>
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-secondary);">Memory (RAM)</span>
+                    <span style="color: var(--text-secondary);" data-i18n="memory_ram">Memory (RAM)</span>
                     <span>1.2 / 4.0 GB (30%)</span>
                 </div>
                 <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
@@ -84,7 +84,7 @@
             </div>
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-secondary);">Storage</span>
+                    <span style="color: var(--text-secondary);" data-i18n="storage">Storage</span>
                     <span>12 / 64 GB (18%)</span>
                 </div>
                 <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
@@ -97,7 +97,7 @@
 
 <div class="glass-card">
     <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-        <i class="ph ph-terminal-window"></i> Recent System Logs
+        <i class="ph ph-terminal-window"></i> <span data-i18n="recent_sys_logs">Recent System Logs</span>
     </h3>
     <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: var(--border-radius-md); font-family: monospace; font-size: 0.85rem; color: #A7F3D0; max-height: 250px; overflow-y: auto;">
         <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:15 - MQTT client connected successfully.</div>

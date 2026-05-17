@@ -4,21 +4,21 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Users Management</h1>
-        <p>Manage system administrators and home owners</p>
+        <h1 data-i18n="users_management">Users Management</h1>
+        <p data-i18n="users_management_desc">Manage system administrators and home owners</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-primary"><i class="ph ph-plus"></i> Add User</button>
+        <button class="btn btn-primary"><i class="ph ph-plus"></i> <span data-i18n="add_user">Add User</span></button>
     </div>
 </div>
 
 <div class="glass-card">
     <div style="display: flex; gap: 16px; margin-bottom: 24px;">
-        <input type="text" class="form-control" placeholder="Search users by name or email..." style="max-width: 300px;">
+        <input type="text" class="form-control" data-i18n="search_users" placeholder="Search users by name or email..." style="max-width: 300px;">
         <select class="form-control" style="max-width: 150px;">
-            <option value="all">All Roles</option>
-            <option value="admin">System Admin</option>
-            <option value="owner">Home Owner</option>
+            <option value="all" data-i18n="all_roles">All Roles</option>
+            <option value="admin" data-i18n="role_sysadmin">System Admin</option>
+            <option value="owner" data-i18n="role_owner">Home Owner</option>
         </select>
     </div>
 
@@ -26,12 +26,12 @@
         <table>
             <thead>
                 <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Associated Home</th>
-                    <th>Status</th>
-                    <th>Last Login</th>
-                    <th>Actions</th>
+                    <th data-i18n="col_user">User</th>
+                    <th data-i18n="col_role">Role</th>
+                    <th data-i18n="col_assoc_home">Associated Home</th>
+                    <th data-i18n="col_status">Status</th>
+                    <th data-i18n="col_last_login">Last Login</th>
+                    <th data-i18n="col_actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,17 +40,17 @@
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem;">SA</div>
                             <div>
-                                <div style="font-weight: 500;">System Admin</div>
+                                <div style="font-weight: 500;" data-i18n="system_admin">System Admin</div>
                                 <div style="font-size: 0.8rem; color: var(--text-secondary);">admin@edge-system.local</div>
                             </div>
                         </div>
                     </td>
-                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-primary);">System Admin</span></td>
-                    <td><span style="color: var(--text-secondary);">-- (All)</span></td>
-                    <td><span class="badge badge-success">Active</span></td>
-                    <td>Just now</td>
+                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-primary);" data-i18n="role_sysadmin">System Admin</span></td>
+                    <td><span style="color: var(--text-secondary);" data-i18n="all_assoc">-- (All)</span></td>
+                    <td><span class="badge badge-success" data-i18n="status_active">Active</span></td>
+                    <td data-i18n="just_now">Just now</td>
                     <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit"><i class="ph ph-pencil"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit" data-i18n="title_edit"><i class="ph ph-pencil"></i></button>
                     </td>
                 </tr>
                 <tr>
@@ -63,13 +63,13 @@
                             </div>
                         </div>
                     </td>
-                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);">Home Owner</span></td>
+                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);" data-i18n="role_owner">Home Owner</span></td>
                     <td>Villa 101</td>
-                    <td><span class="badge badge-success">Active</span></td>
-                    <td>2 hours ago</td>
+                    <td><span class="badge badge-success" data-i18n="status_active">Active</span></td>
+                    <td data-i18n="2_hours_ago">2 hours ago</td>
                     <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit"><i class="ph ph-pencil"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-warning); border-color: rgba(245, 158, 11, 0.3);" title="Disable"><i class="ph ph-prohibit"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit" data-i18n="title_edit"><i class="ph ph-pencil"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-warning); border-color: rgba(245, 158, 11, 0.3);" title="Disable" data-i18n="title_disable"><i class="ph ph-prohibit"></i></button>
                     </td>
                 </tr>
                 <tr style="opacity: 0.6;">
@@ -82,13 +82,13 @@
                             </div>
                         </div>
                     </td>
-                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);">Home Owner</span></td>
+                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);" data-i18n="role_owner">Home Owner</span></td>
                     <td>Villa 205</td>
-                    <td><span class="badge badge-offline">Disabled</span></td>
-                    <td>1 month ago</td>
+                    <td><span class="badge badge-offline" data-i18n="status_disabled">Disabled</span></td>
+                    <td data-i18n="1_month_ago">1 month ago</td>
                     <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit"><i class="ph ph-pencil"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-success); border-color: rgba(16, 185, 129, 0.3);" title="Enable"><i class="ph ph-check-circle"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit" data-i18n="title_edit"><i class="ph ph-pencil"></i></button>
+                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-success); border-color: rgba(16, 185, 129, 0.3);" title="Enable" data-i18n="title_enable"><i class="ph ph-check-circle"></i></button>
                     </td>
                 </tr>
             </tbody>

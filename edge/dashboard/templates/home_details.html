@@ -4,13 +4,13 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <a href="/" style="color: var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px; margin-bottom: 10px;"><i class="ph ph-arrow-left"></i> Back to Homes</a>
-        <h1>Villa 101</h1>
-        <p>Owner: John Doe | Status: <span class="badge badge-success">Online</span></p>
+        <a href="/" style="color: var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px; margin-bottom: 10px;"><i class="ph ph-arrow-left"></i> <span data-i18n="back_homes">Back to Homes</span></a>
+        <h1>Apartment 36</h1>
+        <p><span data-i18n="owner">Owner</span>: John Doe | <span data-i18n="status">Status</span>: <span class="badge badge-success" data-i18n="status_online">Online</span></p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline"><i class="ph ph-pencil"></i> Edit Home</button>
-        <button class="btn btn-outline" style="color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);"><i class="ph ph-trash"></i> Delete</button>
+        <button class="btn btn-outline"><i class="ph ph-pencil"></i> <span data-i18n="edit_home">Edit Home</span></button>
+        <button class="btn btn-outline" style="color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);"><i class="ph ph-trash"></i> <span data-i18n="delete">Delete</span></button>
     </div>
 </div>
 
@@ -19,9 +19,30 @@
     <div style="display: flex; flex-direction: column; gap: 24px;">
         <div class="glass-card">
             <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-info"></i> Home Information
+                <i class="ph ph-info"></i> <span data-i18n="home_info">Home Information</span>
             </h3>
             <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.95rem;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);" data-i18n="apt_number">Apartment Number:</span>
+                    <span style="font-weight: 500;">36</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);" data-i18n="home_id">Home ID:</span>
+                    <span style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">APT-036</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-secondary);" data-i18n="home_code">Home Code:</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="homeCodeDisplay" data-code="AXIS-8K42" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; letter-spacing: 2px;">•••••••••</span>
+                        <button onclick="toggleHomeCode()" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
+                            <i id="homeCodeIcon" class="ph ph-eye"></i>
+                        </button>
+                        <button onclick="copyHomeCode()" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
+                            <i class="ph ph-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 4px 0;">
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-secondary);">Email:</span>
                     <span>john.doe@example.com</span>
@@ -37,33 +58,134 @@
             </div>
         </div>
 
+        <script>
+            function toggleHomeCode() {
+                const display = document.getElementById('homeCodeDisplay');
+                const icon = document.getElementById('homeCodeIcon');
+                const realCode = display.getAttribute('data-code');
+                
+                if (display.textContent === '•••••••••') {
+                    display.textContent = realCode;
+                    display.style.letterSpacing = 'normal';
+                    icon.classList.replace('ph-eye', 'ph-eye-slash');
+                } else {
+                    display.textContent = '•••••••••';
+                    display.style.letterSpacing = '2px';
+                    icon.classList.replace('ph-eye-slash', 'ph-eye');
+                }
+            }
+
+            function copyHomeCode() {
+                const display = document.getElementById('homeCodeDisplay');
+                const realCode = display.getAttribute('data-code');
+                navigator.clipboard.writeText(realCode).then(() => {
+                    alert('Home Code copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                    alert('Home Code: ' + realCode);
+                });
+            }
+        </script>
+
         <div class="glass-card">
             <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-plugs"></i> Connected Devices
+                <i class="ph ph-plugs"></i> <span data-i18n="connected_devices">Connected Devices</span>
             </h3>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <div style="padding: 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <i class="ph ph-camera" style="font-size: 1.5rem; color: var(--accent-primary);"></i>
-                        <div>
-                            <div style="font-weight: 500;">Front Door Cam</div>
-                            <div style="font-size: 0.8rem; color: var(--text-secondary);">ID: CAM-101-A</div>
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Front Door Camera -->
+                <div style="padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="ph-fill ph-camera" style="font-size: 2rem; color: var(--accent-primary);"></i>
+                            <div>
+                                <div style="font-weight: 600; font-size: 1.1rem;">Front Door Camera</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">Type: ESP32-CAM</div>
+                            </div>
+                        </div>
+                        <span class="badge badge-success device-status-badge" data-device-id="CAM-APT036-001">Online</span>
+                    </div>
+                    <div style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">ID:</span>
+                            <span style="font-family: monospace; letter-spacing: 0.5px;">CAM-APT036-001</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--text-secondary);">Device Token:</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="tokenCam" data-token="tok_cam_a1b2c3d4e5f6" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--status-success);">Created</span>
+                                <button onclick="toggleDeviceToken('tokenCam', 'iconCam')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
+                                    <i id="iconCam" class="ph ph-eye"></i>
+                                </button>
+                                <button onclick="copyDeviceToken('tokenCam')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
+                                    <i class="ph ph-copy"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <span class="badge badge-success">Online</span>
                 </div>
-                <div style="padding: 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <i class="ph ph-lightning" style="font-size: 1.5rem; color: var(--status-warning);"></i>
-                        <div>
-                            <div style="font-weight: 500;">Main Smart Meter</div>
-                            <div style="font-size: 0.8rem; color: var(--text-secondary);">ID: METER-101-M</div>
+
+                <!-- Main Energy Meter -->
+                <div style="padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="ph-fill ph-lightning" style="font-size: 2rem; color: var(--status-warning);"></i>
+                            <div>
+                                <div style="font-weight: 600; font-size: 1.1rem;">Main Energy Meter</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">Type: Energy Sensor</div>
+                            </div>
+                        </div>
+                        <span class="badge badge-success device-status-badge" data-device-id="METER-APT036-001">Online</span>
+                    </div>
+                    <div style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">ID:</span>
+                            <span style="font-family: monospace; letter-spacing: 0.5px;">METER-APT036-001</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--text-secondary);">Device Token:</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="tokenMeter" data-token="tok_met_9f8e7d6c5b4a" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--status-success);">Created</span>
+                                <button onclick="toggleDeviceToken('tokenMeter', 'iconMeter')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
+                                    <i id="iconMeter" class="ph ph-eye"></i>
+                                </button>
+                                <button onclick="copyDeviceToken('tokenMeter')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
+                                    <i class="ph ph-copy"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <span class="badge badge-success">Online</span>
                 </div>
             </div>
         </div>
+
+        <script>
+            function toggleDeviceToken(tokenId, iconId) {
+                const display = document.getElementById(tokenId);
+                const icon = document.getElementById(iconId);
+                const realToken = display.getAttribute('data-token');
+                
+                if (display.textContent === 'Created' || display.textContent === '••••••••') {
+                    display.textContent = realToken;
+                    display.style.color = 'var(--text-primary)';
+                    icon.classList.replace('ph-eye', 'ph-eye-slash');
+                } else {
+                    display.textContent = 'Created';
+                    display.style.color = 'var(--status-success)';
+                    icon.classList.replace('ph-eye-slash', 'ph-eye');
+                }
+            }
+
+            function copyDeviceToken(tokenId) {
+                const display = document.getElementById(tokenId);
+                const realToken = display.getAttribute('data-token');
+                navigator.clipboard.writeText(realToken).then(() => {
+                    alert('Device Token copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                    alert('Device Token: ' + realToken);
+                });
+            }
+        </script>
     </div>
 
     <!-- Right Column: Live Status & Logs -->
@@ -85,7 +207,7 @@
 
         <div class="glass-card">
             <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-list-dashes"></i> Recent Access Logs
+                <i class="ph ph-list-dashes"></i> <span data-i18n="recent_logs">Recent Access Logs</span>
             </h3>
             <div class="table-container">
                 <table>

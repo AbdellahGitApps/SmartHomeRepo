@@ -4,8 +4,8 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Camera Monitoring</h1>
-        <p>Monitor all smart door cameras across the system</p>
+        <h1 data-i18n="camera_monitoring">Camera Monitoring</h1>
+        <p data-i18n="camera_monitoring_desc">Monitor all smart door cameras across the system</p>
     </div>
 </div>
 
@@ -16,19 +16,19 @@
             <!-- Placeholder for video stream -->
             <i class="ph ph-video-camera" style="font-size: 3rem; color: #333;"></i>
             <div style="position: absolute; top: 10px; right: 10px;">
-                <span class="badge badge-success" style="background: rgba(16, 185, 129, 0.8);">LIVE</span>
+                <span class="badge badge-success" style="background: rgba(16, 185, 129, 0.8);" data-i18n="badge_live">LIVE</span>
             </div>
             <div style="position: absolute; bottom: 10px; left: 10px;">
-                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Villa 101 - Front Door</span>
+                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Villa 101 - <span data-i18n="front_door">Front Door</span></span>
             </div>
         </div>
         <div style="padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <h3 style="font-size: 1.1rem;">CAM-101-A</h3>
-                <span class="badge badge-success">Online</span>
+                <span class="badge badge-success" data-i18n="status_online">Online</span>
             </div>
             <div style="font-size: 0.9rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-user-focus"></i> Last detect: Known Face (2m ago)
+                <i class="ph ph-user-focus"></i> <span data-i18n="last_detect_known">Last detect: Known Face (2m ago)</span>
             </div>
         </div>
     </div>
@@ -39,10 +39,10 @@
             <!-- Placeholder for video stream -->
             <i class="ph ph-video-camera" style="font-size: 3rem; color: #333;"></i>
             <div style="position: absolute; top: 10px; right: 10px;">
-                <span class="badge badge-success" style="background: rgba(16, 185, 129, 0.8);">LIVE</span>
+                <span class="badge badge-success" style="background: rgba(16, 185, 129, 0.8);" data-i18n="badge_live">LIVE</span>
             </div>
             <div style="position: absolute; bottom: 10px; left: 10px;">
-                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Apt 4B - Main Door</span>
+                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Apt 4B - <span data-i18n="main_door">Main Door</span></span>
             </div>
             <!-- Alert Overlay -->
             <div style="position: absolute; inset: 0; border: 3px solid var(--status-warning); pointer-events: none;"></div>
@@ -50,14 +50,14 @@
         <div style="padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <h3 style="font-size: 1.1rem;">CAM-4B-A</h3>
-                <span class="badge badge-warning">Unknown Face</span>
+                <span class="badge badge-warning" data-i18n="unknown_face">Unknown Face</span>
             </div>
             <div style="font-size: 0.9rem; color: var(--status-warning); display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-warning-circle"></i> Waiting for admin decision
+                <i class="ph ph-warning-circle"></i> <span data-i18n="waiting_admin">Waiting for admin decision</span>
             </div>
             <div style="margin-top: 12px; display: flex; gap: 8px;">
-                <button class="btn btn-outline" style="flex: 1; padding: 6px; font-size: 0.8rem; color: var(--status-success); border-color: var(--status-success);">Open</button>
-                <button class="btn btn-outline" style="flex: 1; padding: 6px; font-size: 0.8rem; color: var(--status-danger); border-color: var(--status-danger);">Deny</button>
+                <button class="btn btn-outline" style="flex: 1; padding: 6px; font-size: 0.8rem; color: var(--status-success); border-color: var(--status-success);" data-i18n="btn_open">Open</button>
+                <button class="btn btn-outline" style="flex: 1; padding: 6px; font-size: 0.8rem; color: var(--status-danger); border-color: var(--status-danger);" data-i18n="btn_deny">Deny</button>
             </div>
         </div>
     </div>
@@ -67,19 +67,19 @@
         <div style="background: #111; height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
             <i class="ph ph-video-camera-slash" style="font-size: 3rem; color: #444;"></i>
             <div style="position: absolute; top: 10px; right: 10px;">
-                <span class="badge badge-offline" style="background: rgba(100, 116, 139, 0.8);">OFFLINE</span>
+                <span class="badge badge-offline" style="background: rgba(100, 116, 139, 0.8);" data-i18n="badge_offline">OFFLINE</span>
             </div>
             <div style="position: absolute; bottom: 10px; left: 10px;">
-                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Villa 205 - Front Door</span>
+                <span class="badge" style="background: rgba(0,0,0,0.6); color: white;">Villa 205 - <span data-i18n="front_door">Front Door</span></span>
             </div>
         </div>
         <div style="padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <h3 style="font-size: 1.1rem;">CAM-205-A</h3>
-                <span class="badge badge-offline">Offline</span>
+                <span class="badge badge-offline" data-i18n="status_offline">Offline</span>
             </div>
             <div style="font-size: 0.9rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-clock"></i> Last seen: 3 hours ago
+                <i class="ph ph-clock"></i> <span data-i18n="last_seen_3h">Last seen: 3 hours ago</span>
             </div>
         </div>
     </div>

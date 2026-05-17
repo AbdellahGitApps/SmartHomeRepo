@@ -4,12 +4,12 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Device Provisioning</h1>
-        <p>Register and configure ESP32-CAM devices and electricity meters</p>
+        <h1 data-i18n="nav_devices">Device Provisioning</h1>
+        <p data-i18n="devices_desc">Register and configure ESP32-CAM devices and electricity meters</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline"><i class="ph ph-arrows-clockwise"></i> Refresh Status</button>
-        <button class="btn btn-primary"><i class="ph ph-plus"></i> Register Device</button>
+        <button class="btn btn-outline"><i class="ph ph-arrows-clockwise"></i> <span data-i18n="refresh_status">Refresh Status</span></button>
+        <button class="btn btn-primary"><i class="ph ph-plus"></i> <span data-i18n="register_device">Register Device</span></button>
     </div>
 </div>
 
@@ -18,57 +18,59 @@
         <table>
             <thead>
                 <tr>
-                    <th>Device ID</th>
-                    <th>Type</th>
-                    <th>Assigned Home</th>
-                    <th>MQTT Topic</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th data-i18n="col_device_id">Device ID</th>
+                    <th data-i18n="col_device_name">Device Name</th>
+                    <th data-i18n="col_type">Type</th>
+                    <th data-i18n="col_assigned">Assigned Apartment</th>
+                    <th data-i18n="col_mqtt">MQTT Topic</th>
+                    <th data-i18n="col_status">Status</th>
+                    <th data-i18n="col_actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>CAM-101-A</td>
+                    <td style="font-family: monospace;">CAM-APT036-001</td>
+                    <td style="font-weight: 500;">Front Door Camera</td>
                     <td>ESP32-CAM</td>
-                    <td>Villa 101</td>
-                    <td>home/101/cam</td>
-                    <td><span class="badge badge-success">Online</span></td>
+                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">APT36</span></td>
+                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">home/APT-036/cam</td>
+                    <td><span class="badge badge-success device-status-badge" data-device-id="CAM-APT036-001">Online</span></td>
                     <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
+                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Disable Device" data-device-id="CAM-APT036-001" onclick="mockToggleDeviceStatus('CAM-APT036-001')"><i class="ph ph-pause"></i></button>
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
+                        </div>
                     </td>
                 </tr>
                 <tr>
-                    <td>METER-101-M</td>
-                    <td>Smart Meter</td>
-                    <td>Villa 101</td>
-                    <td>home/101/meter</td>
-                    <td><span class="badge badge-success">Online</span></td>
+                    <td style="font-family: monospace;">METER-APT036-001</td>
+                    <td style="font-weight: 500;">Main Energy Meter</td>
+                    <td>Energy Sensor</td>
+                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">APT36</span></td>
+                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">home/APT-036/meter</td>
+                    <td><span class="badge badge-success device-status-badge" data-device-id="METER-APT036-001">Online</span></td>
                     <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
+                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Disable Device" data-device-id="METER-APT036-001" onclick="mockToggleDeviceStatus('METER-APT036-001')"><i class="ph ph-pause"></i></button>
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
+                        </div>
                     </td>
                 </tr>
                 <tr>
-                    <td>CAM-205-A</td>
+                    <td style="font-family: monospace;">CAM-APT042-002</td>
+                    <td style="font-weight: 500;">Balcony Camera</td>
                     <td>ESP32-CAM</td>
-                    <td>Villa 205</td>
-                    <td>home/205/cam</td>
-                    <td><span class="badge badge-offline">Offline</span></td>
+                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">APT42</span></td>
+                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">home/APT-042/cam</td>
+                    <td><span class="badge badge-offline device-status-badge" data-device-id="CAM-APT042-002">Offline</span></td>
                     <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>METER-205-M</td>
-                    <td>Smart Meter</td>
-                    <td>Villa 205</td>
-                    <td>home/205/meter</td>
-                    <td><span class="badge badge-warning">Pairing...</span></td>
-                    <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Restart Device"><i class="ph ph-power"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" title="Remove Device"><i class="ph ph-trash"></i></button>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
+                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Enable Device" data-device-id="CAM-APT042-002" onclick="mockToggleDeviceStatus('CAM-APT042-002')"><i class="ph ph-play"></i></button>
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
+                        </div>
                     </td>
                 </tr>
             </tbody>

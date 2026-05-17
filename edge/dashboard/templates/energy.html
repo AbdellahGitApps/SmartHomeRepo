@@ -9,12 +9,12 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Energy Monitoring</h1>
-        <p>Monitor electricity consumption across all registered homes</p>
+        <h1 data-i18n="energy_monitoring">Energy Monitoring</h1>
+        <p data-i18n="energy_monitoring_desc">Monitor electricity consumption across all registered homes</p>
     </div>
     <div class="header-actions">
         <select class="form-control" style="width: 200px; padding: 8px 12px;">
-            <option>All Homes</option>
+            <option data-i18n="all_homes">All Homes</option>
             <option>Villa 101</option>
             <option>Apt 4B</option>
             <option>Villa 205</option>
@@ -26,21 +26,21 @@
     <div class="glass-card stat-card">
         <div class="stat-icon warning"><i class="ph-fill ph-lightning"></i></div>
         <div class="stat-details">
-            <h3>Total Daily Usage</h3>
-            <p>145.2 <span style="font-size: 1rem; color: var(--text-secondary);">kWh</span></p>
+            <h3 data-i18n="total_daily_usage">Total Daily Usage</h3>
+            <p>145.2 <span style="font-size: 1rem; color: var(--text-secondary);" data-i18n="kwh">kWh</span></p>
         </div>
     </div>
     <div class="glass-card stat-card">
         <div class="stat-icon primary"><i class="ph-fill ph-chart-line-up"></i></div>
         <div class="stat-details">
-            <h3>Monthly Forecast</h3>
-            <p>4,250 <span style="font-size: 1rem; color: var(--text-secondary);">kWh</span></p>
+            <h3 data-i18n="monthly_forecast">Monthly Forecast</h3>
+            <p>4,250 <span style="font-size: 1rem; color: var(--text-secondary);" data-i18n="kwh">kWh</span></p>
         </div>
     </div>
     <div class="glass-card stat-card">
         <div class="stat-icon danger"><i class="ph-fill ph-trend-up"></i></div>
         <div class="stat-details">
-            <h3>Peak Time</h3>
+            <h3 data-i18n="peak_time">Peak Time</h3>
             <p>18:00 - 21:00</p>
         </div>
     </div>
@@ -48,17 +48,17 @@
 
 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
     <div class="glass-card">
-        <h3 style="margin-bottom: 20px;">System-wide Daily Consumption</h3>
+        <h3 style="margin-bottom: 20px;" data-i18n="system_daily_consumption">System-wide Daily Consumption</h3>
         <canvas id="energyChart" width="400" height="200"></canvas>
     </div>
     
     <div class="glass-card">
-        <h3 style="margin-bottom: 20px;">Top Consumers Today</h3>
+        <h3 style="margin-bottom: 20px;" data-i18n="top_consumers_today">Top Consumers Today</h3>
         <div style="display: flex; flex-direction: column; gap: 16px;">
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span>Villa 101</span>
-                    <span style="font-weight: bold; color: var(--status-warning);">4.2 kWh</span>
+                    <span style="font-weight: bold; color: var(--status-warning);">4.2 <span data-i18n="kwh">kWh</span></span>
                 </div>
                 <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
                     <div style="width: 80%; background: var(--status-warning); height: 100%;"></div>
@@ -67,7 +67,7 @@
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span>Apt 4B</span>
-                    <span style="font-weight: bold; color: var(--accent-primary);">2.8 kWh</span>
+                    <span style="font-weight: bold; color: var(--accent-primary);">2.8 <span data-i18n="kwh">kWh</span></span>
                 </div>
                 <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
                     <div style="width: 50%; background: var(--accent-primary); height: 100%;"></div>
@@ -76,7 +76,7 @@
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span>Villa 205</span>
-                    <span style="font-weight: bold; color: var(--status-success);">1.1 kWh</span>
+                    <span style="font-weight: bold; color: var(--status-success);">1.1 <span data-i18n="kwh">kWh</span></span>
                 </div>
                 <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
                     <div style="width: 20%; background: var(--status-success); height: 100%;"></div>

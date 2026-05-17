@@ -4,54 +4,145 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Register New Home</h1>
-        <p>Add a new home to the Edge Smart System</p>
+        <h1 data-i18n="register_new_home">Register New Home</h1>
+        <p data-i18n="create_home_desc">Add a new home to the Edge Smart System</p>
     </div>
 </div>
 
 <div class="glass-card" style="max-width: 800px;">
-    <form action="#" method="POST" onsubmit="event.preventDefault(); alert('Home Created!');">
+    <form action="#" method="POST" onsubmit="event.preventDefault(); alert('Home & Devices Registered Successfully! (Mocking future backend assignment of IDs, MQTT topics, etc.)'); window.location.href='/';">
         
-        <h3 style="margin-bottom: 20px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">Home Details</h3>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div class="form-group">
-                <label for="homeName">Home Name / Identifier</label>
-                <input type="text" id="homeName" class="form-control" placeholder="e.g. Villa 102" required>
-            </div>
-            <div class="form-group">
-                <label for="ownerName">Owner Name</label>
-                <input type="text" id="ownerName" class="form-control" placeholder="Full Name" required>
-            </div>
-        </div>
+        <h3 style="margin-bottom: 20px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;" data-i18n="apt_info">Apartment Information</h3>
         
         <div class="form-group">
-            <label for="ownerEmail">Owner Email</label>
-            <input type="email" id="ownerEmail" class="form-control" placeholder="email@example.com" required>
+            <label for="apartmentNumber" data-i18n="apt_number_label">Apartment Number</label>
+            <input type="text" id="apartmentNumber" class="form-control" placeholder="e.g. 36" required style="max-width: 50%;">
         </div>
-
-        <h3 style="margin-bottom: 20px; margin-top: 30px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">Device Registration</h3>
+        
+        <h3 style="margin-bottom: 20px; margin-top: 30px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;" data-i18n="owner_info">Owner Information</h3>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="form-group">
-                <label for="meterId">Smart Meter Device ID</label>
-                <input type="text" id="meterId" class="form-control" placeholder="METER-XXXX" required>
+                <label for="ownerName" data-i18n="owner_name">Owner Name</label>
+                <input type="text" id="ownerName" class="form-control" placeholder="e.g. John Doe" required>
             </div>
             <div class="form-group">
-                <label for="cameraId">ESP32-CAM Device ID</label>
-                <input type="text" id="cameraId" class="form-control" placeholder="CAM-XXXX" required>
+                <label for="ownerEmail" data-i18n="owner_email">Owner Email</label>
+                <input type="email" id="ownerEmail" class="form-control" placeholder="e.g. john@example.com" required>
             </div>
         </div>
 
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); margin-top: 30px; margin-bottom: 20px; padding-bottom: 10px;">
+            <h3 style="margin: 0; color: var(--accent-primary);" data-i18n="device_reg">Device Registration</h3>
+            <button type="button" class="btn btn-outline" onclick="addDeviceEntry()" style="padding: 6px 12px; font-size: 0.9em;">
+                <i class="ph ph-plus"></i> <span data-i18n="add_device">Add Device</span>
+            </button>
+        </div>
+
+        <div id="devicesContainer">
+            <!-- Pre-filled default examples -->
+            <div class="device-entry" style="padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Device Name</label>
+                    <input type="text" class="form-control" placeholder="e.g. Front Door Camera" value="Front Door Camera" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Device Type</label>
+                    <select class="form-control" required>
+                        <option value="">Select Type</option>
+                        <option value="ESP32-CAM" selected>ESP32-CAM (Camera)</option>
+                        <option value="Energy Sensor">Energy Sensor</option>
+                        <option value="Motion Sensor">Motion Sensor</option>
+                        <option value="Smart Lock">Smart Lock</option>
+                        <option value="Thermostat">Thermostat</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <button type="button" class="btn" onclick="this.closest('.device-entry').remove()" style="padding: 10px 15px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer;" title="Remove Device">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="device-entry" style="padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Device Name</label>
+                    <input type="text" class="form-control" placeholder="e.g. Main Energy Meter" value="Main Energy Meter" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Device Type</label>
+                    <select class="form-control" required>
+                        <option value="">Select Type</option>
+                        <option value="ESP32-CAM">ESP32-CAM (Camera)</option>
+                        <option value="Energy Sensor" selected>Energy Sensor</option>
+                        <option value="Motion Sensor">Motion Sensor</option>
+                        <option value="Smart Lock">Smart Lock</option>
+                        <option value="Thermostat">Thermostat</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <button type="button" class="btn" onclick="this.closest('.device-entry').remove()" style="padding: 10px 15px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer;" title="Remove Device">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 20px; margin-top: 30px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;" data-i18n="admin_notes">Administrative Notes</h3>
+        
         <div class="form-group">
-            <label for="notes">Administrative Notes</label>
-            <textarea id="notes" class="form-control" rows="4" placeholder="Any additional notes..."></textarea>
+            <label for="notes" data-i18n="admin_notes_label">Administrative Notes (Optional)</label>
+            <textarea id="notes" class="form-control" rows="4" placeholder="Installation notes, apartment remarks, internal admin comments..."></textarea>
         </div>
 
         <div style="display: flex; gap: 16px; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
-            <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> Register Home</button>
-            <button type="reset" class="btn btn-outline"><i class="ph ph-arrow-counter-clockwise"></i> Reset Form</button>
+            <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> <span data-i18n="register_home_btn">Register Home & Devices</span></button>
+            <button type="reset" class="btn btn-outline" onclick="resetDevices()"><i class="ph ph-arrow-counter-clockwise"></i> <span data-i18n="reset_form">Reset Form</span></button>
         </div>
     </form>
 </div>
+
+<script>
+    function addDeviceEntry() {
+        const container = document.getElementById('devicesContainer');
+        const entryHtml = `
+            <div class="device-entry" style="padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: end; animation: fadeIn 0.3s ease;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Device Name</label>
+                    <input type="text" class="form-control" placeholder="e.g. Living Room Motion" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Device Type</label>
+                    <select class="form-control" required>
+                        <option value="">Select Type</option>
+                        <option value="ESP32-CAM">ESP32-CAM (Camera)</option>
+                        <option value="Energy Sensor">Energy Sensor</option>
+                        <option value="Motion Sensor">Motion Sensor</option>
+                        <option value="Smart Lock">Smart Lock</option>
+                        <option value="Thermostat">Thermostat</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <button type="button" class="btn" onclick="this.closest('.device-entry').remove()" style="padding: 10px 15px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer;" title="Remove Device">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', entryHtml);
+    }
+    
+    function resetDevices() {
+        setTimeout(() => {
+            window.location.reload();
+        }, 100);
+    }
+</script>
+
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
 {% endblock %}

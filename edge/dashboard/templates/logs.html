@@ -4,28 +4,28 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Security Logs</h1>
-        <p>Review all access and security events across registered homes</p>
+        <h1 data-i18n="security_logs">Security Logs</h1>
+        <p data-i18n="security_logs_desc">Review all access and security events across registered homes</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline"><i class="ph ph-download-simple"></i> Export CSV</button>
+        <button class="btn btn-outline"><i class="ph ph-download-simple"></i> <span data-i18n="export_csv">Export CSV</span></button>
     </div>
 </div>
 
 <div class="glass-card">
     <div style="display: flex; gap: 16px; margin-bottom: 24px;">
-        <input type="text" class="form-control" placeholder="Search events..." style="flex: 1;">
+        <input type="text" class="form-control" placeholder="Search events..." style="flex: 1;" data-i18n="search_events">
         <select class="form-control" style="width: 200px;">
-            <option value="all">All Events</option>
-            <option value="door">Door Access</option>
-            <option value="face">Face Recognition</option>
-            <option value="system">System</option>
+            <option value="all" data-i18n="all_events">All Events</option>
+            <option value="door" data-i18n="door_access">Door Access</option>
+            <option value="face" data-i18n="face_recognition">Face Recognition</option>
+            <option value="system" data-i18n="system">System</option>
         </select>
         <select class="form-control" style="width: 200px;">
-            <option value="all">All Severities</option>
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="critical">Critical</option>
+            <option value="all" data-i18n="all_severities">All Severities</option>
+            <option value="info" data-i18n="severity_info">Info</option>
+            <option value="warning" data-i18n="severity_warning">Warning</option>
+            <option value="critical" data-i18n="severity_critical">Critical</option>
         </select>
     </div>
 
@@ -33,54 +33,54 @@
         <table>
             <thead>
                 <tr>
-                    <th>Timestamp</th>
-                    <th>Severity</th>
-                    <th>Home</th>
-                    <th>Event Type</th>
-                    <th>Details</th>
-                    <th>Action Taken</th>
+                    <th data-i18n="timestamp">Timestamp</th>
+                    <th data-i18n="severity">Severity</th>
+                    <th data-i18n="home">Home</th>
+                    <th data-i18n="event_type">Event Type</th>
+                    <th data-i18n="details">Details</th>
+                    <th data-i18n="action_taken">Action Taken</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td style="color: var(--text-secondary);">Today, 10:45 AM</td>
-                    <td><span class="badge badge-success">Info</span></td>
+                    <td style="color: var(--text-secondary);" data-i18n="today_1045am">Today, 10:45 AM</td>
+                    <td><span class="badge badge-success" data-i18n="badge_info">Info</span></td>
                     <td>Villa 101</td>
-                    <td><i class="ph ph-face-recognition" style="margin-right: 4px;"></i> Known Face</td>
-                    <td>John Doe recognized (98% match)</td>
-                    <td>Door Opened</td>
+                    <td><i class="ph ph-face-recognition" style="margin-right: 4px;"></i> <span data-i18n="known_face_event">Known Face</span></td>
+                    <td data-i18n="john_recognized">John Doe recognized (98% match)</td>
+                    <td data-i18n="door_opened">Door Opened</td>
                 </tr>
                 <tr>
-                    <td style="color: var(--text-secondary);">Today, 08:30 AM</td>
-                    <td><span class="badge badge-warning">Warning</span></td>
+                    <td style="color: var(--text-secondary);" data-i18n="today_0830am">Today, 08:30 AM</td>
+                    <td><span class="badge badge-warning" data-i18n="badge_warning">Warning</span></td>
                     <td>Apt 4B</td>
-                    <td><i class="ph ph-warning-circle" style="margin-right: 4px;"></i> Unknown Face</td>
-                    <td>Unrecognized person at front door</td>
-                    <td>Alert sent to Admin</td>
+                    <td><i class="ph ph-warning-circle" style="margin-right: 4px;"></i> <span data-i18n="unknown_face">Unknown Face</span></td>
+                    <td data-i18n="unrecognized_person">Unrecognized person at front door</td>
+                    <td data-i18n="alert_sent">Alert sent to Admin</td>
                 </tr>
                 <tr>
-                    <td style="color: var(--text-secondary);">Yesterday, 11:20 PM</td>
-                    <td><span class="badge badge-danger">Critical</span></td>
+                    <td style="color: var(--text-secondary);" data-i18n="yesterday_1120pm">Yesterday, 11:20 PM</td>
+                    <td><span class="badge badge-danger" data-i18n="badge_critical">Critical</span></td>
                     <td>Villa 205</td>
-                    <td><i class="ph ph-camera-slash" style="margin-right: 4px;"></i> Camera Offline</td>
-                    <td>CAM-205-A lost connection</td>
-                    <td>Flagged Offline</td>
+                    <td><i class="ph ph-camera-slash" style="margin-right: 4px;"></i> <span data-i18n="cam_offline">Camera Offline</span></td>
+                    <td data-i18n="cam_lost_conn">CAM-205-A lost connection</td>
+                    <td data-i18n="flagged_offline">Flagged Offline</td>
                 </tr>
                 <tr>
-                    <td style="color: var(--text-secondary);">Yesterday, 06:15 PM</td>
-                    <td><span class="badge badge-success">Info</span></td>
+                    <td style="color: var(--text-secondary);" data-i18n="yesterday_0615pm">Yesterday, 06:15 PM</td>
+                    <td><span class="badge badge-success" data-i18n="badge_info">Info</span></td>
                     <td>Villa 101</td>
-                    <td><i class="ph ph-device-mobile" style="margin-right: 4px;"></i> App Override</td>
-                    <td>Door opened manually via Owner App</td>
-                    <td>Door Opened</td>
+                    <td><i class="ph ph-device-mobile" style="margin-right: 4px;"></i> <span data-i18n="app_override">App Override</span></td>
+                    <td data-i18n="door_manual">Door opened manually via Owner App</td>
+                    <td data-i18n="door_opened">Door Opened</td>
                 </tr>
                 <tr>
-                    <td style="color: var(--text-secondary);">Yesterday, 02:00 PM</td>
-                    <td><span class="badge badge-warning">Warning</span></td>
+                    <td style="color: var(--text-secondary);" data-i18n="yesterday_0200pm">Yesterday, 02:00 PM</td>
+                    <td><span class="badge badge-warning" data-i18n="badge_warning">Warning</span></td>
                     <td>Villa 101</td>
-                    <td><i class="ph ph-prohibit" style="margin-right: 4px;"></i> Failed Access</td>
-                    <td>Multiple failed API attempts for lock</td>
-                    <td>Blocked IP for 10m</td>
+                    <td><i class="ph ph-prohibit" style="margin-right: 4px;"></i> <span data-i18n="failed_access">Failed Access</span></td>
+                    <td data-i18n="failed_api">Multiple failed API attempts for lock</td>
+                    <td data-i18n="blocked_ip">Blocked IP for 10m</td>
                 </tr>
             </tbody>
         </table>

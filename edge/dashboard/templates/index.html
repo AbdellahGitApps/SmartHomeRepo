@@ -4,11 +4,11 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Homes Overview</h1>
-        <p>Monitor all registered homes and system status</p>
+        <h1 data-i18n="homes_overview">Homes Overview</h1>
+        <p data-i18n="homes_overview_desc">Monitor all registered homes and system status</p>
     </div>
     <div class="header-actions">
-        <a href="/create-home" class="btn btn-primary"><i class="ph ph-plus"></i> Add Home</a>
+        <a href="/create-home" class="btn btn-primary"><i class="ph ph-plus"></i> <span data-i18n="add_home">Add Home</span></a>
     </div>
 </div>
 
@@ -17,28 +17,28 @@
     <div class="glass-card stat-card">
         <div class="stat-icon primary"><i class="ph-fill ph-house"></i></div>
         <div class="stat-details">
-            <h3>Total Homes</h3>
+            <h3 data-i18n="total_homes">Total Homes</h3>
             <p>12</p>
         </div>
     </div>
     <div class="glass-card stat-card">
         <div class="stat-icon success"><i class="ph-fill ph-devices"></i></div>
         <div class="stat-details">
-            <h3>Active Devices</h3>
+            <h3 data-i18n="active_devices">Active Devices</h3>
             <p>48</p>
         </div>
     </div>
     <div class="glass-card stat-card">
         <div class="stat-icon warning"><i class="ph-fill ph-camera"></i></div>
         <div class="stat-details">
-            <h3>Camera Alerts</h3>
+            <h3 data-i18n="camera_alerts">Camera Alerts</h3>
             <p>3</p>
         </div>
     </div>
     <div class="glass-card stat-card">
         <div class="stat-icon danger"><i class="ph-fill ph-warning-circle"></i></div>
         <div class="stat-details">
-            <h3>System Errors</h3>
+            <h3 data-i18n="system_errors">System Errors</h3>
             <p>0</p>
         </div>
     </div>
@@ -47,10 +47,10 @@
 <!-- Homes Grid -->
 <div class="page-header" style="margin-top: 40px; margin-bottom: 20px;">
     <div class="page-title">
-        <h2 style="font-size: 1.4rem;">Registered Homes</h2>
+        <h2 style="font-size: 1.4rem;" data-i18n="registered_homes">Registered Homes</h2>
     </div>
     <div style="display: flex; gap: 10px;">
-        <input type="text" class="form-control" placeholder="Search homes..." style="width: 250px;">
+        <input type="text" class="form-control" data-i18n="search_homes" placeholder="Search homes..." style="width: 250px;">
     </div>
 </div>
 
@@ -60,20 +60,20 @@
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
                 <h3 style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                    Villa 101 <span class="badge badge-success">Online</span>
+                    Villa 101 <span class="badge badge-success" data-i18n="status_online">Online</span>
                 </h3>
-                <p style="color: var(--text-secondary); font-size: 0.9rem;">Owner: John Doe</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;"><span data-i18n="owner">Owner</span>: John Doe</p>
             </div>
             <button class="btn btn-outline" style="padding: 6px 10px;"><i class="ph ph-dots-three"></i></button>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; color: var(--text-secondary);">
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-door"></i> Door: Locked</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-camera"></i> Cam: Active</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> 4.2 kWh today</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 3 Members</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-door"></i> <span data-i18n="door_locked">Door: Locked</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-camera"></i> <span data-i18n="cam_active">Cam: Active</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> 4.2 <span data-i18n="kwh_today">kWh today</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 3 <span data-i18n="members">Members</span></div>
         </div>
         <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--glass-border);">
-            <a href="/home-details" class="btn btn-primary" style="width: 100%; justify-content: center;">View Details</a>
+            <a href="/home-details" class="btn btn-primary" style="width: 100%; justify-content: center;" data-i18n="view_details">View Details</a>
         </div>
     </div>
     
@@ -82,20 +82,20 @@
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
                 <h3 style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                    Apt 4B <span class="badge badge-success">Online</span>
+                    Apt 4B <span class="badge badge-success" data-i18n="status_online">Online</span>
                 </h3>
-                <p style="color: var(--text-secondary); font-size: 0.9rem;">Owner: Sarah Smith</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;"><span data-i18n="owner">Owner</span>: Sarah Smith</p>
             </div>
             <button class="btn btn-outline" style="padding: 6px 10px;"><i class="ph ph-dots-three"></i></button>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; color: var(--text-secondary);">
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-door"></i> Door: Locked</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-camera"></i> Cam: Active</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> 2.8 kWh today</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 1 Member</div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-door"></i> <span data-i18n="door_locked">Door: Locked</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-camera"></i> <span data-i18n="cam_active">Cam: Active</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> 2.8 <span data-i18n="kwh_today">kWh today</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 1 <span data-i18n="member">Member</span></div>
         </div>
         <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--glass-border);">
-            <a href="/home-details" class="btn btn-primary" style="width: 100%; justify-content: center;">View Details</a>
+            <a href="/home-details" class="btn btn-primary" style="width: 100%; justify-content: center;" data-i18n="view_details">View Details</a>
         </div>
     </div>
 
@@ -104,20 +104,20 @@
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
                 <h3 style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                    Villa 205 <span class="badge badge-offline">Offline</span>
+                    Villa 205 <span class="badge badge-offline" data-i18n="status_offline">Offline</span>
                 </h3>
-                <p style="color: var(--text-secondary); font-size: 0.9rem;">Owner: Mike Johnson</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;"><span data-i18n="owner">Owner</span>: Mike Johnson</p>
             </div>
             <button class="btn btn-outline" style="padding: 6px 10px;"><i class="ph ph-dots-three"></i></button>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; color: var(--text-secondary);">
-            <div style="display: flex; align-items: center; gap: 6px; color: var(--status-danger);"><i class="ph ph-door"></i> Door: Unknown</div>
-            <div style="display: flex; align-items: center; gap: 6px; color: var(--status-danger);"><i class="ph ph-camera"></i> Cam: Offline</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> -- kWh</div>
-            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 4 Members</div>
+            <div style="display: flex; align-items: center; gap: 6px; color: var(--status-danger);"><i class="ph ph-door"></i> <span data-i18n="door_unknown">Door: Unknown</span></div>
+            <div style="display: flex; align-items: center; gap: 6px; color: var(--status-danger);"><i class="ph ph-camera"></i> <span data-i18n="cam_offline">Cam: Offline</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-lightning"></i> -- <span data-i18n="kwh">kWh</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><i class="ph ph-users"></i> 4 <span data-i18n="members">Members</span></div>
         </div>
         <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--glass-border);">
-            <a href="/home-details" class="btn btn-outline" style="width: 100%; justify-content: center;">View Details</a>
+            <a href="/home-details" class="btn btn-outline" style="width: 100%; justify-content: center;" data-i18n="view_details">View Details</a>
         </div>
     </div>
 </div>
