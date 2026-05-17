@@ -184,7 +184,10 @@ const translations = {
     "msg_restart": "Restarting device...",
     "msg_restarted": "Device restarted successfully.",
     "msg_removed": "Device removed from system.",
-    "confirm_remove": "Are you sure you want to remove this device?"
+    "confirm_remove": "Are you sure you want to remove this device?",
+    "status_online": "Online",
+    "status_offline": "Offline",
+    "status_disabled": "Disabled"
   },
   ar: {
     "nav_dashboard": "لوحة القيادة",
