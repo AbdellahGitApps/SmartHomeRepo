@@ -199,6 +199,16 @@ class _HomeDashboardState extends State<HomeDashboard>
                             style: Theme.of(context).textTheme.headlineSmall!
                                 .copyWith(fontWeight: FontWeight.bold),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${l10n.lastUpdate}: 2026-05-19 14:32:10',
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                       Container(
@@ -298,7 +308,10 @@ class _HomeDashboardState extends State<HomeDashboard>
                                 ),
                                 _buildSummaryItem(
                                   l10n.mainDoor,
-                                  l10n.statusLocked,
+                                  appState.doors.isNotEmpty &&
+                                          appState.doors[0]['isLocked']
+                                      ? l10n.statusLocked
+                                      : l10n.statusUnlocked,
                                   true,
                                 ),
                               ],
@@ -338,8 +351,14 @@ class _HomeDashboardState extends State<HomeDashboard>
                         translatedStatus =
                             '${l10n.statusActive} • ${l10n.statusNormal}';
                       } else if (device.type == DeviceType.door) {
+                        final mainDoor = appState.doors.firstWhere(
+                          (d) => d['nameKey'] == 'mainDoor',
+                          orElse: () => {'isLocked': true},
+                        );
                         translatedTitle = l10n.doors;
-                        translatedStatus = l10n.statusLocked;
+                        translatedStatus = mainDoor['isLocked']
+                            ? l10n.statusLocked
+                            : l10n.statusUnlocked;
                       } else if (device.type == DeviceType.energy) {
                         translatedTitle = l10n.energy;
                         translatedStatus = '2.4 ${l10n.kW}';

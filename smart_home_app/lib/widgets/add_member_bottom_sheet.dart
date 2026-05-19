@@ -10,11 +10,12 @@ class AddMemberBottomSheet {
     required AppLocalizations l10n,
     required AppStateProvider appState,
     required bool isDark,
+    FamilyMember? memberToEdit,
     VoidCallback? onAdded,
   }) {
-    final nameCtrl = TextEditingController();
-    String selectedRole = 'Family';
-    bool faceEnrolled = false;
+    final nameCtrl = TextEditingController(text: memberToEdit?.name ?? '');
+    String selectedRole = memberToEdit?.role ?? 'Family';
+    bool faceEnrolled = memberToEdit?.faceEnrolled ?? false;
 
     showModalBottomSheet(
       context: context,
@@ -48,8 +49,11 @@ class AddMemberBottomSheet {
               ),
               const SizedBox(height: 24),
               Text(
-                l10n.addMember,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                memberToEdit != null ? l10n.editMember : l10n.addMember,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 24),
               TextField(
@@ -57,7 +61,9 @@ class AddMemberBottomSheet {
                 decoration: InputDecoration(
                   labelText: l10n.memberName,
                   prefixIcon: const Icon(LucideIcons.user),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -66,15 +72,23 @@ class AddMemberBottomSheet {
                 decoration: InputDecoration(
                   labelText: l10n.memberRole,
                   prefixIcon: const Icon(LucideIcons.shield),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 items: ['Admin', 'Family', 'Guest']
-                    .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                    .map(
+                      (role) =>
+                          DropdownMenuItem(value: role, child: Text(role)),
+                    )
                     .toList(),
                 onChanged: (val) => setModalState(() => selectedRole = val!),
               ),
               const SizedBox(height: 24),
-              Text(l10n.enrollFace, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                l10n.enrollFace,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -83,11 +97,13 @@ class AddMemberBottomSheet {
                       icon: LucideIcons.camera,
                       label: l10n.captureFromCamera,
                       onTap: () async {
-                        bool granted = await PermissionService.requestCameraPermission();
+                        bool granted =
+                            await PermissionService.requestCameraPermission();
                         if (granted) {
                           setModalState(() => faceEnrolled = true);
                         } else {
-                          if (context.mounted) _showPermissionDeniedDialog(context, l10n);
+                          if (context.mounted)
+                            _showPermissionDeniedDialog(context, l10n);
                         }
                       },
                       isActive: faceEnrolled,
@@ -100,11 +116,13 @@ class AddMemberBottomSheet {
                       icon: LucideIcons.image,
                       label: l10n.pickFromGallery,
                       onTap: () async {
-                        bool granted = await PermissionService.requestGalleryPermission();
+                        bool granted =
+                            await PermissionService.requestGalleryPermission();
                         if (granted) {
                           setModalState(() => faceEnrolled = true);
                         } else {
-                          if (context.mounted) _showPermissionDeniedDialog(context, l10n);
+                          if (context.mounted)
+                            _showPermissionDeniedDialog(context, l10n);
                         }
                       },
                       isActive: faceEnrolled,
@@ -120,14 +138,29 @@ class AddMemberBottomSheet {
                 child: ElevatedButton(
                   onPressed: () {
                     if (nameCtrl.text.isNotEmpty) {
-                      appState.addFamilyMember(nameCtrl.text, selectedRole, faceEnrolled);
+                      if (memberToEdit != null) {
+                        appState.updateFamilyMember(
+                          memberToEdit.id,
+                          nameCtrl.text,
+                          selectedRole,
+                          faceEnrolled,
+                        );
+                      } else {
+                        appState.addFamilyMember(
+                          nameCtrl.text,
+                          selectedRole,
+                          faceEnrolled,
+                        );
+                      }
                       if (onAdded != null) onAdded();
                       Navigator.pop(context);
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   child: Text(
                     l10n.saveMember,
@@ -146,14 +179,20 @@ class AddMemberBottomSheet {
     );
   }
 
-  static void _showPermissionDeniedDialog(BuildContext context, AppLocalizations l10n) {
+  static void _showPermissionDeniedDialog(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.permissionDenied),
         content: Text(l10n.permissionDeniedPermanently),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
           TextButton(
             onPressed: () {
               PermissionService.openSettings();
@@ -191,7 +230,11 @@ class AddMemberBottomSheet {
         ),
         child: Column(
           children: [
-            Icon(icon, color: isActive ? const Color(0xFF22C55E) : Colors.grey, size: 24),
+            Icon(
+              icon,
+              color: isActive ? const Color(0xFF22C55E) : Colors.grey,
+              size: 24,
+            ),
             const SizedBox(height: 8),
             Text(
               label,

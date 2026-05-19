@@ -480,6 +480,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get edit => 'Edit';
 
   @override
+  String get editMember => 'Edit Member';
+
+  @override
+  String get enable => 'Enable';
+
+  @override
+  String get disable => 'Disable';
+
+  @override
+  String get lastUpdate => 'Last Update';
+
+  @override
+  String get apartmentNumber => 'Apartment Number';
+
+  @override
+  String get lockManual => 'Lock (Manual Lock)';
+
+  @override
+  String get unlockManual => 'Unlock (Manual Unlock)';
+
+  @override
+  String increaseComparedToToday(String value) {
+    return '+$value% increase compared to today';
+  }
+
+  @override
+  String decreaseComparedToWeek(String value) {
+    return '-$value% decrease compared to this week';
+  }
+
+  @override
+  String increaseComparedToMonth(String value) {
+    return '+$value% increase compared to last month';
+  }
+
+  @override
   String get smartHome => 'Smart Home';
 
   @override

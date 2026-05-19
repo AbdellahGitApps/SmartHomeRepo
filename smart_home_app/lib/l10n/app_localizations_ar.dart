@@ -480,6 +480,42 @@ class AppLocalizationsAr extends AppLocalizations {
   String get edit => 'تعديل';
 
   @override
+  String get editMember => 'تعديل الفرد';
+
+  @override
+  String get enable => 'تفعيل';
+
+  @override
+  String get disable => 'تعطيل';
+
+  @override
+  String get lastUpdate => 'آخر تحديث';
+
+  @override
+  String get apartmentNumber => 'رقم الشقة';
+
+  @override
+  String get lockManual => 'قفل (قفل يدوي)';
+
+  @override
+  String get unlockManual => 'فتح (فتح يدوي)';
+
+  @override
+  String increaseComparedToToday(String value) {
+    return '+$value% زيادة مقارنة باليوم';
+  }
+
+  @override
+  String decreaseComparedToWeek(String value) {
+    return '-$value% انخفاض مقارنة بهذا الأسبوع';
+  }
+
+  @override
+  String increaseComparedToMonth(String value) {
+    return '+$value% زيادة مقارنة بالشهر الماضي';
+  }
+
+  @override
   String get smartHome => 'المنزل الذكي';
 
   @override

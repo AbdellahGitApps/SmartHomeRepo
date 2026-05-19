@@ -107,7 +107,9 @@ class _LoginScreenState extends State<LoginScreen>
     final homeCode = _signInHomeCodeCtrl.text.trim();
     final appState = Provider.of<AppStateProvider>(context, listen: false);
 
-    if ((usernameOrEmail == appState.userName || usernameOrEmail == 'admin' || usernameOrEmail == 'admin@home.com') &&
+    if ((usernameOrEmail == appState.userName ||
+            usernameOrEmail == 'admin' ||
+            usernameOrEmail == 'admin@home.com') &&
         password == appState.password &&
         homeCode == appState.homeCode) {
       setState(() => _errorMessage = null);
@@ -421,8 +423,7 @@ class _LoginScreenState extends State<LoginScreen>
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Theme.of(context)
-                                              .primaryColor
+                                          color: Theme.of(context).primaryColor
                                               .withOpacity(0.20 + p * 0.35),
                                           blurRadius: 18 + (p * 20),
                                           spreadRadius: 1 + (p * 6),

@@ -1034,6 +1034,66 @@ abstract class AppLocalizations {
   /// **'Edit'**
   String get edit;
 
+  /// No description provided for @editMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Member'**
+  String get editMember;
+
+  /// No description provided for @enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get enable;
+
+  /// No description provided for @disable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable'**
+  String get disable;
+
+  /// No description provided for @lastUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Update'**
+  String get lastUpdate;
+
+  /// No description provided for @apartmentNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Apartment Number'**
+  String get apartmentNumber;
+
+  /// No description provided for @lockManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock (Manual Lock)'**
+  String get lockManual;
+
+  /// No description provided for @unlockManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock (Manual Unlock)'**
+  String get unlockManual;
+
+  /// No description provided for @increaseComparedToToday.
+  ///
+  /// In en, this message translates to:
+  /// **'+{value}% increase compared to today'**
+  String increaseComparedToToday(String value);
+
+  /// No description provided for @decreaseComparedToWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'-{value}% decrease compared to this week'**
+  String decreaseComparedToWeek(String value);
+
+  /// No description provided for @increaseComparedToMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'+{value}% increase compared to last month'**
+  String increaseComparedToMonth(String value);
+
   /// No description provided for @smartHome.
   ///
   /// In en, this message translates to:

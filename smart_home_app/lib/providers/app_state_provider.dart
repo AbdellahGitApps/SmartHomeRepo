@@ -50,7 +50,11 @@ class AppStateProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void updateNetworkSettings({String? serverIp, String? cameraUrl, String? homeCode}) {
+  void updateNetworkSettings({
+    String? serverIp,
+    String? cameraUrl,
+    String? homeCode,
+  }) {
     if (serverIp != null) _serverIp = serverIp;
     if (cameraUrl != null) _cameraUrl = cameraUrl;
     if (homeCode != null) _homeCode = homeCode;
@@ -112,6 +116,69 @@ class AppStateProvider with ChangeNotifier {
     _familyMembers.removeWhere((m) => m.id == id);
     notifyListeners();
   }
+
+  void updateFamilyMember(
+    String id,
+    String name,
+    String role,
+    bool faceEnrolled,
+  ) {
+    final index = _familyMembers.indexWhere((m) => m.id == id);
+    if (index != -1) {
+      final oldMember = _familyMembers[index];
+      _familyMembers[index] = FamilyMember(
+        id: id,
+        name: name,
+        role: role,
+        faceEnrolled: faceEnrolled,
+        isEnabled: oldMember.isEnabled,
+      );
+      notifyListeners();
+    }
+  }
+
+  void toggleFamilyMemberStatus(String id) {
+    final index = _familyMembers.indexWhere((m) => m.id == id);
+    if (index != -1) {
+      final oldMember = _familyMembers[index];
+      _familyMembers[index] = FamilyMember(
+        id: oldMember.id,
+        name: oldMember.name,
+        role: oldMember.role,
+        faceEnrolled: oldMember.faceEnrolled,
+        isEnabled: !oldMember.isEnabled,
+      );
+      notifyListeners();
+    }
+  }
+
+  // --- Doors Module ---
+  final List<Map<String, dynamic>> _doors = [
+    {'id': '1', 'nameKey': 'mainDoor', 'isLocked': true},
+    {'id': '2', 'nameKey': 'garageDoor', 'isLocked': false},
+    {'id': '3', 'nameKey': 'backDoor', 'isLocked': true},
+  ];
+
+  List<Map<String, dynamic>> get doors => List.unmodifiable(_doors);
+
+  void toggleDoorState(String id) {
+    final index = _doors.indexWhere((d) => d['id'] == id);
+    if (index != -1) {
+      _doors[index] = {
+        ..._doors[index],
+        'isLocked': !_doors[index]['isLocked'],
+      };
+      notifyListeners();
+    }
+  }
+
+  void setDoorState(String id, bool isLocked) {
+    final index = _doors.indexWhere((d) => d['id'] == id);
+    if (index != -1) {
+      _doors[index] = {..._doors[index], 'isLocked': isLocked};
+      notifyListeners();
+    }
+  }
 }
 
 class FamilyMember {
@@ -119,11 +186,13 @@ class FamilyMember {
   final String name;
   final String role;
   final bool faceEnrolled;
+  final bool isEnabled;
 
   FamilyMember({
     required this.id,
     required this.name,
     required this.role,
     required this.faceEnrolled,
+    this.isEnabled = true,
   });
 }

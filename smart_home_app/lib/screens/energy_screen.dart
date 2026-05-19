@@ -316,12 +316,26 @@ class _EnergyScreenState extends State<EnergyScreen>
     bool isDark,
   ) {
     final predictions = [
-      {'period': l10n.nextDay, 'value': '9.1', 'icon': LucideIcons.clock},
-      {'period': l10n.nextWeek, 'value': '61.3', 'icon': LucideIcons.calendar},
+      {
+        'period': l10n.nextDay,
+        'value': '9.1',
+        'icon': LucideIcons.clock,
+        'comparison': l10n.increaseComparedToToday("12"),
+        'isIncrease': true,
+      },
+      {
+        'period': l10n.nextWeek,
+        'value': '61.3',
+        'icon': LucideIcons.calendar,
+        'comparison': l10n.decreaseComparedToWeek("5"),
+        'isIncrease': false,
+      },
       {
         'period': l10n.nextMonth,
         'value': '248.5',
         'icon': LucideIcons.calendarDays,
+        'comparison': l10n.increaseComparedToMonth("8"),
+        'isIncrease': true,
       },
     ];
 
@@ -386,6 +400,33 @@ class _EnergyScreenState extends State<EnergyScreen>
                           Text(
                             l10n.predictedUsage,
                             style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                (p['isIncrease'] as bool)
+                                    ? LucideIcons.trendingUp
+                                    : LucideIcons.trendingDown,
+                                size: 14,
+                                color: (p['isIncrease'] as bool)
+                                    ? Colors.red
+                                    : Colors.green,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  p['comparison'] as String,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: (p['isIncrease'] as bool)
+                                        ? Colors.red
+                                        : Colors.green,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_home_app/providers/app_state_provider.dart';
 import '../l10n/app_localizations.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -12,12 +14,6 @@ class DoorsScreen extends StatefulWidget {
 class _DoorsScreenState extends State<DoorsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _listController;
-
-  final List<Map<String, dynamic>> _doors = [
-    {'id': '1', 'nameKey': 'mainDoor', 'isLocked': true},
-    {'id': '2', 'nameKey': 'garageDoor', 'isLocked': false},
-    {'id': '3', 'nameKey': 'backDoor', 'isLocked': true},
-  ];
 
   // Mock access log data
   final List<Map<String, dynamic>> _accessLog = [
@@ -139,9 +135,10 @@ class _DoorsScreenState extends State<DoorsScreen>
                 ElevatedButton(
                   onPressed: () {
                     if (pinController.text == '1234') {
-                      setState(() {
-                        door['isLocked'] = false;
-                      });
+                      Provider.of<AppStateProvider>(
+                        context,
+                        listen: false,
+                      ).setDoorState(door['id'], false);
                       Navigator.pop(dialogContext);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -179,6 +176,7 @@ class _DoorsScreenState extends State<DoorsScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final appState = Provider.of<AppStateProvider>(context);
     bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return DefaultTabController(
@@ -207,19 +205,19 @@ class _DoorsScreenState extends State<DoorsScreen>
             SafeArea(
               child: ListView.separated(
                 padding: const EdgeInsets.all(24.0),
-                itemCount: _doors.length,
+                itemCount: appState.doors.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 16),
                 itemBuilder: (context, index) {
-                  final door = _doors[index];
+                  final door = appState.doors[index];
                   String displayName = _getDoorName(l10n, door['nameKey']);
 
                   final itemAnimation = Tween<double>(begin: 0, end: 1).animate(
                     CurvedAnimation(
                       parent: _listController,
                       curve: Interval(
-                        (index / _doors.length).clamp(0.0, 1.0),
-                        ((index + 1) / _doors.length).clamp(0.0, 1.0),
+                        (index / appState.doors.length).clamp(0.0, 1.0),
+                        ((index + 1) / appState.doors.length).clamp(0.0, 1.0),
                         curve: Curves.easeOutCubic,
                       ),
                     ),
@@ -337,39 +335,71 @@ class _DoorsScreenState extends State<DoorsScreen>
                               ),
                             ],
                           ),
-                          // Manual Unlock Button
-                          if (door['isLocked'])
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: () =>
-                                      _showPinDialog(context, door),
-                                  icon: const Icon(
-                                    LucideIcons.keyRound,
-                                    size: 18,
-                                  ),
-                                  label: Text(l10n.manualUnlock),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Theme.of(
-                                      context,
-                                    ).primaryColor,
-                                    side: BorderSide(
-                                      color: Theme.of(
-                                        context,
-                                      ).primaryColor.withOpacity(0.3),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: door['isLocked']
+                                  ? OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _showPinDialog(context, door),
+                                      icon: const Icon(
+                                        LucideIcons.unlock,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        l10n.unlockManual,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Theme.of(
+                                          context,
+                                        ).primaryColor,
+                                        side: BorderSide(
+                                          color: Theme.of(
+                                            context,
+                                          ).primaryColor.withOpacity(0.3),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                    )
+                                  : ElevatedButton.icon(
+                                      onPressed: () => appState.setDoorState(
+                                        door['id'],
+                                        true,
+                                      ),
+                                      icon: const Icon(
+                                        LucideIcons.lock,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        l10n.lockManual,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).primaryColor,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                      ),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ),
+                          ),
                         ],
                       ),
                     ),

@@ -162,6 +162,31 @@
   "openSettings": "Open Settings",
   "retry": "Retry",
   "edit": "Edit",
+  "editMember": "Edit Member",
+  "enable": "Enable",
+  "disable": "Disable",
+  "lastUpdate": "Last Update",
+  "apartmentNumber": "Apartment Number",
+  "lockManual": "Lock (Manual Lock)",
+  "unlockManual": "Unlock (Manual Unlock)",
+  "increaseComparedToToday": "+{value}% increase compared to today",
+  "@increaseComparedToToday": {
+    "placeholders": {
+      "value": { "type": "String" }
+    }
+  },
+  "decreaseComparedToWeek": "-{value}% decrease compared to this week",
+  "@decreaseComparedToWeek": {
+    "placeholders": {
+      "value": { "type": "String" }
+    }
+  },
+  "increaseComparedToMonth": "+{value}% increase compared to last month",
+  "@increaseComparedToMonth": {
+    "placeholders": {
+      "value": { "type": "String" }
+    }
+  },
   "smartHome": "Smart Home",
   "appTagline": "Secure • Connected • Intelligent",
   "@appTitle": {

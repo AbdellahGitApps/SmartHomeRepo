@@ -75,10 +75,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       cameraUrl: _cameraUrlController.text,
       homeCode: _homeCodeController.text,
     );
-    appState.updateSecuritySettings(
-      pin: _pinController.text,
-    );
-    
+    appState.updateSecuritySettings(pin: _pinController.text);
+
     setState(() {
       _editAccount = false;
       _editSecurity = false;
@@ -97,7 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _resetToDefaults(AppStateProvider appState, AppLocalizations l10n) {
     appState.resetToDefaults();
     _initializeControllers(appState);
-    
+
     setState(() {
       _editAccount = false;
       _editSecurity = false;
@@ -128,6 +126,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
           children: [
+            // --- 0. APARTMENT NUMBER (PROMINENT AT TOP) ---
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Theme.of(context).primaryColor.withOpacity(0.3),
+                  width: 1.5,
+                ),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.building,
+                      size: 28,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.apartmentNumber,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Apt 4B - Building 2',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // --- 1. ACCOUNT SECTION ---
             _buildSection(
               title: l10n.account,
@@ -162,24 +227,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: LucideIcons.shield,
               isDark: isDark,
               isEditing: _editSecurity,
-              onEditToggle: () => setState(() => _editSecurity = !_editSecurity),
+              onEditToggle: () =>
+                  setState(() => _editSecurity = !_editSecurity),
               children: [
                 _buildSwitchTile(
                   title: l10n.appLock,
                   value: appState.appLockEnabled,
-                  onChanged: _editSecurity ? (val) => appState.updateSecuritySettings(appLock: val) : null,
+                  onChanged: _editSecurity
+                      ? (val) => appState.updateSecuritySettings(appLock: val)
+                      : null,
                   isDark: isDark,
                 ),
                 const SizedBox(height: 12),
                 _buildTextField(
-                  label: l10n.pinCode,
+                  label: l10n.userPinOrPassword,
                   controller: _pinController,
                   icon: LucideIcons.lock,
                   isDark: isDark,
                   obscureText: _obscurePin,
                   enabled: _editSecurity,
                   suffix: IconButton(
-                    icon: Icon(_obscurePin ? LucideIcons.eyeOff : LucideIcons.eye, size: 18),
+                    icon: Icon(
+                      _obscurePin ? LucideIcons.eyeOff : LucideIcons.eye,
+                      size: 18,
+                    ),
                     onPressed: () => setState(() => _obscurePin = !_obscurePin),
                   ),
                 ),
@@ -223,15 +294,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: Icon(_obscureHomeCode ? LucideIcons.eyeOff : LucideIcons.eye, size: 18),
-                        onPressed: () => setState(() => _obscureHomeCode = !_obscureHomeCode),
+                        icon: Icon(
+                          _obscureHomeCode
+                              ? LucideIcons.eyeOff
+                              : LucideIcons.eye,
+                          size: 18,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscureHomeCode = !_obscureHomeCode,
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(LucideIcons.copy, size: 18),
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: _homeCodeController.text));
+                          Clipboard.setData(
+                            ClipboardData(text: _homeCodeController.text),
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l10n.copiedToClipboard), duration: const Duration(seconds: 1)),
+                            SnackBar(
+                              content: Text(l10n.copiedToClipboard),
+                              duration: const Duration(seconds: 1),
+                            ),
                           );
                         },
                       ),
@@ -244,14 +327,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _isTestingConnection ? null : () => _testConnection(l10n),
-                          icon: _isTestingConnection 
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(LucideIcons.radio, size: 18),
+                          onPressed: _isTestingConnection
+                              ? null
+                              : () => _testConnection(l10n),
+                          icon: _isTestingConnection
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(LucideIcons.radio, size: 18),
                           label: Text(l10n.testConnection),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -268,7 +361,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: l10n.appearance,
               icon: LucideIcons.palette,
               isDark: isDark,
-              isEditing: true, // Appearance is always "editable" since it's just toggles/segments
+              isEditing:
+                  true, // Appearance is always "editable" since it's just toggles/segments
               showEditButton: false,
               children: [
                 _buildSettingTile(
@@ -278,13 +372,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(LucideIcons.sun, size: 16, color: appState.themeMode == ThemeMode.light ? Theme.of(context).primaryColor : Colors.grey),
+                      Icon(
+                        LucideIcons.sun,
+                        size: 16,
+                        color: appState.themeMode == ThemeMode.light
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey,
+                      ),
                       Switch(
                         value: appState.themeMode == ThemeMode.dark,
                         onChanged: (val) => appState.toggleTheme(val),
                         activeColor: Theme.of(context).primaryColor,
                       ),
-                      Icon(LucideIcons.moon, size: 16, color: appState.themeMode == ThemeMode.dark ? Theme.of(context).primaryColor : Colors.grey),
+                      Icon(
+                        LucideIcons.moon,
+                        size: 16,
+                        color: appState.themeMode == ThemeMode.dark
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey,
+                      ),
                     ],
                   ),
                 ),
@@ -302,7 +408,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onSelectionChanged: (Set<String> newSelection) {
                       appState.switchLanguage(newSelection.first);
                     },
-                    style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
                 ),
               ],
@@ -310,35 +418,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             const SizedBox(height: 32),
 
-            // --- PRIMARY ACTIONS (Visible only if something is being edited) ---
-            if (_editAccount || _editSecurity || _editNetwork) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _saveSettings(appState, l10n),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
+            // --- PRIMARY ACTIONS ---
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _saveSettings(appState, l10n),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Text(l10n.saveSettings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      l10n.saveSettings,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: () => _resetToDefaults(appState, l10n),
-                icon: const Icon(LucideIcons.rotateCcw, size: 16),
-                label: Text(l10n.resetDefaults),
-                style: TextButton.styleFrom(foregroundColor: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-            ],
-            
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => _resetToDefaults(appState, l10n),
+              icon: const Icon(LucideIcons.rotateCcw, size: 16),
+              label: Text(l10n.resetDefaults),
+              style: TextButton.styleFrom(foregroundColor: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+
             // --- LOGOUT (PINNED TO BOTTOM-ISH) ---
             _buildLogoutButton(appState, l10n, isDark),
             const SizedBox(height: 32),
@@ -383,11 +497,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (showEditButton)
                 TextButton.icon(
                   onPressed: onEditToggle,
-                  icon: Icon(isEditing ? LucideIcons.x : LucideIcons.edit3, size: 14),
-                  label: Text(isEditing ? "Cancel" : "Edit", style: const TextStyle(fontSize: 12)),
+                  icon: Icon(
+                    isEditing ? LucideIcons.x : LucideIcons.edit3,
+                    size: 14,
+                  ),
+                  label: Text(
+                    isEditing ? "Cancel" : "Edit",
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    foregroundColor: isEditing ? Colors.red : Theme.of(context).primaryColor,
+                    foregroundColor: isEditing
+                        ? Colors.red
+                        : Theme.of(context).primaryColor,
                   ),
                 ),
             ],
@@ -399,18 +521,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: isDark ? const Color(0xFF1E293B) : Colors.white,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isEditing 
-                ? Theme.of(context).primaryColor.withOpacity(0.5)
-                : (isDark ? const Color(0xFF334155) : Colors.transparent),
+              color: isEditing
+                  ? Theme.of(context).primaryColor.withOpacity(0.5)
+                  : (isDark ? const Color(0xFF334155) : Colors.transparent),
               width: 1.5,
             ),
-            boxShadow: isDark ? [] : [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(children: children),
         ),
@@ -438,20 +562,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : Colors.grey.shade200),
+          borderSide: BorderSide(
+            color: isDark
+                ? const Color(0xFF334155).withOpacity(0.5)
+                : Colors.grey.shade200,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+          borderSide: BorderSide(
+            color: Theme.of(context).primaryColor,
+            width: 2,
+          ),
         ),
         filled: true,
-        fillColor: enabled 
-          ? (isDark ? const Color(0xFF0F172A) : Colors.grey.shade50)
-          : (isDark ? const Color(0xFF1E293B) : Colors.grey.shade100),
+        fillColor: enabled
+            ? (isDark ? const Color(0xFF0F172A) : Colors.grey.shade50)
+            : (isDark ? const Color(0xFF1E293B) : Colors.grey.shade100),
       ),
     );
   }
@@ -479,11 +612,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: Theme.of(context).primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, size: 18, color: Theme.of(context).primaryColor),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: Theme.of(context).primaryColor,
+                ),
               ),
               const SizedBox(width: 16),
-              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w500))),
-              if (trailing != null) trailing else const Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+              if (trailing != null)
+                trailing
+              else
+                const Icon(
+                  LucideIcons.chevronRight,
+                  size: 16,
+                  color: Colors.grey,
+                ),
             ],
           ),
         ),
@@ -511,7 +660,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: Theme.of(context).primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(LucideIcons.shieldAlert, size: 18, color: Color(0xFFF9C846)),
+                child: const Icon(
+                  LucideIcons.shieldAlert,
+                  size: 18,
+                  color: Color(0xFFF9C846),
+                ),
               ),
               const SizedBox(width: 16),
               Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -527,18 +680,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildLogoutButton(AppStateProvider appState, AppLocalizations l10n, bool isDark) {
+  Widget _buildLogoutButton(
+    AppStateProvider appState,
+    AppLocalizations l10n,
+    bool isDark,
+  ) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () => appState.logout(),
         icon: const Icon(LucideIcons.logOut, size: 18),
-        label: Text(l10n.logout, style: const TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(
+          l10n.logout,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.red,
           side: BorderSide(color: Colors.red.withOpacity(0.3)),
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
     );

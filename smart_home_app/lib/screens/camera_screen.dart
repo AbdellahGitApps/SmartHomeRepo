@@ -245,9 +245,9 @@ class _CameraScreenState extends State<CameraScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          cam['isLive'] == true 
-                            ? (index == 0 ? appState.cameraUrl : l10n.live)
-                            : l10n.recording,
+                          cam['isLive'] == true
+                              ? (index == 0 ? appState.cameraUrl : l10n.live)
+                              : l10n.recording,
                           style: Theme.of(context).textTheme.bodyMedium!
                               .copyWith(
                                 color: isDark ? Colors.white30 : Colors.grey,

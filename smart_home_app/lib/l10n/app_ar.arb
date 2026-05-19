@@ -155,6 +155,16 @@
   "openSettings": "فتح الإعدادات",
   "retry": "إعادة المحاولة",
   "edit": "تعديل",
+  "editMember": "تعديل الفرد",
+  "enable": "تفعيل",
+  "disable": "تعطيل",
+  "lastUpdate": "آخر تحديث",
+  "apartmentNumber": "رقم الشقة",
+  "lockManual": "قفل (قفل يدوي)",
+  "unlockManual": "فتح (فتح يدوي)",
+  "increaseComparedToToday": "+{value}% زيادة مقارنة باليوم",
+  "decreaseComparedToWeek": "-{value}% انخفاض مقارنة بهذا الأسبوع",
+  "increaseComparedToMonth": "+{value}% زيادة مقارنة بالشهر الماضي",
   "smartHome": "المنزل الذكي",
   "appTagline": "آمن • متصل • ذكي"
 }

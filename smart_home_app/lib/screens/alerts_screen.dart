@@ -201,24 +201,26 @@ class _AlertsScreenState extends State<AlertsScreen>
                         final alert = filtered[index];
                         bool isResolved = alert['isResolved'] as bool;
 
-                        final itemAnimation =
-                            Tween<double>(begin: 0, end: 1).animate(
-                          CurvedAnimation(
-                            parent: _listController,
-                            curve: Interval(
-                              (index / filtered.length).clamp(0.0, 1.0),
-                              ((index + 1) / filtered.length).clamp(0.0, 1.0),
-                              curve: Curves.easeOutCubic,
-                            ),
-                          ),
-                        );
+                        final itemAnimation = Tween<double>(begin: 0, end: 1)
+                            .animate(
+                              CurvedAnimation(
+                                parent: _listController,
+                                curve: Interval(
+                                  (index / filtered.length).clamp(0.0, 1.0),
+                                  ((index + 1) / filtered.length).clamp(
+                                    0.0,
+                                    1.0,
+                                  ),
+                                  curve: Curves.easeOutCubic,
+                                ),
+                              ),
+                            );
 
                         return AnimatedBuilder(
                           animation: itemAnimation,
                           builder: (context, child) {
                             return Transform.translate(
-                              offset:
-                                  Offset(50 * (1 - itemAnimation.value), 0),
+                              offset: Offset(50 * (1 - itemAnimation.value), 0),
                               child: Opacity(
                                 opacity: itemAnimation.value,
                                 child: child,
@@ -226,7 +228,12 @@ class _AlertsScreenState extends State<AlertsScreen>
                             );
                           },
                           child: _buildAlertCard(
-                              alert, isResolved, isDark, l10n, index),
+                            alert,
+                            isResolved,
+                            isDark,
+                            l10n,
+                            index,
+                          ),
                         );
                       },
                     ),
@@ -262,8 +269,8 @@ class _AlertsScreenState extends State<AlertsScreen>
               color: isSelected
                   ? Colors.white
                   : (isDark
-                      ? const Color(0xFF94A3B8)
-                      : const Color(0xFF757575)),
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF757575)),
             ),
           ),
         ),
@@ -294,11 +301,8 @@ class _AlertsScreenState extends State<AlertsScreen>
           border: isDark
               ? Border.all(color: const Color(0xFF334155), width: 1)
               : isResolved
-                  ? null
-                  : Border.all(
-                      color: alertColor.withOpacity(0.25),
-                      width: 1,
-                    ),
+              ? null
+              : Border.all(color: alertColor.withOpacity(0.25), width: 1),
           boxShadow: isDark
               ? []
               : [
@@ -329,11 +333,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                       color: alertColor.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      alert['icon'],
-                      color: alertColor,
-                      size: 22,
-                    ),
+                    child: Icon(alert['icon'], color: alertColor, size: 22),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -344,9 +344,9 @@ class _AlertsScreenState extends State<AlertsScreen>
                     children: [
                       Text(
                         _getAlertTitle(l10n, alert['titleKey']),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontSize: 16,
-                            ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleLarge?.copyWith(fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       Wrap(
@@ -371,8 +371,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                             child: Text(
                               isResolved ? l10n.resolved : l10n.activeAlert,
                               style: TextStyle(
-                                color:
-                                    isResolved ? Colors.green : Colors.red,
+                                color: isResolved ? Colors.green : Colors.red,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -415,7 +414,9 @@ class _AlertsScreenState extends State<AlertsScreen>
                     _buildDetailRow(
                       LucideIcons.video,
                       l10n.cameraLabel,
-                      alert['cameraKey'] == 'frontDoor' ? l10n.frontDoor : (alert['camera'] ?? l10n.frontDoor),
+                      alert['cameraKey'] == 'frontDoor'
+                          ? l10n.frontDoor
+                          : (alert['camera'] ?? l10n.frontDoor),
                       isDark,
                     ),
                     const SizedBox(height: 8),
@@ -461,7 +462,10 @@ class _AlertsScreenState extends State<AlertsScreen>
                         AddMemberBottomSheet.show(
                           context,
                           l10n: l10n,
-                          appState: Provider.of<AppStateProvider>(context, listen: false),
+                          appState: Provider.of<AppStateProvider>(
+                            context,
+                            listen: false,
+                          ),
                           isDark: isDark,
                           onAdded: () {
                             setState(() => alert['isResolved'] = true);
@@ -479,8 +483,10 @@ class _AlertsScreenState extends State<AlertsScreen>
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(12),
@@ -491,7 +497,9 @@ class _AlertsScreenState extends State<AlertsScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        alert['deviceNameKey'] == 'livingRoomSensor' ? l10n.livingRoomSensor : (alert['deviceName'] ?? 'Unknown Device'),
+                        alert['deviceNameKey'] == 'livingRoomSensor'
+                            ? l10n.livingRoomSensor
+                            : (alert['deviceName'] ?? 'Unknown Device'),
                         style: const TextStyle(
                           fontSize: 13,
                           color: Colors.red,
@@ -509,8 +517,10 @@ class _AlertsScreenState extends State<AlertsScreen>
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.orange.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
@@ -550,9 +560,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                   label: Text(l10n.resolve),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.green,
-                    side: BorderSide(
-                      color: Colors.green.withOpacity(0.3),
-                    ),
+                    side: BorderSide(color: Colors.green.withOpacity(0.3)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -597,7 +605,8 @@ class _AlertsScreenState extends State<AlertsScreen>
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: valueColor ??
+              color:
+                  valueColor ??
                   (isDark ? const Color(0xFFF8FAFC) : const Color(0xFF1A1A1A)),
             ),
           ),
