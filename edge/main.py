@@ -212,18 +212,51 @@ def logs(request: Request):
     return templates.TemplateResponse(request=request, name="logs.html")
 
 # =========================
-# MQTT INIT
+# MQTT & BACKGROUND TASKS INIT
 # =========================
+import asyncio
+
+async def auto_offline_task():
+    while True:
+        try:
+            await asyncio.sleep(30)
+            from database.connection.database import SessionLocal
+            db = SessionLocal()
+            try:
+                count = device_service.mark_inactive_devices_offline(db)
+                if count > 0:
+                    print(f"[Offline Task] Marked {count} devices as offline")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[Offline Task] Error: {e}")
+
 @app.on_event("startup")
-def startup_event():
+async def startup_event():
     print("Starting Smart Home Backend...")
     start_mqtt()
     print("MQTT Connected & Subscribed")
+    asyncio.create_task(auto_offline_task())
 
 @app.on_event("shutdown")
 def shutdown_event():
     print("Shutting down system...")
     stop_mqtt()
+
+# =========================
+# DEVICE STATUS API
+# =========================
+@app.get("/api/devices/status")
+def get_devices_status(db: Session = Depends(get_db)):
+    devices = device_service.get_all_devices(db)
+    return [
+        {
+            "device_id": dev.device_id,
+            "status": dev.status,
+            "last_seen": dev.last_seen.isoformat() if dev.last_seen else None
+        }
+        for dev in devices
+    ]
 
 # =========================
 # HEALTH CHECK

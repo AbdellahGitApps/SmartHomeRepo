@@ -1,7 +1,7 @@
 import uuid
 import random
 import string
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from database.connection.database import Base
 
 
@@ -32,4 +32,6 @@ class Device(Base):
     status = Column(String, default="offline")
     claim_code = Column(String, unique=True, nullable=True, default=generate_claim_code)
     claim_status = Column(String, default="pending")
+    last_seen = Column(DateTime, nullable=True)
+
 

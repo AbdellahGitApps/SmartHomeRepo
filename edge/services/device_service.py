@@ -101,3 +101,60 @@ def get_all_devices(db: Session):
 def get_devices_by_home_id(db: Session, home_id: int):
     from database.repositories.device_repository import DeviceRepository
     return DeviceRepository.get_by_home_id(db, home_id)
+
+
+def register_device(db: Session, device_id: str, device_token: str) -> bool:
+    """
+    Validate device token and set status to online, updating last_seen.
+    """
+    from datetime import datetime
+    from database.repositories.device_repository import DeviceRepository
+    
+    device = DeviceRepository.get_by_device_id(db, device_id)
+    if not device:
+        return False
+    if device.device_token != device_token:
+        return False
+        
+    device.status = "online"
+    device.last_seen = datetime.now()
+    db.commit()
+    return True
+
+
+def heartbeat_device(db: Session, device_id: str) -> bool:
+    """
+    Update last_seen on heartbeat to keep device online.
+    """
+    from datetime import datetime
+    from database.repositories.device_repository import DeviceRepository
+    
+    device = DeviceRepository.get_by_device_id(db, device_id)
+    if not device:
+        return False
+        
+    device.status = "online"
+    device.last_seen = datetime.now()
+    db.commit()
+    return True
+
+
+def mark_inactive_devices_offline(db: Session) -> int:
+    """
+    Find all devices that haven't been seen in the last 2 minutes and mark them offline.
+    """
+    from datetime import datetime, timedelta
+    
+    cutoff = datetime.now() - timedelta(minutes=2)
+    
+    devices = db.query(Device).filter(Device.status == "online").all()
+    count = 0
+    for device in devices:
+        if not device.last_seen or device.last_seen < cutoff:
+            device.status = "offline"
+            count += 1
+            
+    if count > 0:
+        db.commit()
+    return count
+
