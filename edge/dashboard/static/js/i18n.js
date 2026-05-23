@@ -38,6 +38,7 @@ const translations = {
     "home_code": "Home Code",
     "connected_devices": "Connected Devices",
     "recent_logs": "Recent Access Logs",
+    "no_associated_devices": "No associated devices found for this home.",
     
     // Create Home Screen
     "register_new_home": "Register New Home",
@@ -231,6 +232,7 @@ const translations = {
     "home_code": "كود المنزل",
     "connected_devices": "الأجهزة المتصلة",
     "recent_logs": "سجلات الوصول الأخيرة",
+    "no_associated_devices": "لم يتم العثور على أجهزة مرتبطة بهذا المنزل.",
     
     // Create Home Screen
     "register_new_home": "تسجيل منزل جديد",

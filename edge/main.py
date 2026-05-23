@@ -180,6 +180,22 @@ def home_details(request: Request, home_id: int, db: Session = Depends(get_db)):
         context={"request": request, "home": home, "devices": devices_list}
     )
 
+@app.delete("/home/{home_id}")
+def delete_home_endpoint(home_id: int, db: Session = Depends(get_db)):
+    try:
+        home_service.delete_home(db, home_id)
+        return {
+            "success": True,
+            "message": "Home and all related devices deleted successfully"
+        }
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/devices")
 def devices(request: Request, db: Session = Depends(get_db)):
     devices_list = device_service.get_all_devices(db)

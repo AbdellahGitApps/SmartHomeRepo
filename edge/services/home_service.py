@@ -56,3 +56,27 @@ def get_all_homes(db: Session):
 def get_home_by_id(db: Session, home_id: int):
     from database.repositories.home_repository import HomeRepository
     return HomeRepository.get_by_id(db, home_id)
+
+
+def delete_home(db: Session, home_id: int):
+    """
+    Delete a Home and all its associated devices.
+    """
+    from database.models.device import Device
+    
+    # 1. Query home by id
+    home = db.query(Home).filter(Home.id == home_id).first()
+    
+    # 2. If not found → raise error
+    if not home:
+        raise ValueError(f"Home with id {home_id} not found")
+        
+    # 3. Delete all devices where device.home_id == home_id
+    db.query(Device).filter(Device.home_id == home_id).delete()
+    
+    # 4. Delete home
+    db.delete(home)
+    
+    # 5. Commit transaction safely
+    db.commit()
+
