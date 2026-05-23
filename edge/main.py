@@ -99,8 +99,25 @@ class FaceVerifyRequest(BaseModel):
 # FRONTEND ROUTES (DO NOT TOUCH)
 # =========================
 @app.get("/")
-def dashboard(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
+def dashboard(request: Request, db: Session = Depends(get_db)):
+    total_homes = db.query(Home).count()
+    total_devices = db.query(Device).count()
+    online_devices = db.query(Device).filter(Device.status == 'online').count()
+    pending_claims = db.query(Device).filter(Device.claim_status == 'pending').count()
+    
+    stats = {
+        "total_homes": total_homes,
+        "total_devices": total_devices,
+        "online_devices": online_devices,
+        "pending_claims": pending_claims
+    }
+    
+    homes_list = home_service.get_all_homes(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"request": request, "stats": stats, "homes": homes_list}
+    )
 
 @app.get("/create-home")
 def create_home_page(request: Request):
@@ -151,12 +168,28 @@ def create_home_endpoint(payload: HomeCreateRequest, db: Session = Depends(get_d
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/home-details")
-def home_details(request: Request):
-    return templates.TemplateResponse(request=request, name="home_details.html")
+def home_details(request: Request, home_id: int, db: Session = Depends(get_db)):
+    home = home_service.get_home_by_id(db, home_id)
+    if not home:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Home not found")
+    devices_list = device_service.get_devices_by_home_id(db, home_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="home_details.html",
+        context={"request": request, "home": home, "devices": devices_list}
+    )
 
 @app.get("/devices")
-def devices(request: Request):
-    return templates.TemplateResponse(request=request, name="devices.html")
+def devices(request: Request, db: Session = Depends(get_db)):
+    devices_list = device_service.get_all_devices(db)
+    homes_list = home_service.get_all_homes(db)
+    home_map = {home.id: home for home in homes_list}
+    return templates.TemplateResponse(
+        request=request,
+        name="devices.html",
+        context={"request": request, "devices": devices_list, "home_map": home_map}
+    )
 
 @app.get("/cameras")
 def cameras(request: Request):

@@ -91,3 +91,13 @@ def create_device(
     db.commit()
     db.refresh(db_device)
     return db_device
+
+
+def get_all_devices(db: Session):
+    from database.repositories.device_repository import DeviceRepository
+    return DeviceRepository.get_all(db)
+
+
+def get_devices_by_home_id(db: Session, home_id: int):
+    from database.repositories.device_repository import DeviceRepository
+    return DeviceRepository.get_by_home_id(db, home_id)

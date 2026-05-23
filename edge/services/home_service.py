@@ -46,3 +46,13 @@ def create_home(
     db.commit()
     db.refresh(db_home)
     return db_home
+
+
+def get_all_homes(db: Session):
+    from database.repositories.home_repository import HomeRepository
+    return HomeRepository.get_all(db)
+
+
+def get_home_by_id(db: Session, home_id: int):
+    from database.repositories.home_repository import HomeRepository
+    return HomeRepository.get_by_id(db, home_id)

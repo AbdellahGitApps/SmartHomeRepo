@@ -5,8 +5,8 @@
 <div class="page-header">
     <div class="page-title">
         <a href="/" style="color: var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px; margin-bottom: 10px;"><i class="ph ph-arrow-left"></i> <span data-i18n="back_homes">Back to Homes</span></a>
-        <h1>Apartment 36</h1>
-        <p><span data-i18n="owner">Owner</span>: John Doe | <span data-i18n="status">Status</span>: <span class="badge badge-success" data-i18n="status_online">Online</span></p>
+        <h1>{{ home.name }}</h1>
+        <p><span data-i18n="owner">Owner</span>: {{ home.owner_name or '--' }} | <span data-i18n="status">Status</span>: <span class="badge badge-success" data-i18n="status_online">Online</span></p>
     </div>
     <div class="header-actions">
         <button class="btn btn-outline"><i class="ph ph-pencil"></i> <span data-i18n="edit_home">Edit Home</span></button>
@@ -24,16 +24,16 @@
             <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.95rem;">
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-secondary);" data-i18n="apt_number">Apartment Number:</span>
-                    <span style="font-weight: 500;">36</span>
+                    <span style="font-weight: 500;">{{ home.apartment_number }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-secondary);" data-i18n="home_id">Home ID:</span>
-                    <span style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">APT-036</span>
+                    <span style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">{{ home.id }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-secondary);" data-i18n="home_code">Home Code:</span>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span id="homeCodeDisplay" data-code="AXIS-8K42" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; letter-spacing: 2px;">•••••••••</span>
+                        <span id="homeCodeDisplay" data-code="{{ home.home_code }}" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; letter-spacing: 2px;">•••••••••</span>
                         <button onclick="toggleHomeCode()" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
                             <i id="homeCodeIcon" class="ph ph-eye"></i>
                         </button>
@@ -45,11 +45,11 @@
                 <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 4px 0;">
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-secondary);">Email:</span>
-                    <span>john.doe@example.com</span>
+                    <span>{{ home.owner_email or '--' }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-secondary);">Registered:</span>
-                    <span>Oct 12, 2025</span>
+                    <span>Active</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-secondary);">Members:</span>
@@ -92,69 +92,63 @@
                 <i class="ph ph-plugs"></i> <span data-i18n="connected_devices">Connected Devices</span>
             </h3>
             <div style="display: flex; flex-direction: column; gap: 16px;">
-                <!-- Front Door Camera -->
+                {% for device in devices %}
                 <div style="padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
+                            {% if device.device_type == 'smart_door' %}
                             <i class="ph-fill ph-camera" style="font-size: 2rem; color: var(--accent-primary);"></i>
-                            <div>
-                                <div style="font-weight: 600; font-size: 1.1rem;">Front Door Camera</div>
-                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">Type: ESP32-CAM</div>
-                            </div>
-                        </div>
-                        <span class="badge badge-success device-status-badge" data-device-id="CAM-APT036-001">Online</span>
-                    </div>
-                    <div style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">ID:</span>
-                            <span style="font-family: monospace; letter-spacing: 0.5px;">CAM-APT036-001</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: var(--text-secondary);">Device Token:</span>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span id="tokenCam" data-token="tok_cam_a1b2c3d4e5f6" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--status-success);">Created</span>
-                                <button onclick="toggleDeviceToken('tokenCam', 'iconCam')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
-                                    <i id="iconCam" class="ph ph-eye"></i>
-                                </button>
-                                <button onclick="copyDeviceToken('tokenCam')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
-                                    <i class="ph ph-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Main Energy Meter -->
-                <div style="padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
+                            {% else %}
                             <i class="ph-fill ph-lightning" style="font-size: 2rem; color: var(--status-warning);"></i>
+                            {% endif %}
                             <div>
-                                <div style="font-weight: 600; font-size: 1.1rem;">Main Energy Meter</div>
-                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">Type: Energy Sensor</div>
+                                <div style="font-weight: 600; font-size: 1.1rem;">{{ device.device_name }}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">Type: {{ device.device_type }}</div>
                             </div>
                         </div>
-                        <span class="badge badge-success device-status-badge" data-device-id="METER-APT036-001">Online</span>
+                        {% if device.status == 'online' %}
+                        <span class="badge badge-success device-status-badge" data-device-id="{{ device.device_id }}">Online</span>
+                        {% else %}
+                        <span class="badge badge-offline device-status-badge" data-device-id="{{ device.device_id }}">Offline</span>
+                        {% endif %}
                     </div>
                     <div style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px;">
                         <div style="display: flex; justify-content: space-between;">
                             <span style="color: var(--text-secondary);">ID:</span>
-                            <span style="font-family: monospace; letter-spacing: 0.5px;">METER-APT036-001</span>
+                            <span style="font-family: monospace; letter-spacing: 0.5px;">{{ device.device_id }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">MQTT Topic:</span>
+                            <span style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">{{ device.mqtt_topic }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">Claim Code:</span>
+                            <span style="font-family: monospace; font-size: 0.95em;">{{ device.claim_code or '--' }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">Claim Status:</span>
+                            <span style="font-weight: 500;">{{ device.claim_status }}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: var(--text-secondary);">Device Token:</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span id="tokenMeter" data-token="tok_met_9f8e7d6c5b4a" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--status-success);">Created</span>
-                                <button onclick="toggleDeviceToken('tokenMeter', 'iconMeter')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
-                                    <i id="iconMeter" class="ph ph-eye"></i>
+                                <span id="token-{{ loop.index }}" data-token="{{ device.device_token }}" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--status-success);">Created</span>
+                                <button onclick="toggleDeviceToken('token-{{ loop.index }}', 'icon-{{ loop.index }}')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
+                                    <i id="icon-{{ loop.index }}" class="ph ph-eye"></i>
                                 </button>
-                                <button onclick="copyDeviceToken('tokenMeter')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
+                                <button onclick="copyDeviceToken('token-{{ loop.index }}')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
                                     <i class="ph ph-copy"></i>
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
+                {% else %}
+                <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
+                    <i class="ph ph-devices" style="font-size: 2rem; margin-bottom: 8px; color: var(--accent-primary); display: block;"></i>
+                    <p data-i18n="no_associated_devices">No associated devices found for this home.</p>
+                </div>
+                {% endfor %}
             </div>
         </div>
 
@@ -243,4 +237,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    if (typeof translations !== 'undefined') {
+        translations.en["no_associated_devices"] = "No associated devices found for this home.";
+        translations.ar["no_associated_devices"] = "لم يتم العثور على أجهزة مرتبطة بهذا المنزل.";
+    }
+</script>
 {% endblock %}

@@ -13,6 +13,7 @@
     </div>
 </div>
 
+{% if devices %}
 <div class="glass-card">
     <div class="table-container">
         <table>
@@ -31,138 +32,75 @@
                 </tr>
             </thead>
             <tbody>
+                {% for device in devices %}
                 <tr>
-                    <td style="font-family: monospace;">CAM-APT036-001</td>
-                    <td style="font-weight: 500;">Front Door Camera</td>
-                    <td><span class="badge" style="background: rgba(var(--accent-primary-rgb), 0.1); color: var(--accent-primary);">smart_door</span></td>
-                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">APT36</span></td>
-                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">home/APT-036/cam</td>
+                    <td style="font-family: monospace;">{{ device.device_id }}</td>
+                    <td style="font-weight: 500;">{{ device.device_name }}</td>
+                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-primary);">{{ device.device_type }}</span></td>
                     <td>
-                        <span style="display: inline-flex; align-items: center; gap: 6px;">
-                            <span style="font-family: monospace; font-size: 0.95em;">C-361-XYZ</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.8em; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="navigator.clipboard.writeText('C-361-XYZ'); showToast('Claim Code Copied!');" title="Copy Claim Code">
-                                <i class="ph ph-copy"></i>
-                            </button>
+                        <span class="badge" style="background: rgba(255,255,255,0.05);">
+                            {{ home_map.get(device.home_id).apartment_number if home_map and home_map.get(device.home_id) else (device.home_id or '--') }}
                         </span>
                     </td>
-                    <td><span class="badge badge-success">claimed</span></td>
+                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">{{ device.mqtt_topic }}</td>
+                    <td>
+                        <span style="display: inline-flex; align-items: center; gap: 6px;">
+                            <span style="font-family: monospace; font-size: 0.95em;">{{ device.claim_code or '--' }}</span>
+                            {% if device.claim_code %}
+                            <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.8em; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="navigator.clipboard.writeText('{{ device.claim_code }}'); showToast('Claim Code Copied!');" title="Copy Claim Code">
+                                <i class="ph ph-copy"></i>
+                            </button>
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        {% if device.claim_status == 'claimed' or device.claim_status == 'active' %}
+                        <span class="badge badge-success">{{ device.claim_status }}</span>
+                        {% else %}
+                        <span class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.25); border-radius: 4px; padding: 2px 6px;">{{ device.claim_status }}</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <span class="token-container" style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span class="token-text" style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);" data-token="tok_d9f8e7d6c5b4a3">••••••••••••••••</span>
+                            <span class="token-text" style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);" data-token="{{ device.device_token }}">••••••••••••••••</span>
                             <button class="btn btn-outline" style="padding: 2px 6px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="toggleTokenVisibility(this)" title="Toggle Token Visibility">
                                 <i class="ph ph-eye"></i>
                             </button>
                         </span>
                     </td>
-                    <td><span class="badge badge-success device-status-badge" data-device-id="CAM-APT036-001">Online</span></td>
+                    <td>
+                        {% if device.status == 'online' %}
+                        <span class="badge badge-success device-status-badge" data-device-id="{{ device.device_id }}">Online</span>
+                        {% else %}
+                        <span class="badge badge-offline device-status-badge" data-device-id="{{ device.device_id }}">Offline</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <div style="display: flex; gap: 4px;">
                             <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
-                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Disable Device" data-device-id="CAM-APT036-001" onclick="mockToggleDeviceStatus('CAM-APT036-001')"><i class="ph ph-pause"></i></button>
+                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Disable/Enable Device" data-device-id="{{ device.device_id }}" onclick="mockToggleDeviceStatus('{{ device.device_id }}')">
+                                {% if device.status == 'online' %}
+                                <i class="ph ph-pause"></i>
+                                {% else %}
+                                <i class="ph ph-play"></i>
+                                {% endif %}
+                            </button>
                             <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
                         </div>
                     </td>
                 </tr>
-                <tr>
-                    <td style="font-family: monospace;">METER-APT036-001</td>
-                    <td style="font-weight: 500;">Main Energy Meter</td>
-                    <td><span class="badge" style="background: rgba(var(--accent-primary-rgb), 0.1); color: var(--accent-primary);">energy_monitor</span></td>
-                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">APT36</span></td>
-                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">home/APT-036/meter</td>
-                    <td>
-                        <span style="display: inline-flex; align-items: center; gap: 6px;">
-                            <span style="font-family: monospace; font-size: 0.95em;">C-362-ABC</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.8em; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="navigator.clipboard.writeText('C-362-ABC'); showToast('Claim Code Copied!');" title="Copy Claim Code">
-                                <i class="ph ph-copy"></i>
-                            </button>
-                        </span>
-                    </td>
-                    <td><span class="badge badge-success">claimed</span></td>
-                    <td>
-                        <span class="token-container" style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span class="token-text" style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);" data-token="tok_1a2b3c4d5e6f7g">••••••••••••••••</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="toggleTokenVisibility(this)" title="Toggle Token Visibility">
-                                <i class="ph ph-eye"></i>
-                            </button>
-                        </span>
-                    </td>
-                    <td><span class="badge badge-success device-status-badge" data-device-id="METER-APT036-001">Online</span></td>
-                    <td>
-                        <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
-                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Disable Device" data-device-id="METER-APT036-001" onclick="mockToggleDeviceStatus('METER-APT036-001')"><i class="ph ph-pause"></i></button>
-                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="font-family: monospace;">CAM-APT042-002</td>
-                    <td style="font-weight: 500;">Balcony Camera</td>
-                    <td><span class="badge" style="background: rgba(var(--accent-primary-rgb), 0.1); color: var(--accent-primary);">smart_door</span></td>
-                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">APT42</span></td>
-                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">home/APT-042/cam</td>
-                    <td>
-                        <span style="display: inline-flex; align-items: center; gap: 6px;">
-                            <span style="font-family: monospace; font-size: 0.95em;">C-421-OPQ</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.8em; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="navigator.clipboard.writeText('C-421-OPQ'); showToast('Claim Code Copied!');" title="Copy Claim Code">
-                                <i class="ph ph-copy"></i>
-                            </button>
-                        </span>
-                    </td>
-                    <td><span class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.25); border-radius: 4px; padding: 2px 6px;">pending</span></td>
-                    <td>
-                        <span class="token-container" style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span class="token-text" style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);" data-token="tok_9z8y7x6w5v4u3t">••••••••••••••••</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="toggleTokenVisibility(this)" title="Toggle Token Visibility">
-                                <i class="ph ph-eye"></i>
-                            </button>
-                        </span>
-                    </td>
-                    <td><span class="badge badge-offline device-status-badge" data-device-id="CAM-APT042-002">Offline</span></td>
-                    <td>
-                        <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
-                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Enable Device" data-device-id="CAM-APT042-002" onclick="mockToggleDeviceStatus('CAM-APT042-002')"><i class="ph ph-play"></i></button>
-                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="font-family: monospace;">METER-APT042-001</td>
-                    <td style="font-weight: 500;">Balcony Energy Monitor</td>
-                    <td><span class="badge" style="background: rgba(var(--accent-primary-rgb), 0.1); color: var(--accent-primary);">energy_monitor</span></td>
-                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">APT42</span></td>
-                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">home/APT-042/meter</td>
-                    <td>
-                        <span style="display: inline-flex; align-items: center; gap: 6px;">
-                            <span style="font-family: monospace; font-size: 0.95em;">C-422-RST</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.8em; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="navigator.clipboard.writeText('C-422-RST'); showToast('Claim Code Copied!');" title="Copy Claim Code">
-                                <i class="ph ph-copy"></i>
-                            </button>
-                        </span>
-                    </td>
-                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 4px; padding: 2px 6px;">active</span></td>
-                    <td>
-                        <span class="token-container" style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span class="token-text" style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);" data-token="tok_8a7b6c5d4e3f2g">••••••••••••••••</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="toggleTokenVisibility(this)" title="Toggle Token Visibility">
-                                <i class="ph ph-eye"></i>
-                            </button>
-                        </span>
-                    </td>
-                    <td><span class="badge badge-success device-status-badge" data-device-id="METER-APT042-001">Online</span></td>
-                    <td>
-                        <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
-                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Disable Device" data-device-id="METER-APT042-001" onclick="mockToggleDeviceStatus('METER-APT042-001')"><i class="ph ph-pause"></i></button>
-                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
-                        </div>
-                    </td>
-                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+{% else %}
+<div class="glass-card" style="text-align: center; padding: 48px; color: var(--text-secondary);">
+    <i class="ph ph-devices" style="font-size: 3rem; margin-bottom: 16px; color: var(--accent-primary);"></i>
+    <p style="font-size: 1.1rem; font-weight: 500;" data-i18n="no_devices_msg">No devices registered yet.</p>
+    <p style="font-size: 0.9rem; margin-top: 8px;" data-i18n="add_first_device_desc">Get started by provisioning devices when creating a home.</p>
+</div>
+{% endif %}
 
 <script>
     function toggleTokenVisibility(btn) {
@@ -177,6 +115,18 @@
             tokenText.textContent = '••••••••••••••••';
             icon.className = 'ph ph-eye';
         }
+    }
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    if (typeof translations !== 'undefined') {
+        translations.en["no_devices_msg"] = "No devices registered yet.";
+        translations.ar["no_devices_msg"] = "لا توجد أجهزة مسجلة بعد.";
+
+        translations.en["add_first_device_desc"] = "Get started by provisioning devices when creating a home.";
+        translations.ar["add_first_device_desc"] = "ابدأ بتهيئة الأجهزة عند إنشاء منزل.";
     }
 </script>
 {% endblock %}
