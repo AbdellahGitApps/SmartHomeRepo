@@ -22,6 +22,9 @@ const translations = {
     "col_mqtt": "MQTT Topic",
     "col_status": "Status",
     "col_actions": "Actions",
+    "col_claim_code": "Claim Code",
+    "col_claim_status": "Claim Status",
+    "col_device_token": "Device Token",
     
     // Home Details Screen
     "back_homes": "Back to Homes",
@@ -212,6 +215,9 @@ const translations = {
     "col_mqtt": "موضوع MQTT",
     "col_status": "الحالة",
     "col_actions": "الإجراءات",
+    "col_claim_code": "رمز المطالبة",
+    "col_claim_status": "حالة المطالبة",
+    "col_device_token": "رمز الجهاز",
     
     // Home Details Screen
     "back_homes": "العودة إلى المنازل",

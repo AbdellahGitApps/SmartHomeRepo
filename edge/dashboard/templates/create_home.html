@@ -10,7 +10,7 @@
 </div>
 
 <div class="glass-card" style="max-width: 800px;">
-    <form action="#" method="POST" onsubmit="event.preventDefault(); alert('Home & Devices Registered Successfully! (Mocking future backend assignment of IDs, MQTT topics, etc.)'); window.location.href='/';">
+    <form id="createHomeForm">
         
         <h3 style="margin-bottom: 20px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;" data-i18n="apt_info">Apartment Information</h3>
         
@@ -50,11 +50,8 @@
                     <label>Device Type</label>
                     <select class="form-control" required>
                         <option value="">Select Type</option>
-                        <option value="ESP32-CAM" selected>ESP32-CAM (Camera)</option>
-                        <option value="Energy Sensor">Energy Sensor</option>
-                        <option value="Motion Sensor">Motion Sensor</option>
-                        <option value="Smart Lock">Smart Lock</option>
-                        <option value="Thermostat">Thermostat</option>
+                        <option value="smart_door" selected>smart_door</option>
+                        <option value="energy_monitor">energy_monitor</option>
                     </select>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
@@ -73,11 +70,8 @@
                     <label>Device Type</label>
                     <select class="form-control" required>
                         <option value="">Select Type</option>
-                        <option value="ESP32-CAM">ESP32-CAM (Camera)</option>
-                        <option value="Energy Sensor" selected>Energy Sensor</option>
-                        <option value="Motion Sensor">Motion Sensor</option>
-                        <option value="Smart Lock">Smart Lock</option>
-                        <option value="Thermostat">Thermostat</option>
+                        <option value="smart_door">smart_door</option>
+                        <option value="energy_monitor" selected>energy_monitor</option>
                     </select>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
@@ -109,17 +103,14 @@
             <div class="device-entry" style="padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: end; animation: fadeIn 0.3s ease;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Device Name</label>
-                    <input type="text" class="form-control" placeholder="e.g. Living Room Motion" required>
+                    <input type="text" class="form-control" placeholder="e.g. Living Room Smart Door" required>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Device Type</label>
                     <select class="form-control" required>
                         <option value="">Select Type</option>
-                        <option value="ESP32-CAM">ESP32-CAM (Camera)</option>
-                        <option value="Energy Sensor">Energy Sensor</option>
-                        <option value="Motion Sensor">Motion Sensor</option>
-                        <option value="Smart Lock">Smart Lock</option>
-                        <option value="Thermostat">Thermostat</option>
+                        <option value="smart_door">smart_door</option>
+                        <option value="energy_monitor">energy_monitor</option>
                     </select>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
@@ -137,6 +128,54 @@
             window.location.reload();
         }, 100);
     }
+
+    document.getElementById('createHomeForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Gather devices
+        const deviceEntries = document.querySelectorAll('.device-entry');
+        const devices = [];
+        deviceEntries.forEach(entry => {
+            const nameInput = entry.querySelector('input[type="text"]');
+            const typeSelect = entry.querySelector('select');
+            if (nameInput && typeSelect) {
+                devices.push({
+                    device_name: nameInput.value,
+                    device_type: typeSelect.value
+                });
+            }
+        });
+        
+        const apartmentNumber = document.getElementById('apartmentNumber').value;
+        const payload = {
+            name: `Apartment ${apartmentNumber}`,
+            apartment_number: apartmentNumber,
+            owner_name: document.getElementById('ownerName').value,
+            owner_email: document.getElementById('ownerEmail').value,
+            devices: devices
+        };
+        
+        try {
+            const response = await fetch('/create-home', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert('Home & Devices Registered Successfully!');
+                window.location.href = '/';
+            } else {
+                const err = await response.json();
+                alert('Error: ' + (err.detail || 'Failed to register home'));
+            }
+        } catch (error) {
+            alert('Connection error: ' + error.message);
+        }
+    });
 </script>
 
 <style>

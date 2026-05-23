@@ -1,0 +1,93 @@
+import secrets
+import random
+import string
+from sqlalchemy.orm import Session
+from database.models.home import Home
+from database.models.device import Device
+
+
+def generate_device_id(
+    db: Session = None,
+    home_id: int = None,
+    home_code: str = None,
+    device_type: str = None,
+) -> str:
+    """
+    Generate device_id in the format: {TYPE}-{HOME}-{INDEX}
+    Example: DOOR-HOME36-001
+    """
+    type_prefix = "DOOR" if device_type == "smart_door" else "METER"
+    home_clean = (home_code or "HOME").replace("-", "").upper()
+
+    if db and home_id and device_type:
+        count = (
+            db.query(Device)
+            .filter(Device.home_id == home_id, Device.device_type == device_type)
+            .count()
+        )
+    else:
+        count = 0
+
+    index_str = f"{count + 1:03d}"
+    return f"{type_prefix}-{home_clean}-{index_str}"
+
+
+def generate_device_token() -> str:
+    """
+    Generate a secure random token for the device.
+    """
+    return f"tok_{secrets.token_hex(8)}"
+
+
+def generate_claim_code(home_code: str) -> str:
+    """
+    Generate a claim code in the format: HOME36-9K2P
+    """
+    home_clean = home_code.replace("-", "").upper()
+    suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"{home_clean}-{suffix}"
+
+
+def generate_mqtt_topic(home_code: str, device_type: str, device_id: str) -> str:
+    """
+    Generate the MQTT topic in the format: home/{home_code}/{device_type}/{device_id}
+    """
+    return f"home/{home_code}/{device_type}/{device_id}"
+
+
+def create_device(
+    db: Session, home_id: int, device_name: str, device_type: str
+) -> Device:
+    """
+    Full device provisioning logic. Reject invalid types, query home_code,
+    generate all unique identifiers and tokens, and insert Device into DB.
+    """
+    if device_type not in ["smart_door", "energy_monitor"]:
+        raise ValueError(
+            "Invalid device type. Allowed types: smart_door, energy_monitor"
+        )
+
+    home = db.query(Home).filter(Home.id == home_id).first()
+    if not home:
+        raise ValueError(f"Home with id {home_id} not found")
+
+    device_id = generate_device_id(db, home_id, home.home_code, device_type)
+    device_token = generate_device_token()
+    claim_code = generate_claim_code(home.home_code)
+    mqtt_topic = generate_mqtt_topic(home.home_code, device_type, device_id)
+
+    db_device = Device(
+        home_id=home_id,
+        device_id=device_id,
+        device_name=device_name,
+        device_type=device_type,
+        device_token=device_token,
+        mqtt_topic=mqtt_topic,
+        status="offline",
+        claim_code=claim_code,
+        claim_status="pending",
+    )
+    db.add(db_device)
+    db.commit()
+    db.refresh(db_device)
+    return db_device

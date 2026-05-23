@@ -1,0 +1,48 @@
+import random
+import string
+from sqlalchemy.orm import Session
+from database.models.home import Home
+
+
+def generate_home_code(apartment_number: str) -> str:
+    """
+    Generate home_code automatically in the format HOME-XXX (e.g., HOME-036).
+    Pads the apartment number to at least 3 digits.
+    """
+    try:
+        num = int(apartment_number)
+        padded = f"{num:03d}"
+    except ValueError:
+        padded = apartment_number.zfill(3)
+    return f"HOME-{padded}"
+
+
+def create_home(
+    db: Session,
+    name: str,
+    owner_name: str,
+    owner_email: str,
+    apartment_number: str,
+) -> Home:
+    """
+    Create a new Home in the database, automatically generating a unique home_code.
+    """
+    home_code = generate_home_code(apartment_number)
+
+    # Ensure uniqueness of the home_code
+    exists = db.query(Home).filter(Home.home_code == home_code).first()
+    if exists:
+        suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
+        home_code = f"{home_code}-{suffix}"
+
+    db_home = Home(
+        name=name,
+        owner_name=owner_name,
+        owner_email=owner_email,
+        apartment_number=apartment_number,
+        home_code=home_code,
+    )
+    db.add(db_home)
+    db.commit()
+    db.refresh(db_home)
+    return db_home
