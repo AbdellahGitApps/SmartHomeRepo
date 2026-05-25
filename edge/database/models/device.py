@@ -1,7 +1,7 @@
 import uuid
 import random
 import string
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from database.connection.database import Base
 
 
@@ -33,5 +33,13 @@ class Device(Base):
     claim_code = Column(String, unique=True, nullable=True, default=generate_claim_code)
     claim_status = Column(String, default="pending")
     last_seen = Column(DateTime, nullable=True)
+    mac_address = Column(String(64), nullable=True, index=True)
+    device_ip = Column(String(64), nullable=True)
+    camera_stream_url = Column(String(255), nullable=True)
+    camera_capture_url = Column(String(255), nullable=True)
+    firmware_version = Column(String(64), nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+    enabled = Column(Boolean, default=True)
 
 

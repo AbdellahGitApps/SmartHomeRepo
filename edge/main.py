@@ -1,3 +1,14 @@
+
+try:
+    try:
+        from database.migrations import run_startup_migrations
+    except ImportError:
+        from edge.database.migrations import run_startup_migrations
+
+    run_startup_migrations()
+except Exception as migration_error:
+    print(f"[MIGRATION WARNING] {migration_error}")
+
 from datetime import datetime
 import json
 import math

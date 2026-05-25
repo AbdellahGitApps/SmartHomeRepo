@@ -158,3 +158,54 @@ def mark_inactive_devices_offline(db: Session) -> int:
         db.commit()
     return count
 
+
+
+
+CAMERA_DEVICE_TYPES = {
+    "smart_door",
+    "esp32_cam",
+    "door_camera",
+    "camera",
+}
+
+
+def is_camera_device(device_type):
+    if not device_type:
+        return False
+    return str(device_type).strip().lower() in CAMERA_DEVICE_TYPES
+
+
+def build_camera_urls(device_ip, device_type):
+    if not device_ip or not is_camera_device(device_type):
+        return {
+            "camera_stream_url": None,
+            "camera_capture_url": None,
+        }
+
+    clean_ip = str(device_ip).strip().replace("http://", "").replace("https://", "").strip("/")
+
+    return {
+        "camera_stream_url": f"http://{clean_ip}/stream",
+        "camera_capture_url": f"http://{clean_ip}/capture",
+    }
+
+
+def apply_device_network_fields(
+    device,
+    device_ip=None,
+    mac_address=None,
+    firmware_version=None,
+):
+    if device_ip:
+        device.device_ip = device_ip
+        urls = build_camera_urls(device_ip, getattr(device, "device_type", None))
+        device.camera_stream_url = urls["camera_stream_url"]
+        device.camera_capture_url = urls["camera_capture_url"]
+
+    if mac_address:
+        device.mac_address = mac_address
+
+    if firmware_version:
+        device.firmware_version = firmware_version
+
+    return device
