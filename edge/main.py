@@ -1,3 +1,4 @@
+from fastapi import Request
 
 try:
     try:
@@ -230,9 +231,6 @@ def energy(request: Request):
 def status(request: Request):
     return templates.TemplateResponse(request=request, name="status.html")
 
-@app.get("/users")
-def users(request: Request):
-    return templates.TemplateResponse(request=request, name="users.html")
 
 @app.get("/logs")
 def logs(request: Request):
@@ -897,3 +895,74 @@ def refresh_device_status(request: DeviceRefreshStatusRequest):
         }
     finally:
         connection.close()
+
+
+# PHASE9_USERS_START
+def _phase9_get_dashboard_users():
+    import sqlite3
+    from pathlib import Path
+
+    db_path = Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+    users = [
+        {
+            "initials": "SO",
+            "name": "System Owner",
+            "email": "admin@edge-system.local",
+            "role": "SYSTEM OWNER",
+            "home": "-- (All)",
+            "status": "ACTIVE",
+            "last_login": "Just now"
+        }
+    ]
+
+    if db_path.exists():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+
+        homes = cur.execute("""
+            SELECT id, apartment_number, owner_name, owner_email, home_code
+            FROM homes
+            ORDER BY id DESC
+        """).fetchall()
+
+        for home in homes:
+            owner_name = home["owner_name"] or "Home Owner"
+            parts = owner_name.split()
+            initials = "".join([p[0] for p in parts[:2]]).upper() or "HO"
+
+            users.append({
+                "initials": initials,
+                "name": owner_name,
+                "email": home["owner_email"] or "Not available yet",
+                "role": "HOME OWNER",
+                "home": "Apartment " + str(home["apartment_number"] or home["id"]),
+                "status": "ACTIVE",
+                "last_login": "Not logged in yet"
+            })
+
+        conn.close()
+
+    return users
+
+
+@app.get("/api/dashboard/users-data")
+def dashboard_users_data():
+    return {
+        "success": True,
+        "users": _phase9_get_dashboard_users()
+    }
+
+
+@app.get("/users")
+def users(request: Request):
+    return templates.TemplateResponse(
+        "users.html",
+        {
+            "request": request,
+            "users": _phase9_get_dashboard_users()
+        }
+    )
+# PHASE9_USERS_END
+

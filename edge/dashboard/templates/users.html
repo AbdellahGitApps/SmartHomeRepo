@@ -1,99 +1,352 @@
-﻿{% extends "base.html" %}
-{% block title %}Users Management{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-    <div class="page-title">
-        <h1 data-i18n="users_management">Users Management</h1>
-        <p data-i18n="users_management_desc">Manage System Owneristrators and home owners</p>
+<style>
+  .users-page {
+    padding: 28px;
+  }
+
+  .users-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+
+  .users-title h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    color: #f8fafc;
+  }
+
+  .users-title p {
+    margin: 8px 0 0;
+    color: #94a3b8;
+    font-size: 14px;
+  }
+
+  .users-card {
+    background: #172233;
+    border: 1px solid #26364d;
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .users-toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .users-search,
+  .users-select {
+    background: #111827;
+    border: 1px solid #26364d;
+    color: #cbd5e1;
+    border-radius: 6px;
+    height: 38px;
+    padding: 0 14px;
+    outline: none;
+    font-size: 14px;
+  }
+
+  .users-search {
+    width: 260px;
+  }
+
+  .users-select {
+    width: 140px;
+  }
+
+  .users-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .users-table th {
+    color: #94a3b8;
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    text-align: left;
+    padding: 14px 12px;
+    border-bottom: 1px solid #26364d;
+  }
+
+  .users-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid #26364d;
+    color: #e5e7eb;
+    font-size: 14px;
+  }
+
+  .user-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: #3b82f6;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .user-name {
+    color: #f8fafc;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .user-email {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #334155;
+    color: #e2e8f0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+  }
+
+  .role-system {
+    background: rgba(59, 130, 246, .18);
+    color: #60a5fa;
+  }
+
+  .role-home {
+    background: rgba(148, 163, 184, .18);
+    color: #e2e8f0;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .status-active {
+    background: rgba(16, 185, 129, .18);
+    color: #34d399;
+  }
+
+  .status-disabled {
+    background: rgba(100, 116, 139, .18);
+    color: #64748b;
+  }
+
+  .action-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    border: 1px solid #26364d;
+    background: #111827;
+    color: #94a3b8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .icon-btn:hover {
+    color: #f8fafc;
+    border-color: #3b82f6;
+  }
+
+  .icon-warning {
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, .35);
+  }
+
+  .icon-success {
+    color: #10b981;
+    border-color: rgba(16, 185, 129, .35);
+  }
+
+  .add-user-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    padding: 10px 18px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .empty-users-row {
+    display: none;
+  }
+
+  .toast-message {
+    position: fixed;
+    right: 28px;
+    bottom: 28px;
+    background: #111827;
+    border: 1px solid #334155;
+    color: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 10px;
+    box-shadow: 0 16px 35px rgba(0, 0, 0, .35);
+    font-size: 14px;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: .2s ease;
+  }
+
+  .toast-message.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+
+<div class="users-page">
+  <div class="users-header">
+    <div class="users-title">
+      <h1>Users Management</h1>
+      <p>Manage System Owner and registered home owners</p>
     </div>
-    <div class="header-actions">
-        <button class="btn btn-primary"><i class="ph ph-plus"></i> <span data-i18n="add_user">Add User</span></button>
+    <button class="add-user-btn" onclick="window.location.href='/create-home'">+ Add User</button>
+  </div>
+
+  <div class="users-card">
+    <div class="users-toolbar">
+      <input id="userSearch" class="users-search" placeholder="Search users by name or email...">
+      <select id="roleFilter" class="users-select">
+        <option value="all">All Roles</option>
+        <option value="SYSTEM OWNER">System Owner</option>
+        <option value="HOME OWNER">Home Owner</option>
+      </select>
     </div>
+
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Role</th>
+          <th>Associated Home</th>
+          <th>Status</th>
+          <th>Last Login</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="usersTableBody">
+        {% for user in users %}
+        <tr class="user-row" data-role="{{ user.role }}" data-search="{{ user.name | lower }} {{ user.email | lower }} {{ user.home | lower }}">
+          <td>
+            <div class="user-cell">
+              <div class="avatar">{{ user.initials }}</div>
+              <div>
+                <div class="user-name">{{ user.name }}</div>
+                <div class="user-email">{{ user.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            {% if user.role == "SYSTEM OWNER" %}
+              <span class="role-badge role-system">{{ user.role }}</span>
+            {% else %}
+              <span class="role-badge role-home">{{ user.role }}</span>
+            {% endif %}
+          </td>
+          <td>{{ user.home }}</td>
+          <td>
+            {% if user.status == "ACTIVE" %}
+              <span class="status-badge status-active">{{ user.status }}</span>
+            {% else %}
+              <span class="status-badge status-disabled">{{ user.status }}</span>
+            {% endif %}
+          </td>
+          <td>{{ user.last_login }}</td>
+          <td>
+            <div class="action-group">
+              <button class="icon-btn" title="Edit" onclick="showUserToast('Edit user is deferred to the full Users permissions phase.')">✎</button>
+              {% if user.role != "SYSTEM OWNER" %}
+                {% if user.status == "ACTIVE" %}
+                  <button class="icon-btn icon-warning" title="Disable" onclick="showUserToast('Disable user is deferred until real user permissions are implemented.')">⊘</button>
+                {% else %}
+                  <button class="icon-btn icon-success" title="Enable" onclick="showUserToast('Enable user is deferred until real user permissions are implemented.')">✓</button>
+                {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr id="emptyUsersRow" class="empty-users-row">
+          <td colspan="6" style="text-align:center; color:#94a3b8; padding:28px;">No users match your search.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<div class="glass-card">
-    <div style="display: flex; gap: 16px; margin-bottom: 24px;">
-        <input type="text" class="form-control" data-i18n="search_users" placeholder="Search users by name or email..." style="max-width: 300px;">
-        <select class="form-control" style="max-width: 150px;">
-            <option value="all" data-i18n="all_roles">All Roles</option>
-            <option value="admin" data-i18n="role_sysadmin">System Owner</option>
-            <option value="owner" data-i18n="role_owner">Home Owner</option>
-        </select>
-    </div>
+<div id="usersToast" class="toast-message"></div>
 
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th data-i18n="col_user">User</th>
-                    <th data-i18n="col_role">Role</th>
-                    <th data-i18n="col_assoc_home">Associated Home</th>
-                    <th data-i18n="col_status">Status</th>
-                    <th data-i18n="col_last_login">Last Login</th>
-                    <th data-i18n="col_actions">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem;">SA</div>
-                            <div>
-                                <div style="font-weight: 500;" data-i18n="system_admin">System Owner</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">admin@edge-system.local</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-primary);" data-i18n="role_sysadmin">System Owner</span></td>
-                    <td><span style="color: var(--text-secondary);" data-i18n="all_assoc">-- (All)</span></td>
-                    <td><span class="badge badge-success" data-i18n="status_active">Active</span></td>
-                    <td data-i18n="just_now">Just now</td>
-                    <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit" data-i18n="title_edit"><i class="ph ph-pencil"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem; background: #64748B;">JD</div>
-                            <div>
-                                <div style="font-weight: 500;">John Doe</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">john.doe@example.com</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);" data-i18n="role_owner">Home Owner</span></td>
-                    <td>Villa 101</td>
-                    <td><span class="badge badge-success" data-i18n="status_active">Active</span></td>
-                    <td data-i18n="2_hours_ago">2 hours ago</td>
-                    <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit" data-i18n="title_edit"><i class="ph ph-pencil"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-warning); border-color: rgba(245, 158, 11, 0.3);" title="Disable" data-i18n="title_disable"><i class="ph ph-prohibit"></i></button>
-                    </td>
-                </tr>
-                <tr style="opacity: 0.6;">
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem; background: #64748B;">MJ</div>
-                            <div>
-                                <div style="font-weight: 500;">Mike Johnson</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">mike.j@example.com</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td><span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary);" data-i18n="role_owner">Home Owner</span></td>
-                    <td>Villa 205</td>
-                    <td><span class="badge badge-offline" data-i18n="status_disabled">Disabled</span></td>
-                    <td data-i18n="1_month_ago">1 month ago</td>
-                    <td>
-                        <button class="btn btn-outline" style="padding: 4px 8px;" title="Edit" data-i18n="title_edit"><i class="ph ph-pencil"></i></button>
-                        <button class="btn btn-outline" style="padding: 4px 8px; color: var(--status-success); border-color: rgba(16, 185, 129, 0.3);" title="Enable" data-i18n="title_enable"><i class="ph ph-check-circle"></i></button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
+<script>
+  const userSearch = document.getElementById('userSearch');
+  const roleFilter = document.getElementById('roleFilter');
+  const userRows = Array.from(document.querySelectorAll('.user-row'));
+  const emptyUsersRow = document.getElementById('emptyUsersRow');
+  const usersToast = document.getElementById('usersToast');
+
+  function filterUsers() {
+    const query = userSearch.value.trim().toLowerCase();
+    const selectedRole = roleFilter.value;
+    let visibleCount = 0;
+
+    userRows.forEach(row => {
+      const rowRole = row.dataset.role;
+      const rowSearch = row.dataset.search || '';
+      const matchesSearch = rowSearch.includes(query);
+      const matchesRole = selectedRole === 'all' || rowRole === selectedRole;
+
+      if (matchesSearch && matchesRole) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    emptyUsersRow.style.display = visibleCount === 0 ? 'table-row' : 'none';
+  }
+
+  function showUserToast(message) {
+    usersToast.textContent = message;
+    usersToast.classList.add('show');
+    setTimeout(() => {
+      usersToast.classList.remove('show');
+    }, 2600);
+  }
+
+  userSearch.addEventListener('input', filterUsers);
+  roleFilter.addEventListener('change', filterUsers);
+</script>
 {% endblock %}
-
