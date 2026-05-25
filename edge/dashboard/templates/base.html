@@ -97,6 +97,158 @@
     <!-- Custom JS -->
     <script src="/static/js/main.js?v=2"></script>
     {% block extra_js %}{% endblock %}
+
+<!-- PHASE8_DASHBOARD_DEVICE_ADVANCED_INFO_FIX_START -->
+<script>
+(function () {
+  function clean(v) {
+    return String(v || "").replace(/\s+/g, " ").trim();
+  }
+
+  function esc(v) {
+    return String(v || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  }
+
+  function valueAfter(text, label) {
+    var idx = text.indexOf(label);
+    if (idx < 0) return "";
+    var part = text.slice(idx + label.length);
+    var stops = ["Device IP:", "MAC Address:", "MQTT Topic:", "Camera Stream URL:", "Camera Capture URL:"];
+    var end = part.length;
+    stops.forEach(function (s) {
+      var p = part.indexOf(s);
+      if (p >= 0 && p < end) end = p;
+    });
+    return clean(part.slice(0, end));
+  }
+
+  function isCameraDevice(mainText) {
+    mainText = mainText.toUpperCase();
+    return (
+      mainText.includes("SMART_DOOR") ||
+      mainText.includes("ESP32_CAM") ||
+      mainText.includes("DOOR_CAMERA") ||
+      mainText.includes("CAMERA") ||
+      mainText.includes("DOOR")
+    );
+  }
+
+  function isEnergyDevice(mainText) {
+    return mainText.toUpperCase().includes("ENERGY_MONITOR");
+  }
+
+  function fixHeaders() {
+    document.querySelectorAll("th, td, span, div").forEach(function (el) {
+      var t = clean(el.textContent);
+      if (t === "COL_LAST_SEEN") el.textContent = "Last Seen";
+      if (t === "COL_ADVAN" || t === "COL_ADVANCED_INFO") el.textContent = "Advanced Info";
+    });
+  }
+
+  function fixAdvancedRows() {
+    if (!window.location.pathname.includes("/devices")) return;
+
+    document.querySelectorAll("tr").forEach(function (row) {
+      var rowText = clean(row.innerText || row.textContent || "");
+      if (!rowText.includes("Device IP:") && !rowText.includes("Camera Stream URL:")) return;
+
+      var mainRow = row.previousElementSibling;
+      var mainText = clean(mainRow ? mainRow.innerText : "");
+      var colspan = mainRow ? mainRow.children.length : 10;
+
+      var ip = valueAfter(rowText, "Device IP:");
+      var mac = valueAfter(rowText, "MAC Address:");
+      var mqtt = valueAfter(rowText, "MQTT Topic:");
+      var stream = valueAfter(rowText, "Camera Stream URL:");
+      var capture = valueAfter(rowText, "Camera Capture URL:");
+
+      if (!ip || ip.toLowerCase().includes("not available")) ip = "Not available yet";
+      if (!mac || mac.toLowerCase().includes("not available")) mac = "Not available yet";
+      if (!mqtt || mqtt.toLowerCase().includes("not available")) mqtt = "Not available yet";
+
+      if (isEnergyDevice(mainText) && !isCameraDevice(mainText)) {
+        stream = "Not applicable";
+        capture = "Not applicable";
+      } else if (isCameraDevice(mainText) && ip !== "Not available yet") {
+        stream = "http://" + ip + "/stream";
+        capture = "http://" + ip + "/capture";
+      } else {
+        stream = stream && !stream.toLowerCase().includes("not available") ? stream : "Not available yet";
+        capture = capture && !capture.toLowerCase().includes("not available") ? capture : "Not available yet";
+      }
+
+      row.innerHTML =
+        '<td colspan="' + colspan + '">' +
+          '<div style="display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:18px;padding:14px 0;">' +
+            '<div><strong>Device IP:</strong><br>' + esc(ip) + '</div>' +
+            '<div><strong>MAC Address:</strong><br>' + esc(mac) + '</div>' +
+            '<div><strong>MQTT Topic:</strong><br>' + esc(mqtt) + '</div>' +
+            '<div><strong>Camera Stream URL:</strong><br>' + esc(stream) + '</div>' +
+            '<div><strong>Camera Capture URL:</strong><br>' + esc(capture) + '</div>' +
+          '</div>' +
+        '</td>';
+    });
+  }
+
+  function run() {
+    fixHeaders();
+    fixAdvancedRows();
+  }
+
+  document.addEventListener("DOMContentLoaded", run);
+  setTimeout(run, 300);
+  setTimeout(run, 1000);
+})();
+</script>
+<!-- PHASE8_DASHBOARD_DEVICE_ADVANCED_INFO_FIX_END -->
+
+<!-- PHASE8_HIDE_MAIN_MQTT_TOPIC_START -->
+<script>
+(function () {
+  function clean(v) {
+    return String(v || "").replace(/\s+/g, " ").trim().toUpperCase();
+  }
+
+  function hideMainMqttColumn() {
+    if (!window.location.pathname.includes("/devices")) return;
+
+    document.querySelectorAll("table").forEach(function (table) {
+      var headers = Array.from(table.querySelectorAll("thead th"));
+      if (!headers.length) return;
+
+      var mqttIndex = headers.findIndex(function (th) {
+        return clean(th.textContent) === "MQTT TOPIC";
+      });
+
+      if (mqttIndex < 0) return;
+
+      headers[mqttIndex].style.display = "none";
+
+      table.querySelectorAll("tbody tr").forEach(function (row) {
+        var rowText = clean(row.innerText || row.textContent || "");
+
+        if (rowText.includes("DEVICE IP:") || rowText.includes("MAC ADDRESS:") || rowText.includes("CAMERA STREAM URL:")) {
+          return;
+        }
+
+        var cells = Array.from(row.children);
+        if (cells[mqttIndex]) {
+          cells[mqttIndex].style.display = "none";
+        }
+      });
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", hideMainMqttColumn);
+  setTimeout(hideMainMqttColumn, 300);
+  setTimeout(hideMainMqttColumn, 1000);
+})();
+</script>
+<!-- PHASE8_HIDE_MAIN_MQTT_TOPIC_END -->
+
 </body>
 </html>
 

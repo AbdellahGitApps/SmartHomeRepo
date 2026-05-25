@@ -104,7 +104,7 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 0.9em;">
                             <div>
                                 <strong style="color: var(--text-secondary);">Device IP:</strong><br>
-                                <span style="font-family: monospace;">{{ device.ip_address or 'Not available yet' }}</span>
+                                <span style="font-family: monospace;">{{ device.device_ip or 'Not available yet' }}</span>
                             </div>
                             <div>
                                 <strong style="color: var(--text-secondary);">MAC Address:</strong><br>
@@ -117,11 +117,11 @@
                             {% if device.device_type in ['smart_door', 'esp32_cam', 'door_camera', 'camera'] %}
                             <div>
                                 <strong style="color: var(--text-secondary);">Camera Stream URL:</strong><br>
-                                <span style="font-family: monospace;">{{ device.stream_url or 'Not available yet' }}</span>
+                                <span style="font-family: monospace;">{{ device.camera_stream_url_url or 'Not available yet' }}</span>
                             </div>
                             <div>
                                 <strong style="color: var(--text-secondary);">Camera Capture URL:</strong><br>
-                                <span style="font-family: monospace;">{{ device.capture_url or 'Not available yet' }}</span>
+                                <span style="font-family: monospace;">{{ device.camera_capture_url_url or 'Not available yet' }}</span>
                             </div>
                             {% else %}
                             <div>

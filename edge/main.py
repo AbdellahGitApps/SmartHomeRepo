@@ -469,7 +469,7 @@ def app_link_home(request: AppLinkHomeRequest):
                 status,
                 mqtt_topic,
                 claim_code,
-                claim_status
+                claim_status, mac_address, device_ip, camera_stream_url, camera_capture_url, last_seen_at
             FROM devices
             WHERE home_id = ?
             ORDER BY id ASC
@@ -862,7 +862,7 @@ def refresh_device_status(request: DeviceRefreshStatusRequest):
 
         rows = cursor.execute(
             """
-            SELECT id, last_seen_at
+            SELECT id, last_seen_at, mac_address, device_ip, camera_stream_url, camera_capture_url
             FROM devices
             WHERE status = 'online' AND last_seen_at IS NOT NULL
             """
