@@ -664,3 +664,236 @@ def claim_device(request: DeviceClaimRequest):
         }
     finally:
         connection.close()
+
+# Device Heartbeat API
+import sqlite3
+from pathlib import Path
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+
+class DeviceHeartbeatRequest(BaseModel):
+    device_id: str
+    device_token: str
+    device_ip: str | None = None
+    mac_address: str | None = None
+    status: str | None = "online"
+    firmware_version: str | None = None
+
+
+class DeviceRefreshStatusRequest(BaseModel):
+    offline_after_seconds: int | None = 120
+
+
+def _heartbeat_db_path():
+    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+
+def _heartbeat_now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _heartbeat_columns(cursor):
+    rows = cursor.execute("PRAGMA table_info(devices)").fetchall()
+    return {row[1] for row in rows}
+
+
+def _heartbeat_is_camera_device(device_type):
+    return (device_type or "").lower() in {
+        "smart_door",
+        "door_camera",
+        "camera",
+        "esp32_cam",
+        "front_door_camera",
+    }
+
+
+def _heartbeat_build_camera_urls(device_ip):
+    return {
+        "camera_stream_url": f"http://{device_ip}/stream",
+        "camera_capture_url": f"http://{device_ip}/capture",
+    }
+
+
+@app.post("/api/devices/heartbeat")
+def device_heartbeat(request: DeviceHeartbeatRequest):
+    device_id = request.device_id.strip()
+    device_token = request.device_token.strip()
+
+    if not device_id:
+        raise HTTPException(status_code=400, detail="Device ID is required")
+
+    if not device_token:
+        raise HTTPException(status_code=400, detail="Device token is required")
+
+    db_file = _heartbeat_db_path()
+
+    if not db_file.exists():
+        raise HTTPException(status_code=500, detail="Database file not found")
+
+    connection = sqlite3.connect(db_file)
+    connection.row_factory = sqlite3.Row
+
+    try:
+        cursor = connection.cursor()
+        columns = _heartbeat_columns(cursor)
+
+        device = cursor.execute(
+            """
+            SELECT *
+            FROM devices
+            WHERE device_id = ? AND device_token = ?
+            LIMIT 1
+            """,
+            (device_id, device_token),
+        ).fetchone()
+
+        if device is None:
+            raise HTTPException(status_code=401, detail="Invalid device credentials")
+
+        now = _heartbeat_now()
+
+        updates = {
+            "status": request.status or "online",
+        }
+
+        if "last_seen_at" in columns:
+            updates["last_seen_at"] = now
+
+        if "last_seen" in columns:
+            updates["last_seen"] = now
+
+        if "updated_at" in columns:
+            updates["updated_at"] = now
+
+        if request.device_ip and "device_ip" in columns:
+            updates["device_ip"] = request.device_ip
+
+            if _heartbeat_is_camera_device(device["device_type"]):
+                urls = _heartbeat_build_camera_urls(request.device_ip)
+
+                if "camera_stream_url" in columns:
+                    updates["camera_stream_url"] = urls["camera_stream_url"]
+
+                if "camera_capture_url" in columns:
+                    updates["camera_capture_url"] = urls["camera_capture_url"]
+
+        if request.mac_address and "mac_address" in columns:
+            updates["mac_address"] = request.mac_address
+
+        if request.firmware_version and "firmware_version" in columns:
+            updates["firmware_version"] = request.firmware_version
+
+        if "enabled" in columns:
+            updates["enabled"] = 1
+
+        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
+        values = list(updates.values())
+        values.append(device["id"])
+
+        cursor.execute(
+            f"UPDATE devices SET {set_clause} WHERE id = ?",
+            values,
+        )
+
+        connection.commit()
+
+        updated_device = cursor.execute(
+            """
+            SELECT *
+            FROM devices
+            WHERE id = ?
+            LIMIT 1
+            """,
+            (device["id"],),
+        ).fetchone()
+
+        return {
+            "success": True,
+            "message": "Heartbeat received",
+            "device": {
+                "id": updated_device["id"],
+                "home_id": updated_device["home_id"],
+                "device_id": updated_device["device_id"],
+                "device_name": updated_device["device_name"],
+                "device_type": updated_device["device_type"],
+                "status": updated_device["status"],
+                "device_ip": updated_device["device_ip"] if "device_ip" in updated_device.keys() else None,
+                "mac_address": updated_device["mac_address"] if "mac_address" in updated_device.keys() else None,
+                "camera_stream_url": updated_device["camera_stream_url"] if "camera_stream_url" in updated_device.keys() else None,
+                "camera_capture_url": updated_device["camera_capture_url"] if "camera_capture_url" in updated_device.keys() else None,
+                "last_seen_at": updated_device["last_seen_at"] if "last_seen_at" in updated_device.keys() else None,
+                "firmware_version": updated_device["firmware_version"] if "firmware_version" in updated_device.keys() else None,
+            },
+        }
+    finally:
+        connection.close()
+
+
+@app.post("/api/devices/refresh-status")
+def refresh_device_status(request: DeviceRefreshStatusRequest):
+    offline_after_seconds = request.offline_after_seconds or 120
+
+    if offline_after_seconds < 10:
+        offline_after_seconds = 10
+
+    cutoff = datetime.now() - timedelta(seconds=offline_after_seconds)
+
+    db_file = _heartbeat_db_path()
+
+    if not db_file.exists():
+        raise HTTPException(status_code=500, detail="Database file not found")
+
+    connection = sqlite3.connect(db_file)
+    connection.row_factory = sqlite3.Row
+
+    try:
+        cursor = connection.cursor()
+        columns = _heartbeat_columns(cursor)
+
+        if "last_seen_at" not in columns:
+            return {
+                "success": True,
+                "message": "last_seen_at column not available",
+                "offline_after_seconds": offline_after_seconds,
+                "marked_offline": 0,
+            }
+
+        rows = cursor.execute(
+            """
+            SELECT id, last_seen_at
+            FROM devices
+            WHERE status = 'online' AND last_seen_at IS NOT NULL
+            """
+        ).fetchall()
+
+        stale_ids = []
+
+        for row in rows:
+            try:
+                last_seen = datetime.strptime(row["last_seen_at"], "%Y-%m-%d %H:%M:%S")
+                if last_seen < cutoff:
+                    stale_ids.append(row["id"])
+            except Exception:
+                continue
+
+        for device_id in stale_ids:
+            cursor.execute(
+                """
+                UPDATE devices
+                SET status = ?
+                WHERE id = ?
+                """,
+                ("offline", device_id),
+            )
+
+        connection.commit()
+
+        return {
+            "success": True,
+            "offline_after_seconds": offline_after_seconds,
+            "marked_offline": len(stale_ids),
+        }
+    finally:
+        connection.close()
