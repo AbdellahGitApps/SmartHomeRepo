@@ -1,3 +1,6 @@
+import sqlite3
+from fastapi.responses import HTMLResponse
+import asyncio
 from fastapi import Request
 
 try:
@@ -10,7 +13,7 @@ try:
 except Exception as migration_error:
     print(f"[MIGRATION WARNING] {migration_error}")
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import math
 
@@ -232,737 +235,271 @@ def status(request: Request):
     return templates.TemplateResponse(request=request, name="status.html")
 
 
-@app.get("/logs")
-def logs(request: Request):
-    return templates.TemplateResponse(request=request, name="logs.html")
+# D7M16_SECURITY_LOGS_UNIFIED_START
 
-# =========================
-# MQTT & BACKGROUND TASKS INIT
-# =========================
-import asyncio
+def _security_db_path():
+    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
 
-async def auto_offline_task():
-    while True:
-        try:
-            await asyncio.sleep(30)
-            from database.connection.database import SessionLocal
-            db = SessionLocal()
-            try:
-                count = device_service.mark_inactive_devices_offline(db)
-                if count > 0:
-                    print(f"[Offline Task] Marked {count} devices as offline")
-            finally:
-                db.close()
-        except Exception as e:
-            print(f"[Offline Task] Error: {e}")
 
-@app.on_event("startup")
-async def startup_event():
-    print("Starting Smart Home Backend...")
-    start_mqtt()
-    print("MQTT Connected & Subscribed")
-    asyncio.create_task(auto_offline_task())
+def _ensure_system_logs_table():
+    db_path = _security_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
 
-@app.on_event("shutdown")
-def shutdown_event():
-    print("Shutting down system...")
-    stop_mqtt()
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
 
-# =========================
-# DEVICE STATUS API
-# =========================
-@app.get("/api/devices/status")
-def get_devices_status(db: Session = Depends(get_db)):
-    devices = device_service.get_all_devices(db)
-    return [
-        {
-            "device_id": dev.device_id,
-            "status": dev.status,
-            "last_seen": dev.last_seen.isoformat() if dev.last_seen else None
-        }
-        for dev in devices
-    ]
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            severity TEXT,
+            home TEXT,
+            event_type TEXT,
+            details TEXT,
+            action_taken TEXT
+        )
+    """)
 
-# =========================
-# HEALTH CHECK
-# =========================
-@app.get("/api")
-def home():
-    return {
-        "status": "running",
-        "system": "Smart Home Edge Backend",
-        "mode": "LOCAL",
+    existing = {row[1] for row in cur.execute("PRAGMA table_info(system_logs)").fetchall()}
+    needed = {
+        "timestamp": "TEXT",
+        "severity": "TEXT",
+        "home": "TEXT",
+        "event_type": "TEXT",
+        "details": "TEXT",
+        "action_taken": "TEXT"
     }
 
-@app.get("/health")
-def health():
-    return {
-        "mqtt": mqtt_client.is_connected(),
-        "server": "ok",
-        "database": "migrated_to_sqlalchemy_pending"
-    }
+    for col, col_type in needed.items():
+        if col not in existing:
+            cur.execute(f"ALTER TABLE system_logs ADD COLUMN {col} {col_type}")
 
-# =========================
-# PLACEHOLDER HELPERS (DB WILL BE MOVED TO SERVICES LATER)
-# =========================
-def insert_door_event(*args, **kwargs):
-    return {"status": "mock", "message": "DB removed - pending SQLAlchemy migration"}
+    conn.commit()
+    conn.close()
 
-def get_door_event_by_id(event_id: int):
-    return None
 
-def update_door_event_status(*args, **kwargs):
-    return {"status": "mock"}
+def _format_security_time(value):
+    if not value:
+        return "Not available"
 
-def create_family_member(*args, **kwargs):
-    return {"id": 1, "name": kwargs.get("name", "mock_user")}
+    raw = str(value).replace("T", " ").split(".")[0]
 
-def publish_open_command(source: str, reason: str):
     try:
-        mqtt_client.publish("door/cmd", json.dumps({
-            "action": "open",
-            "source": source,
-            "reason": reason,
-            "created_at": datetime.now().isoformat()
-        }))
-        return True, None
-    except Exception as e:
-        return False, str(e)
+        dt = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        try:
+            dt = datetime.fromisoformat(raw)
+        except Exception:
+            return raw
 
-def cosine_similarity(a, b):
-    if len(a) != len(b):
-        return None
-    dot = sum(x*y for x, y in zip(a, b))
-    na = math.sqrt(sum(x*x for x in a))
-    nb = math.sqrt(sum(x*x for x in b))
-    if na == 0 or nb == 0:
-        return None
-    return dot / (na * nb)
+    today = datetime.now().date()
+    log_day = dt.date()
+    time_part = dt.strftime("%I:%M %p").lstrip("0")
 
-def find_best_family_match(face_embedding):
+    if log_day == today:
+        return f"Today, {time_part}"
+
+    if log_day == today - timedelta(days=1):
+        return f"Yesterday, {time_part}"
+
+    return f"{dt.strftime('%Y-%m-%d')}, {time_part}"
+
+
+def _get_device_log_context(device_ref):
+    _ensure_system_logs_table()
+
+    conn = sqlite3.connect(_security_db_path())
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    row = cur.execute("""
+        SELECT
+            d.id,
+            d.device_id,
+            d.device_name,
+            d.device_type,
+            d.home_id,
+            h.apartment_number,
+            h.home_code
+        FROM devices d
+        LEFT JOIN homes h ON h.id = d.home_id
+        WHERE d.device_id = ? OR CAST(d.id AS TEXT) = ?
+        LIMIT 1
+    """, (str(device_ref), str(device_ref))).fetchone()
+
+    conn.close()
+
+    if not row:
+        return {
+            "device_name": str(device_ref),
+            "home": "Unknown Home"
+        }
+
+    if row["apartment_number"]:
+        home = f"Apartment {row['apartment_number']}"
+    elif row["home_code"]:
+        home = row["home_code"]
+    else:
+        home = f"Home {row['home_id']}"
+
+    return {
+        "device_name": row["device_name"] or row["device_id"] or str(device_ref),
+        "home": home
+    }
+
+
+def _insert_security_log(severity, home, event_type, details, action_taken):
+    _ensure_system_logs_table()
+
+    conn = sqlite3.connect(_security_db_path())
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO system_logs (
+            timestamp,
+            severity,
+            home,
+            event_type,
+            details,
+            action_taken
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        str(severity or "info").lower(),
+        home or "System",
+        event_type or "System Event",
+        details or "",
+        action_taken or ""
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def _get_security_logs(limit=200):
+    _ensure_system_logs_table()
+
+    conn = sqlite3.connect(_security_db_path())
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    rows = cur.execute("""
+        SELECT id, timestamp, severity, home, event_type, details, action_taken
+        FROM system_logs
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,)).fetchall()
+
+    conn.close()
+
+    logs = []
+
+    for row in rows:
+        severity = (row["severity"] or "info").lower()
+
+        logs.append({
+            "id": row["id"],
+            "timestamp": row["timestamp"],
+            "timestamp_label": _format_security_time(row["timestamp"]),
+            "severity": severity,
+            "severity_label": severity.upper(),
+            "home": row["home"] or "System",
+            "event_type": row["event_type"] or "System Event",
+            "details": row["details"] or "",
+            "action_taken": row["action_taken"] or ""
+        })
+
+    return logs
+
+
+def _extract_device_action_from_path(path_value):
+    parts = path_value.strip("/").split("/")
+    lower_parts = [p.lower() for p in parts]
+    valid_actions = {"restart", "enable", "disable", "remove", "delete"}
+
+    action = None
+
+    for item in reversed(lower_parts):
+        item = item.replace("_", "-")
+        if item in valid_actions:
+            action = item
+            break
+
+    if not action:
+        return None, None
+
+    if "devices" in lower_parts:
+        device_index = lower_parts.index("devices") + 1
+        if device_index < len(parts):
+            return parts[device_index], action
+
+    if "device-command" in lower_parts:
+        device_index = lower_parts.index("device-command") + 1
+        if device_index < len(parts):
+            return parts[device_index], action
+
     return None, None
 
-# =========================
-# FACE VERIFY (STUBBED LOGIC)
-# =========================
-@app.post("/face/verify")
-def verify_face(payload: FaceVerifyRequest):
 
-    mqtt_published, mqtt_error = publish_open_command(
-        source=payload.source,
-        reason="mock_face_verification"
-    )
+@app.middleware("http")
+async def _security_log_device_commands(request: Request, call_next):
+    device_ref = None
+    action = None
 
-    return {
-        "success": True,
-        "known": False,
-        "message": "DB migrated - face system pending refactor",
-        "door_opened": mqtt_published,
-        "mqtt_error": mqtt_error
-    }
+    if request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+        device_ref, action = _extract_device_action_from_path(request.url.path)
 
-# =========================
-# DOOR ENDPOINTS (TEMP STUB)
-# =========================
-@app.post("/door/open")
-def open_door(request: DoorOpenRequest):
+    response = await call_next(request)
 
-    mqtt_published, mqtt_error = publish_open_command(
-        source=request.source,
-        reason=request.reason,
-    )
+    if device_ref and action and response.status_code < 400:
+        try:
+            ctx = _get_device_log_context(device_ref)
 
-    return {
-        "success": mqtt_published,
-        "message": "Door command sent (DB removed temporarily)",
-        "mqtt_error": mqtt_error
-    }
+            severity = "warning" if action in {"disable", "remove", "delete"} else "info"
+            action_title = action.replace("-", " ").title()
 
-# System network configuration API
-import socket
-
-try:
-    from config import SERVER_PUBLIC_URL, MQTT_BROKER_HOST, MQTT_BROKER_PORT
-except ImportError:
-    from edge.config import SERVER_PUBLIC_URL, MQTT_BROKER_HOST, MQTT_BROKER_PORT
-
-
-def _get_current_lan_ip():
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(0.2)
-        sock.connect(("8.8.8.8", 80))
-        ip_address = sock.getsockname()[0]
-        sock.close()
-        return ip_address
-    except Exception:
-        return "127.0.0.1"
-
-
-@app.get("/api/system/network")
-def get_system_network_config():
-    current_lan_ip = _get_current_lan_ip()
-
-    return {
-        "server_url": SERVER_PUBLIC_URL,
-        "current_lan_ip": current_lan_ip,
-        "api_status": "online",
-        "mqtt_broker_host": MQTT_BROKER_HOST,
-        "mqtt_broker_port": MQTT_BROKER_PORT,
-        "mqtt_broker": f"{MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}",
-    }
-
-# App Home Code linking API
-import sqlite3
-from pathlib import Path
-from fastapi import HTTPException
-from pydantic import BaseModel
-
-
-class AppLinkHomeRequest(BaseModel):
-    home_code: str
-
-
-def _link_home_db_path():
-    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
-
-
-@app.post("/api/app/link-home")
-def app_link_home(request: AppLinkHomeRequest):
-    home_code = request.home_code.strip()
-
-    if not home_code:
-        raise HTTPException(status_code=400, detail="Home Code is required")
-
-    db_file = _link_home_db_path()
-
-    if not db_file.exists():
-        raise HTTPException(status_code=500, detail="Database file not found")
-
-    connection = sqlite3.connect(db_file)
-    connection.row_factory = sqlite3.Row
-
-    try:
-        cursor = connection.cursor()
-
-        home = cursor.execute(
-            """
-            SELECT id, apartment_number, owner_name, owner_email, home_code
-            FROM homes
-            WHERE home_code = ?
-            LIMIT 1
-            """,
-            (home_code,),
-        ).fetchone()
-
-        if home is None:
-            raise HTTPException(status_code=404, detail="Invalid Home Code")
-
-        devices = cursor.execute(
-            """
-            SELECT
-                device_id,
-                device_name,
-                device_type,
-                status,
-                mqtt_topic,
-                claim_code,
-                claim_status, mac_address, device_ip, camera_stream_url, camera_capture_url, last_seen_at
-            FROM devices
-            WHERE home_id = ?
-            ORDER BY id ASC
-            """,
-            (home["id"],),
-        ).fetchall()
-
-        return {
-            "success": True,
-            "home": {
-                "id": home["id"],
-                "apartment_number": home["apartment_number"],
-                "owner_name": home["owner_name"],
-                "owner_email": home["owner_email"],
-                "home_code": home["home_code"],
-            },
-            "devices": [dict(device) for device in devices],
-        }
-    finally:
-        connection.close()
-
-# Device Claim API
-import sqlite3
-from pathlib import Path
-from datetime import datetime
-from fastapi import HTTPException
-from pydantic import BaseModel
-
-
-class DeviceClaimRequest(BaseModel):
-    claim_code: str
-    mac_address: str
-    device_ip: str
-    device_type: str | None = None
-    firmware_version: str | None = None
-
-
-def _device_claim_db_path():
-    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
-
-
-def _device_claim_now():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _device_claim_columns(cursor):
-    rows = cursor.execute("PRAGMA table_info(devices)").fetchall()
-    return {row[1] for row in rows}
-
-
-def _is_camera_device(saved_type, reported_type):
-    values = {
-        (saved_type or "").lower(),
-        (reported_type or "").lower(),
-    }
-    camera_types = {
-        "smart_door",
-        "door_camera",
-        "camera",
-        "esp32_cam",
-        "front_door_camera",
-    }
-    return bool(values & camera_types)
-
-
-def _build_camera_urls(device_ip):
-    return {
-        "camera_stream_url": f"http://{device_ip}/stream",
-        "camera_capture_url": f"http://{device_ip}/capture",
-    }
-
-
-@app.post("/api/devices/claim")
-def claim_device(request: DeviceClaimRequest):
-    claim_code = request.claim_code.strip()
-    mac_address = request.mac_address.strip()
-    device_ip = request.device_ip.strip()
-    reported_device_type = (request.device_type or "").strip()
-    firmware_version = (request.firmware_version or "").strip()
-
-    if not claim_code:
-        raise HTTPException(status_code=400, detail="Claim Code is required")
-
-    if not mac_address:
-        raise HTTPException(status_code=400, detail="MAC Address is required")
-
-    if not device_ip:
-        raise HTTPException(status_code=400, detail="Device IP is required")
-
-    db_file = _device_claim_db_path()
-
-    if not db_file.exists():
-        raise HTTPException(status_code=500, detail="Database file not found")
-
-    connection = sqlite3.connect(db_file)
-    connection.row_factory = sqlite3.Row
-
-    try:
-        cursor = connection.cursor()
-        columns = _device_claim_columns(cursor)
-
-        device = cursor.execute(
-            """
-            SELECT *
-            FROM devices
-            WHERE claim_code = ?
-            LIMIT 1
-            """,
-            (claim_code,),
-        ).fetchone()
-
-        if device is None:
-            raise HTTPException(status_code=404, detail="Invalid Claim Code")
-
-        saved_device_type = device["device_type"] if "device_type" in device.keys() else ""
-
-        updates = {
-            "mac_address": mac_address,
-            "device_ip": device_ip,
-            "claim_status": "claimed",
-            "status": "online",
-        }
-
-        now = _device_claim_now()
-
-        if "last_seen_at" in columns:
-            updates["last_seen_at"] = now
-
-        if "last_seen" in columns:
-            updates["last_seen"] = now
-
-        if "updated_at" in columns:
-            updates["updated_at"] = now
-
-        if firmware_version and "firmware_version" in columns:
-            updates["firmware_version"] = firmware_version
-
-        if "enabled" in columns:
-            updates["enabled"] = 1
-
-        if _is_camera_device(saved_device_type, reported_device_type):
-            urls = _build_camera_urls(device_ip)
-
-            if "camera_stream_url" in columns:
-                updates["camera_stream_url"] = urls["camera_stream_url"]
-
-            if "camera_capture_url" in columns:
-                updates["camera_capture_url"] = urls["camera_capture_url"]
-
-        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
-        values = list(updates.values())
-        values.append(device["id"])
-
-        cursor.execute(
-            f"UPDATE devices SET {set_clause} WHERE id = ?",
-            values,
-        )
-
-        connection.commit()
-
-        updated_device = cursor.execute(
-            """
-            SELECT *
-            FROM devices
-            WHERE id = ?
-            LIMIT 1
-            """,
-            (device["id"],),
-        ).fetchone()
-
-        return {
-            "success": True,
-            "message": "Device claimed successfully",
-            "device": {
-                "id": updated_device["id"],
-                "home_id": updated_device["home_id"],
-                "device_id": updated_device["device_id"],
-                "device_name": updated_device["device_name"],
-                "device_type": updated_device["device_type"],
-                "device_token": updated_device["device_token"],
-                "mqtt_topic": updated_device["mqtt_topic"],
-                "claim_code": updated_device["claim_code"],
-                "claim_status": updated_device["claim_status"],
-                "status": updated_device["status"],
-                "mac_address": updated_device["mac_address"] if "mac_address" in updated_device.keys() else None,
-                "device_ip": updated_device["device_ip"] if "device_ip" in updated_device.keys() else None,
-                "camera_stream_url": updated_device["camera_stream_url"] if "camera_stream_url" in updated_device.keys() else None,
-                "camera_capture_url": updated_device["camera_capture_url"] if "camera_capture_url" in updated_device.keys() else None,
-                "firmware_version": updated_device["firmware_version"] if "firmware_version" in updated_device.keys() else None,
-                "last_seen_at": updated_device["last_seen_at"] if "last_seen_at" in updated_device.keys() else None,
-            },
-        }
-    finally:
-        connection.close()
-
-# Device Heartbeat API
-import sqlite3
-from pathlib import Path
-from datetime import datetime, timedelta
-from fastapi import HTTPException
-from pydantic import BaseModel
-
-
-class DeviceHeartbeatRequest(BaseModel):
-    device_id: str
-    device_token: str
-    device_ip: str | None = None
-    mac_address: str | None = None
-    status: str | None = "online"
-    firmware_version: str | None = None
-
-
-class DeviceRefreshStatusRequest(BaseModel):
-    offline_after_seconds: int | None = 120
-
-
-def _heartbeat_db_path():
-    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
-
-
-def _heartbeat_now():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _heartbeat_columns(cursor):
-    rows = cursor.execute("PRAGMA table_info(devices)").fetchall()
-    return {row[1] for row in rows}
-
-
-def _heartbeat_is_camera_device(device_type):
-    return (device_type or "").lower() in {
-        "smart_door",
-        "door_camera",
-        "camera",
-        "esp32_cam",
-        "front_door_camera",
-    }
-
-
-def _heartbeat_build_camera_urls(device_ip):
-    return {
-        "camera_stream_url": f"http://{device_ip}/stream",
-        "camera_capture_url": f"http://{device_ip}/capture",
-    }
-
-
-@app.post("/api/devices/heartbeat")
-def device_heartbeat(request: DeviceHeartbeatRequest):
-    device_id = request.device_id.strip()
-    device_token = request.device_token.strip()
-
-    if not device_id:
-        raise HTTPException(status_code=400, detail="Device ID is required")
-
-    if not device_token:
-        raise HTTPException(status_code=400, detail="Device token is required")
-
-    db_file = _heartbeat_db_path()
-
-    if not db_file.exists():
-        raise HTTPException(status_code=500, detail="Database file not found")
-
-    connection = sqlite3.connect(db_file)
-    connection.row_factory = sqlite3.Row
-
-    try:
-        cursor = connection.cursor()
-        columns = _heartbeat_columns(cursor)
-
-        device = cursor.execute(
-            """
-            SELECT *
-            FROM devices
-            WHERE device_id = ? AND device_token = ?
-            LIMIT 1
-            """,
-            (device_id, device_token),
-        ).fetchone()
-
-        if device is None:
-            raise HTTPException(status_code=401, detail="Invalid device credentials")
-
-        now = _heartbeat_now()
-
-        updates = {
-            "status": request.status or "online",
-        }
-
-        if "last_seen_at" in columns:
-            updates["last_seen_at"] = now
-
-        if "last_seen" in columns:
-            updates["last_seen"] = now
-
-        if "updated_at" in columns:
-            updates["updated_at"] = now
-
-        if request.device_ip and "device_ip" in columns:
-            updates["device_ip"] = request.device_ip
-
-            if _heartbeat_is_camera_device(device["device_type"]):
-                urls = _heartbeat_build_camera_urls(request.device_ip)
-
-                if "camera_stream_url" in columns:
-                    updates["camera_stream_url"] = urls["camera_stream_url"]
-
-                if "camera_capture_url" in columns:
-                    updates["camera_capture_url"] = urls["camera_capture_url"]
-
-        if request.mac_address and "mac_address" in columns:
-            updates["mac_address"] = request.mac_address
-
-        if request.firmware_version and "firmware_version" in columns:
-            updates["firmware_version"] = request.firmware_version
-
-        if "enabled" in columns:
-            updates["enabled"] = 1
-
-        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
-        values = list(updates.values())
-        values.append(device["id"])
-
-        cursor.execute(
-            f"UPDATE devices SET {set_clause} WHERE id = ?",
-            values,
-        )
-
-        connection.commit()
-
-        updated_device = cursor.execute(
-            """
-            SELECT *
-            FROM devices
-            WHERE id = ?
-            LIMIT 1
-            """,
-            (device["id"],),
-        ).fetchone()
-
-        return {
-            "success": True,
-            "message": "Heartbeat received",
-            "device": {
-                "id": updated_device["id"],
-                "home_id": updated_device["home_id"],
-                "device_id": updated_device["device_id"],
-                "device_name": updated_device["device_name"],
-                "device_type": updated_device["device_type"],
-                "status": updated_device["status"],
-                "device_ip": updated_device["device_ip"] if "device_ip" in updated_device.keys() else None,
-                "mac_address": updated_device["mac_address"] if "mac_address" in updated_device.keys() else None,
-                "camera_stream_url": updated_device["camera_stream_url"] if "camera_stream_url" in updated_device.keys() else None,
-                "camera_capture_url": updated_device["camera_capture_url"] if "camera_capture_url" in updated_device.keys() else None,
-                "last_seen_at": updated_device["last_seen_at"] if "last_seen_at" in updated_device.keys() else None,
-                "firmware_version": updated_device["firmware_version"] if "firmware_version" in updated_device.keys() else None,
-            },
-        }
-    finally:
-        connection.close()
-
-
-@app.post("/api/devices/refresh-status")
-def refresh_device_status(request: DeviceRefreshStatusRequest):
-    offline_after_seconds = request.offline_after_seconds or 120
-
-    if offline_after_seconds < 10:
-        offline_after_seconds = 10
-
-    cutoff = datetime.now() - timedelta(seconds=offline_after_seconds)
-
-    db_file = _heartbeat_db_path()
-
-    if not db_file.exists():
-        raise HTTPException(status_code=500, detail="Database file not found")
-
-    connection = sqlite3.connect(db_file)
-    connection.row_factory = sqlite3.Row
-
-    try:
-        cursor = connection.cursor()
-        columns = _heartbeat_columns(cursor)
-
-        if "last_seen_at" not in columns:
-            return {
-                "success": True,
-                "message": "last_seen_at column not available",
-                "offline_after_seconds": offline_after_seconds,
-                "marked_offline": 0,
-            }
-
-        rows = cursor.execute(
-            """
-            SELECT id, last_seen_at, mac_address, device_ip, camera_stream_url, camera_capture_url
-            FROM devices
-            WHERE status = 'online' AND last_seen_at IS NOT NULL
-            """
-        ).fetchall()
-
-        stale_ids = []
-
-        for row in rows:
-            try:
-                last_seen = datetime.strptime(row["last_seen_at"], "%Y-%m-%d %H:%M:%S")
-                if last_seen < cutoff:
-                    stale_ids.append(row["id"])
-            except Exception:
-                continue
-
-        for device_id in stale_ids:
-            cursor.execute(
-                """
-                UPDATE devices
-                SET status = ?
-                WHERE id = ?
-                """,
-                ("offline", device_id),
+            _insert_security_log(
+                severity=severity,
+                home=ctx["home"],
+                event_type="Device Command",
+                details=f"{action_title} command sent to {ctx['device_name']}",
+                action_taken=f"MQTT {action.upper()}"
             )
+        except Exception as exc:
+            print("SECURITY LOG WRITE ERROR:", exc)
 
-        connection.commit()
-
-        return {
-            "success": True,
-            "offline_after_seconds": offline_after_seconds,
-            "marked_offline": len(stale_ids),
-        }
-    finally:
-        connection.close()
+    return response
 
 
-# PHASE9_USERS_START
-def _phase9_get_dashboard_users():
-    import sqlite3
-    from pathlib import Path
-
-    db_path = Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
-
-    users = [
-        {
-            "initials": "SO",
-            "name": "System Owner",
-            "email": "admin@edge-system.local",
-            "role": "SYSTEM OWNER",
-            "home": "-- (All)",
-            "status": "ACTIVE",
-            "last_login": "Just now"
-        }
-    ]
-
-    if db_path.exists():
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-
-        homes = cur.execute("""
-            SELECT id, apartment_number, owner_name, owner_email, home_code
-            FROM homes
-            ORDER BY id DESC
-        """).fetchall()
-
-        for home in homes:
-            owner_name = home["owner_name"] or "Home Owner"
-            parts = owner_name.split()
-            initials = "".join([p[0] for p in parts[:2]]).upper() or "HO"
-
-            users.append({
-                "initials": initials,
-                "name": owner_name,
-                "email": home["owner_email"] or "Not available yet",
-                "role": "HOME OWNER",
-                "home": "Apartment " + str(home["apartment_number"] or home["id"]),
-                "status": "ACTIVE",
-                "last_login": "Not logged in yet"
-            })
-
-        conn.close()
-
-    return users
-
-
-@app.get("/api/dashboard/users-data")
-def dashboard_users_data():
+@app.get("/api/dashboard/security-logs-data")
+def api_dashboard_security_logs_data(limit: int = 100):
     return {
         "success": True,
-        "users": _phase9_get_dashboard_users()
+        "logs": _get_security_logs(limit)
     }
 
 
-@app.get("/users")
-def users(request: Request):
-    return templates.TemplateResponse(
-        "users.html",
-        {
-            "request": request,
-            "users": _phase9_get_dashboard_users()
-        }
-    )
-# PHASE9_USERS_END
+_ensure_system_logs_table()
+
+# D7M16_SECURITY_LOGS_UNIFIED_END
+
+
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page(request: Request):
+    logs = _get_security_logs()
+    return templates.TemplateResponse("logs.html", {
+        "request": request,
+        "logs": logs,
+        "security_logs": logs
+    })
+
+
+@app.get("/api/dashboard/logs")
+async def api_dashboard_logs():
+    logs = _get_security_logs()
+    return {
+        "success": True,
+        "logs": logs
+    }
 
