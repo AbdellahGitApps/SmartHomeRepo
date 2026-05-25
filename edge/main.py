@@ -413,3 +413,80 @@ def get_system_network_config():
         "mqtt_broker_port": MQTT_BROKER_PORT,
         "mqtt_broker": f"{MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}",
     }
+
+# App Home Code linking API
+import sqlite3
+from pathlib import Path
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+
+class AppLinkHomeRequest(BaseModel):
+    home_code: str
+
+
+def _link_home_db_path():
+    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+
+@app.post("/api/app/link-home")
+def app_link_home(request: AppLinkHomeRequest):
+    home_code = request.home_code.strip()
+
+    if not home_code:
+        raise HTTPException(status_code=400, detail="Home Code is required")
+
+    db_file = _link_home_db_path()
+
+    if not db_file.exists():
+        raise HTTPException(status_code=500, detail="Database file not found")
+
+    connection = sqlite3.connect(db_file)
+    connection.row_factory = sqlite3.Row
+
+    try:
+        cursor = connection.cursor()
+
+        home = cursor.execute(
+            """
+            SELECT id, apartment_number, owner_name, owner_email, home_code
+            FROM homes
+            WHERE home_code = ?
+            LIMIT 1
+            """,
+            (home_code,),
+        ).fetchone()
+
+        if home is None:
+            raise HTTPException(status_code=404, detail="Invalid Home Code")
+
+        devices = cursor.execute(
+            """
+            SELECT
+                device_id,
+                device_name,
+                device_type,
+                status,
+                mqtt_topic,
+                claim_code,
+                claim_status
+            FROM devices
+            WHERE home_id = ?
+            ORDER BY id ASC
+            """,
+            (home["id"],),
+        ).fetchall()
+
+        return {
+            "success": True,
+            "home": {
+                "id": home["id"],
+                "apartment_number": home["apartment_number"],
+                "owner_name": home["owner_name"],
+                "owner_email": home["owner_email"],
+                "home_code": home["home_code"],
+            },
+            "devices": [dict(device) for device in devices],
+        }
+    finally:
+        connection.close()
