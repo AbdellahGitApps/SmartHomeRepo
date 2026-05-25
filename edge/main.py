@@ -490,3 +490,177 @@ def app_link_home(request: AppLinkHomeRequest):
         }
     finally:
         connection.close()
+
+# Device Claim API
+import sqlite3
+from pathlib import Path
+from datetime import datetime
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+
+class DeviceClaimRequest(BaseModel):
+    claim_code: str
+    mac_address: str
+    device_ip: str
+    device_type: str | None = None
+    firmware_version: str | None = None
+
+
+def _device_claim_db_path():
+    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+
+def _device_claim_now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _device_claim_columns(cursor):
+    rows = cursor.execute("PRAGMA table_info(devices)").fetchall()
+    return {row[1] for row in rows}
+
+
+def _is_camera_device(saved_type, reported_type):
+    values = {
+        (saved_type or "").lower(),
+        (reported_type or "").lower(),
+    }
+    camera_types = {
+        "smart_door",
+        "door_camera",
+        "camera",
+        "esp32_cam",
+        "front_door_camera",
+    }
+    return bool(values & camera_types)
+
+
+def _build_camera_urls(device_ip):
+    return {
+        "camera_stream_url": f"http://{device_ip}/stream",
+        "camera_capture_url": f"http://{device_ip}/capture",
+    }
+
+
+@app.post("/api/devices/claim")
+def claim_device(request: DeviceClaimRequest):
+    claim_code = request.claim_code.strip()
+    mac_address = request.mac_address.strip()
+    device_ip = request.device_ip.strip()
+    reported_device_type = (request.device_type or "").strip()
+    firmware_version = (request.firmware_version or "").strip()
+
+    if not claim_code:
+        raise HTTPException(status_code=400, detail="Claim Code is required")
+
+    if not mac_address:
+        raise HTTPException(status_code=400, detail="MAC Address is required")
+
+    if not device_ip:
+        raise HTTPException(status_code=400, detail="Device IP is required")
+
+    db_file = _device_claim_db_path()
+
+    if not db_file.exists():
+        raise HTTPException(status_code=500, detail="Database file not found")
+
+    connection = sqlite3.connect(db_file)
+    connection.row_factory = sqlite3.Row
+
+    try:
+        cursor = connection.cursor()
+        columns = _device_claim_columns(cursor)
+
+        device = cursor.execute(
+            """
+            SELECT *
+            FROM devices
+            WHERE claim_code = ?
+            LIMIT 1
+            """,
+            (claim_code,),
+        ).fetchone()
+
+        if device is None:
+            raise HTTPException(status_code=404, detail="Invalid Claim Code")
+
+        saved_device_type = device["device_type"] if "device_type" in device.keys() else ""
+
+        updates = {
+            "mac_address": mac_address,
+            "device_ip": device_ip,
+            "claim_status": "claimed",
+            "status": "online",
+        }
+
+        now = _device_claim_now()
+
+        if "last_seen_at" in columns:
+            updates["last_seen_at"] = now
+
+        if "last_seen" in columns:
+            updates["last_seen"] = now
+
+        if "updated_at" in columns:
+            updates["updated_at"] = now
+
+        if firmware_version and "firmware_version" in columns:
+            updates["firmware_version"] = firmware_version
+
+        if "enabled" in columns:
+            updates["enabled"] = 1
+
+        if _is_camera_device(saved_device_type, reported_device_type):
+            urls = _build_camera_urls(device_ip)
+
+            if "camera_stream_url" in columns:
+                updates["camera_stream_url"] = urls["camera_stream_url"]
+
+            if "camera_capture_url" in columns:
+                updates["camera_capture_url"] = urls["camera_capture_url"]
+
+        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
+        values = list(updates.values())
+        values.append(device["id"])
+
+        cursor.execute(
+            f"UPDATE devices SET {set_clause} WHERE id = ?",
+            values,
+        )
+
+        connection.commit()
+
+        updated_device = cursor.execute(
+            """
+            SELECT *
+            FROM devices
+            WHERE id = ?
+            LIMIT 1
+            """,
+            (device["id"],),
+        ).fetchone()
+
+        return {
+            "success": True,
+            "message": "Device claimed successfully",
+            "device": {
+                "id": updated_device["id"],
+                "home_id": updated_device["home_id"],
+                "device_id": updated_device["device_id"],
+                "device_name": updated_device["device_name"],
+                "device_type": updated_device["device_type"],
+                "device_token": updated_device["device_token"],
+                "mqtt_topic": updated_device["mqtt_topic"],
+                "claim_code": updated_device["claim_code"],
+                "claim_status": updated_device["claim_status"],
+                "status": updated_device["status"],
+                "mac_address": updated_device["mac_address"] if "mac_address" in updated_device.keys() else None,
+                "device_ip": updated_device["device_ip"] if "device_ip" in updated_device.keys() else None,
+                "camera_stream_url": updated_device["camera_stream_url"] if "camera_stream_url" in updated_device.keys() else None,
+                "camera_capture_url": updated_device["camera_capture_url"] if "camera_capture_url" in updated_device.keys() else None,
+                "firmware_version": updated_device["firmware_version"] if "firmware_version" in updated_device.keys() else None,
+                "last_seen_at": updated_device["last_seen_at"] if "last_seen_at" in updated_device.keys() else None,
+            },
+        }
+    finally:
+        connection.close()
