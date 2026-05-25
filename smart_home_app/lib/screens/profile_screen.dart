@@ -14,19 +14,20 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
-  final _serverIpController = TextEditingController();
-  final _cameraUrlController = TextEditingController();
-  final _homeCodeController = TextEditingController();
   final _pinController = TextEditingController();
+  final _passwordController = TextEditingController(text: '1');
+  final _aptController = TextEditingController(text: 'Apt 4B - Building 2');
+  final _homeIdController = TextEditingController(text: 'HOME-APT4B');
+  final _homeCodeController = TextEditingController();
 
-  bool _obscureHomeCode = true;
   bool _obscurePin = true;
-  bool _isTestingConnection = false;
+  bool _obscurePassword = true;
+  bool _obscureHomeCode = true;
+  String _actualHomeCode = "";
 
   // Edit states for sections
   bool _editAccount = false;
   bool _editSecurity = false;
-  bool _editNetwork = false;
 
   @override
   void initState() {
@@ -37,50 +38,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _initializeControllers(AppStateProvider appState) {
     _nameController.text = appState.userName;
-    _serverIpController.text = appState.serverIp;
-    _cameraUrlController.text = appState.cameraUrl;
-    _homeCodeController.text = appState.homeCode;
     _pinController.text = appState.userPin;
+    _actualHomeCode = appState.homeCode;
+    _homeCodeController.text = _obscureHomeCode ? '********' : _actualHomeCode;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _serverIpController.dispose();
-    _cameraUrlController.dispose();
-    _homeCodeController.dispose();
     _pinController.dispose();
+    _passwordController.dispose();
+    _aptController.dispose();
+    _homeIdController.dispose();
+    _homeCodeController.dispose();
     super.dispose();
-  }
-
-  Future<void> _testConnection(AppLocalizations l10n) async {
-    setState(() => _isTestingConnection = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      setState(() => _isTestingConnection = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.connectionSuccess),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   void _saveSettings(AppStateProvider appState, AppLocalizations l10n) {
     appState.updateName(_nameController.text);
-    appState.updateNetworkSettings(
-      serverIp: _serverIpController.text,
-      cameraUrl: _cameraUrlController.text,
-      homeCode: _homeCodeController.text,
-    );
     appState.updateSecuritySettings(pin: _pinController.text);
 
     setState(() {
       _editAccount = false;
       _editSecurity = false;
-      _editNetwork = false;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -99,7 +79,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _editAccount = false;
       _editSecurity = false;
-      _editNetwork = false;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -107,6 +86,152 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text(l10n.resetDefaults),
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  void _showChangePasswordDialog(bool isDark, AppLocalizations l10n) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            l10n.changePassword,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Current Password",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "New Password",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Confirm Password",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password updated successfully')),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showChangePinDialog(bool isDark, AppLocalizations l10n) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            "Change PIN",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Current PIN",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "New PIN",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Confirm PIN",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('PIN updated')),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -126,70 +251,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
           children: [
-            // --- 0. APARTMENT NUMBER (PROMINENT AT TOP) ---
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Theme.of(context).primaryColor.withOpacity(0.3),
-                  width: 1.5,
+            // --- 1. HOME INFO SECTION ---
+            _buildSection(
+              title: "Home Info",
+              icon: LucideIcons.home,
+              isDark: isDark,
+              showEditButton: false,
+              children: [
+                _buildTextField(
+                  label: "Apartment Number",
+                  controller: _aptController,
+                  icon: null,
+                  isDark: isDark,
+                  enabled: false,
                 ),
-                boxShadow: isDark
-                    ? []
-                    : [
-                        BoxShadow(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      LucideIcons.building,
-                      size: 28,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 12),
+                _buildTextField(
+                  label: "Home ID",
+                  controller: _homeIdController,
+                  icon: null,
+                  isDark: isDark,
+                  enabled: false,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  label: "Home Code",
+                  controller: _homeCodeController,
+                  icon: null,
+                  isDark: isDark,
+                  obscureText: false,
+                  enabled: true,
+                  readOnly: true,
+                  suffix: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        l10n.apartmentNumber,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade600,
-                          letterSpacing: 1.1,
+                      IconButton(
+                        icon: Icon(
+                          _obscureHomeCode
+                              ? LucideIcons.eyeOff
+                              : LucideIcons.eye,
+                          size: 18,
                         ),
+                        onPressed: () => setState(() {
+                          _obscureHomeCode = !_obscureHomeCode;
+                          _homeCodeController.text =
+                              _obscureHomeCode ? '********' : _actualHomeCode;
+                        }),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Apt 4B - Building 2',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.copy, size: 18),
+                        onPressed: () {
+                          Clipboard.setData(
+                            ClipboardData(text: _actualHomeCode),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Home Code copied'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
 
@@ -209,11 +335,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   enabled: _editAccount,
                 ),
                 const SizedBox(height: 12),
+                _buildTextField(
+                  label: "User Password",
+                  controller: _passwordController,
+                  icon: LucideIcons.lock,
+                  isDark: isDark,
+                  obscureText: _obscurePassword,
+                  enabled: true,
+                  readOnly: !_editAccount,
+                  suffix: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? LucideIcons.eyeOff : LucideIcons.eye,
+                      size: 18,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _buildSettingTile(
                   title: l10n.changePassword,
                   icon: LucideIcons.key,
                   isDark: isDark,
-                  onTap: _editAccount ? () {} : null,
+                  onTap: _editAccount ? () => _showChangePasswordDialog(isDark, l10n) : null,
                   enabled: _editAccount,
                 ),
               ],
@@ -240,12 +383,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _buildTextField(
-                  label: l10n.userPinOrPassword,
+                  label: "User PIN",
                   controller: _pinController,
                   icon: LucideIcons.lock,
                   isDark: isDark,
                   obscureText: _obscurePin,
-                  enabled: _editSecurity,
+                  enabled: true,
+                  readOnly: !_editSecurity,
                   suffix: IconButton(
                     icon: Icon(
                       _obscurePin ? LucideIcons.eyeOff : LucideIcons.eye,
@@ -254,103 +398,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: () => setState(() => _obscurePin = !_obscurePin),
                   ),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // --- 3. LOCAL NETWORK SECTION ---
-            _buildSection(
-              title: l10n.localNetwork,
-              icon: LucideIcons.network,
-              isDark: isDark,
-              isEditing: _editNetwork,
-              onEditToggle: () => setState(() => _editNetwork = !_editNetwork),
-              children: [
-                _buildTextField(
-                  label: l10n.serverIp,
-                  controller: _serverIpController,
-                  icon: LucideIcons.server,
-                  isDark: isDark,
-                  enabled: _editNetwork,
-                ),
                 const SizedBox(height: 12),
-                _buildTextField(
-                  label: l10n.cameraStreamUrl,
-                  controller: _cameraUrlController,
-                  icon: LucideIcons.video,
+                _buildSettingTile(
+                  title: "Change PIN",
+                  icon: LucideIcons.key,
                   isDark: isDark,
-                  enabled: _editNetwork,
+                  onTap: _editSecurity ? () => _showChangePinDialog(isDark, l10n) : null,
+                  enabled: _editSecurity,
                 ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  label: l10n.homeCodeLabel,
-                  controller: _homeCodeController,
-                  icon: LucideIcons.hash,
-                  isDark: isDark,
-                  obscureText: _obscureHomeCode,
-                  enabled: _editNetwork,
-                  suffix: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          _obscureHomeCode
-                              ? LucideIcons.eyeOff
-                              : LucideIcons.eye,
-                          size: 18,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscureHomeCode = !_obscureHomeCode,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(LucideIcons.copy, size: 18),
-                        onPressed: () {
-                          Clipboard.setData(
-                            ClipboardData(text: _homeCodeController.text),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.copiedToClipboard),
-                              duration: const Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                if (_editNetwork) ...[
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _isTestingConnection
-                              ? null
-                              : () => _testConnection(l10n),
-                          icon: _isTestingConnection
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(LucideIcons.radio, size: 18),
-                          label: Text(l10n.testConnection),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
 
@@ -545,47 +600,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
-    required IconData icon,
+    IconData? icon,
     required bool isDark,
     bool obscureText = false,
     Widget? suffix,
     bool enabled = true,
+    bool readOnly = false,
   }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      enabled: enabled,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 20),
-        suffixIcon: suffix,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: isDark
-                ? const Color(0xFF334155).withOpacity(0.5)
-                : Colors.grey.shade200,
+    bool isVisuallyDisabled = !enabled || readOnly;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+            ),
           ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+        TextField(
+          controller: controller,
+          obscureText: obscureText,
+          enabled: enabled,
+          readOnly: readOnly,
+          decoration: InputDecoration(
+            prefixIcon: icon != null ? Icon(icon, size: 20) : null,
+            suffixIcon: suffix,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: isDark
+                    ? const Color(0xFF334155).withOpacity(0.5)
+                    : Colors.grey.shade200,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: isVisuallyDisabled
+                    ? (isDark
+                        ? const Color(0xFF334155).withOpacity(0.5)
+                        : Colors.grey.shade200)
+                    : (isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: isVisuallyDisabled
+                    ? (isDark
+                        ? const Color(0xFF334155).withOpacity(0.5)
+                        : Colors.grey.shade200)
+                    : Theme.of(context).primaryColor,
+                width: isVisuallyDisabled ? 1 : 2,
+              ),
+            ),
+            filled: true,
+            fillColor: !isVisuallyDisabled
+                ? (isDark ? const Color(0xFF0F172A) : Colors.grey.shade50)
+                : (isDark ? const Color(0xFF1E293B) : Colors.grey.shade100),
           ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Theme.of(context).primaryColor,
-            width: 2,
-          ),
-        ),
-        filled: true,
-        fillColor: enabled
-            ? (isDark ? const Color(0xFF0F172A) : Colors.grey.shade50)
-            : (isDark ? const Color(0xFF1E293B) : Colors.grey.shade100),
-      ),
+      ],
     );
   }
 
