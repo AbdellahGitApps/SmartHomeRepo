@@ -379,3 +379,37 @@ def open_door(request: DoorOpenRequest):
         "message": "Door command sent (DB removed temporarily)",
         "mqtt_error": mqtt_error
     }
+
+# System network configuration API
+import socket
+
+try:
+    from config import SERVER_PUBLIC_URL, MQTT_BROKER_HOST, MQTT_BROKER_PORT
+except ImportError:
+    from edge.config import SERVER_PUBLIC_URL, MQTT_BROKER_HOST, MQTT_BROKER_PORT
+
+
+def _get_current_lan_ip():
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(0.2)
+        sock.connect(("8.8.8.8", 80))
+        ip_address = sock.getsockname()[0]
+        sock.close()
+        return ip_address
+    except Exception:
+        return "127.0.0.1"
+
+
+@app.get("/api/system/network")
+def get_system_network_config():
+    current_lan_ip = _get_current_lan_ip()
+
+    return {
+        "server_url": SERVER_PUBLIC_URL,
+        "current_lan_ip": current_lan_ip,
+        "api_status": "online",
+        "mqtt_broker_host": MQTT_BROKER_HOST,
+        "mqtt_broker_port": MQTT_BROKER_PORT,
+        "mqtt_broker": f"{MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}",
+    }
