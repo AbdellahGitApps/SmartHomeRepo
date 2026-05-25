@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Users Management{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <div class="page-title">
         <h1 data-i18n="users_management">Users Management</h1>
-        <p data-i18n="users_management_desc">Manage system administrators and home owners</p>
+        <p data-i18n="users_management_desc">Manage System Owneristrators and home owners</p>
     </div>
     <div class="header-actions">
         <button class="btn btn-primary"><i class="ph ph-plus"></i> <span data-i18n="add_user">Add User</span></button>
@@ -17,7 +17,7 @@
         <input type="text" class="form-control" data-i18n="search_users" placeholder="Search users by name or email..." style="max-width: 300px;">
         <select class="form-control" style="max-width: 150px;">
             <option value="all" data-i18n="all_roles">All Roles</option>
-            <option value="admin" data-i18n="role_sysadmin">System Admin</option>
+            <option value="admin" data-i18n="role_sysadmin">System Owner</option>
             <option value="owner" data-i18n="role_owner">Home Owner</option>
         </select>
     </div>
@@ -40,12 +40,12 @@
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem;">SA</div>
                             <div>
-                                <div style="font-weight: 500;" data-i18n="system_admin">System Admin</div>
+                                <div style="font-weight: 500;" data-i18n="system_admin">System Owner</div>
                                 <div style="font-size: 0.8rem; color: var(--text-secondary);">admin@edge-system.local</div>
                             </div>
                         </div>
                     </td>
-                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-primary);" data-i18n="role_sysadmin">System Admin</span></td>
+                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-primary);" data-i18n="role_sysadmin">System Owner</span></td>
                     <td><span style="color: var(--text-secondary);" data-i18n="all_assoc">-- (All)</span></td>
                     <td><span class="badge badge-success" data-i18n="status_active">Active</span></td>
                     <td data-i18n="just_now">Just now</td>
@@ -96,3 +96,4 @@
     </div>
 </div>
 {% endblock %}
+

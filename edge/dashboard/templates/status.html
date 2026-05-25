@@ -21,12 +21,12 @@
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;">
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="label_status">Status:</span>
-                <span data-i18n="status_connected">Connected</span>
+                <span style="color: var(--text-secondary);" data-i18n="mqtt_broker">MQTT Broker:</span>
+                <span>smarthome.local:1883</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="label_host">Host:</span>
-                <span>localhost:1883</span>
+                <span style="color: var(--text-secondary);" data-i18n="label_status">Status:</span>
+                <span data-i18n="status_connected">Connected</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
                 <span style="color: var(--text-secondary);" data-i18n="label_messages_min">Messages/min:</span>
@@ -64,6 +64,19 @@
             <span class="badge badge-success" data-i18n="badge_running">Running</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem;">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Server URL:</span>
+                <span>http://smarthome.local:8000</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Current LAN IP:</span>
+                <span>192.168.1.100</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">API Status:</span>
+                <span style="color: var(--status-success);">Online</span>
+            </div>
+            <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 4px 0;">
             <div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                     <span style="color: var(--text-secondary);" data-i18n="cpu_usage">CPU Usage</span>

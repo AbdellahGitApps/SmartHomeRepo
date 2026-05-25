@@ -129,6 +129,10 @@
                             <span style="color: var(--text-secondary);">Claim Status:</span>
                             <span style="font-weight: 500;">{{ device.claim_status }}</span>
                         </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">Last Seen:</span>
+                            <span style="font-weight: 500;">{{ device.last_seen or 'Not available yet' }}</span>
+                        </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: var(--text-secondary);">Device Token:</span>
                             <div style="display: flex; align-items: center; gap: 8px;">

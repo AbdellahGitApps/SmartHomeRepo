@@ -28,7 +28,9 @@
                     <th data-i18n="col_claim_status">Claim Status</th>
                     <th data-i18n="col_device_token">Device Token</th>
                     <th data-i18n="col_status">Status</th>
+                    <th data-i18n="col_last_seen">Last Seen</th>
                     <th data-i18n="col_actions">Actions</th>
+                    <th data-i18n="col_advanced_info">Advanced Info</th>
                 </tr>
             </thead>
             <tbody>
@@ -75,6 +77,9 @@
                         <span class="badge badge-offline device-status-badge" data-device-id="{{ device.device_id }}">Offline</span>
                         {% endif %}
                     </td>
+                    <td style="font-size: 0.9em; color: var(--text-secondary);">
+                        {{ device.last_seen or 'Not available yet' }}
+                    </td>
                     <td>
                         <div style="display: flex; gap: 4px;">
                             <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
@@ -86,6 +91,48 @@
                                 {% endif %}
                             </button>
                             <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--accent-primary);" title="Advanced Info" onclick="toggleAdvancedInfo('{{ device.device_id }}')">
+                            <i class="ph ph-info"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr id="adv-{{ device.device_id }}" style="display: none; background: rgba(255,255,255,0.02);">
+                    <td colspan="11" style="padding: 16px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 0.9em;">
+                            <div>
+                                <strong style="color: var(--text-secondary);">Device IP:</strong><br>
+                                <span style="font-family: monospace;">{{ device.ip_address or 'Not available yet' }}</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">MAC Address:</strong><br>
+                                <span style="font-family: monospace;">{{ device.mac_address or 'Not available yet' }}</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">MQTT Topic:</strong><br>
+                                <span style="font-family: monospace;">{{ device.mqtt_topic or 'Not available yet' }}</span>
+                            </div>
+                            {% if device.device_type in ['smart_door', 'esp32_cam', 'door_camera', 'camera'] %}
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Stream URL:</strong><br>
+                                <span style="font-family: monospace;">{{ device.stream_url or 'Not available yet' }}</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Capture URL:</strong><br>
+                                <span style="font-family: monospace;">{{ device.capture_url or 'Not available yet' }}</span>
+                            </div>
+                            {% else %}
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Stream URL:</strong><br>
+                                <span>Not applicable</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Capture URL:</strong><br>
+                                <span>Not applicable</span>
+                            </div>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -103,6 +150,15 @@
 {% endif %}
 
 <script>
+    function toggleAdvancedInfo(deviceId) {
+        const row = document.getElementById(`adv-${deviceId}`);
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
     function toggleTokenVisibility(btn) {
         const container = btn.closest('.token-container');
         const tokenText = container.querySelector('.token-text');
