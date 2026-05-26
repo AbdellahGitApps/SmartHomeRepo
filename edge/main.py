@@ -605,3 +605,335 @@ try:
     app.include_router(energy_prediction_flow_router)
 except Exception as exc:
     print(f"Phase 16 energy prediction router failed to load: {exc}")
+
+
+# D7M16_PHASE10_DEVICE_ACTIONS_START
+from fastapi import Request as _D7Phase10Request, HTTPException as _D7Phase10HTTPException
+from pathlib import Path as _D7Phase10Path
+import sqlite3 as _d7_phase10_sqlite3
+import json as _d7_phase10_json
+import uuid as _d7_phase10_uuid
+from datetime import datetime as _d7_phase10_datetime, timezone as _d7_phase10_timezone
+
+try:
+    from edge.mqtt.publishers.device_command_publisher import publish_device_command as _d7_phase10_publish_device_command
+except Exception:
+    try:
+        from mqtt.publishers.device_command_publisher import publish_device_command as _d7_phase10_publish_device_command
+    except Exception:
+        _d7_phase10_publish_device_command = None
+
+
+_D7_PHASE10_ALLOWED_ACTIONS = {"restart", "enable", "disable", "remove", "status_request"}
+
+
+def _d7_phase10_now():
+    return _d7_phase10_datetime.now(_d7_phase10_timezone.utc).isoformat()
+
+
+def _d7_phase10_has_table(path: _D7Phase10Path, table_name: str) -> bool:
+    if not path.exists():
+        return False
+
+    try:
+        conn = _d7_phase10_sqlite3.connect(path)
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        conn.close()
+        return row is not None
+    except _d7_phase10_sqlite3.Error:
+        return False
+
+
+def _d7_phase10_db_path() -> _D7Phase10Path:
+    edge_dir = _D7Phase10Path(__file__).resolve().parent
+    candidates = [
+        edge_dir / "database" / "smart_home.db",
+        edge_dir / "database" / "smart_home_edge.db",
+        edge_dir / "data" / "smart_home.db",
+        edge_dir / "smart_home.db",
+        edge_dir.parent / "data" / "smart_home.db",
+    ]
+
+    for path in candidates:
+        if _d7_phase10_has_table(path, "devices"):
+            return path
+
+    for path in edge_dir.rglob("*.db"):
+        lower = str(path).lower()
+        if "ai" in lower or "model" in lower:
+            continue
+
+        if _d7_phase10_has_table(path, "devices"):
+            return path
+
+    for path in edge_dir.rglob("*.db"):
+        if _d7_phase10_has_table(path, "devices"):
+            return path
+
+    return edge_dir / "database" / "smart_home.db"
+
+
+def _d7_phase10_connect():
+    path = _d7_phase10_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = _d7_phase10_sqlite3.connect(path)
+    conn.row_factory = _d7_phase10_sqlite3.Row
+    return conn
+
+
+def _d7_phase10_table_columns(conn, table_name: str):
+    try:
+        return {row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+    except _d7_phase10_sqlite3.Error:
+        return set()
+
+
+def _d7_phase10_ensure_system_logs_table(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            created_at TEXT,
+            category TEXT,
+            event_type TEXT,
+            severity TEXT,
+            source TEXT,
+            actor TEXT,
+            action_taken TEXT,
+            home TEXT,
+            home_id TEXT,
+            device_id TEXT,
+            device_name TEXT,
+            details TEXT,
+            message TEXT,
+            status TEXT
+        )
+        """
+    )
+    conn.commit()
+
+
+def _d7_phase10_device_to_dict(row):
+    if row is None:
+        return {}
+
+    data = dict(row)
+
+    if "device_name" not in data and "name" in data:
+        data["device_name"] = data.get("name")
+
+    if "name" not in data and "device_name" in data:
+        data["name"] = data.get("device_name")
+
+    return data
+
+
+def _d7_phase10_get_device(conn, device_ref: str):
+    device_ref = str(device_ref or "").strip()
+
+    if not device_ref:
+        raise _D7Phase10HTTPException(status_code=400, detail="Missing device id")
+
+    try:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM devices
+            WHERE device_id = ? OR CAST(id AS TEXT) = ?
+            LIMIT 1
+            """,
+            (device_ref, device_ref),
+        ).fetchone()
+    except _d7_phase10_sqlite3.Error as error:
+        raise _D7Phase10HTTPException(status_code=500, detail=f"Device lookup failed: {error}")
+
+    if not row:
+        raise _D7Phase10HTTPException(status_code=404, detail=f"Device not found: {device_ref}")
+
+    return _d7_phase10_device_to_dict(row)
+
+
+def _d7_phase10_get_active_mqtt_client():
+    for name in ["mqtt_client", "mqtt", "mqtt_manager", "mqtt_service", "client"]:
+        obj = globals().get(name)
+        if obj is not None and (
+            hasattr(obj, "publish")
+            or hasattr(obj, "client")
+            or hasattr(obj, "mqtt_client")
+        ):
+            return obj
+
+    try:
+        import edge.mqtt as mqtt_module
+        obj = getattr(mqtt_module, "mqtt_client", None)
+        if obj is not None:
+            return obj
+    except Exception:
+        pass
+
+    try:
+        import mqtt as mqtt_module
+        obj = getattr(mqtt_module, "mqtt_client", None)
+        if obj is not None:
+            return obj
+    except Exception:
+        pass
+
+    return None
+
+
+def _d7_phase10_update_device_state(conn, device_ref: str, action: str):
+    columns = _d7_phase10_table_columns(conn, "devices")
+    updates = {}
+
+    if action == "disable":
+        if "enabled" in columns:
+            updates["enabled"] = 0
+        if "status" in columns:
+            updates["status"] = "offline"
+
+    elif action == "enable":
+        if "enabled" in columns:
+            updates["enabled"] = 1
+
+    elif action == "restart":
+        pass
+
+    if not updates:
+        return
+
+    set_sql = ", ".join([f"{key} = ?" for key in updates])
+    values = list(updates.values())
+    values.extend([device_ref, device_ref])
+
+    conn.execute(
+        f"UPDATE devices SET {set_sql} WHERE device_id = ? OR CAST(id AS TEXT) = ?",
+        values,
+    )
+
+
+def _d7_phase10_insert_system_log(conn, device, action, actor_role, mqtt_result):
+    _d7_phase10_ensure_system_logs_table(conn)
+    columns = _d7_phase10_table_columns(conn, "system_logs")
+
+    device_id = str(device.get("device_id") or device.get("id") or "")
+    device_name = str(device.get("device_name") or device.get("name") or device_id)
+    home_id = str(device.get("home_id") or device.get("home") or "-")
+
+    details_text = (
+        f"{action.upper()} command sent to {device_name} ({device_id}) "
+        f"through FastAPI → MQTT."
+    )
+
+    values = {
+        "timestamp": _d7_phase10_now(),
+        "created_at": _d7_phase10_now(),
+        "category": "device",
+        "event_type": "Device Command",
+        "severity": "warning" if action == "disable" else "info",
+        "source": "dashboard",
+        "actor": actor_role,
+        "action_taken": f"MQTT {action.upper()}",
+        "home": home_id,
+        "home_id": home_id,
+        "device_id": device_id,
+        "device_name": device_name,
+        "details": details_text,
+        "message": details_text,
+        "status": "sent" if mqtt_result.get("published") else "prepared",
+    }
+
+    insert_columns = [key for key in values if key in columns]
+    if not insert_columns:
+        return
+
+    placeholders = ", ".join(["?"] * len(insert_columns))
+    names = ", ".join(insert_columns)
+
+    conn.execute(
+        f"INSERT INTO system_logs ({names}) VALUES ({placeholders})",
+        [values[key] for key in insert_columns],
+    )
+
+
+def _d7_phase10_actor_role(request: _D7Phase10Request):
+    return (
+        request.headers.get("X-Actor-Role")
+        or request.headers.get("x-actor-role")
+        or "system_owner"
+    )
+
+
+@app.post("/api/dashboard/devices/{device_id}/actions/{action}")
+def d7_phase10_dashboard_device_action(
+    device_id: str,
+    action: str,
+    request: _D7Phase10Request,
+):
+    action = str(action or "").strip().lower()
+
+    if action not in _D7_PHASE10_ALLOWED_ACTIONS:
+        raise _D7Phase10HTTPException(status_code=400, detail=f"Unsupported device action: {action}")
+
+    actor_role = _d7_phase10_actor_role(request)
+
+    with _d7_phase10_connect() as conn:
+        device = _d7_phase10_get_device(conn, device_id)
+
+        if action in {"enable", "disable", "restart"}:
+            _d7_phase10_update_device_state(conn, device_id, action)
+            device = _d7_phase10_get_device(conn, device_id)
+
+        mqtt_client_obj = _d7_phase10_get_active_mqtt_client()
+
+        if _d7_phase10_publish_device_command is None:
+            mqtt_result = {
+                "published": False,
+                "command": action,
+                "topics": [],
+                "results": [],
+                "error": "device_command_publisher unavailable",
+            }
+        else:
+            mqtt_result = _d7_phase10_publish_device_command(
+                mqtt_client=mqtt_client_obj,
+                device=device,
+                command=action,
+                source="dashboard",
+                actor_role=actor_role,
+                extra={
+                    "dashboard_action": True,
+                    "request_id": _d7_phase10_uuid.uuid4().hex[:12],
+                },
+            )
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "message": f"{action.upper()} command sent through FastAPI → MQTT.",
+            "device_id": device.get("device_id") or device_id,
+            "action": action,
+            "mqtt": mqtt_result,
+        }
+
+
+@app.post("/api/devices/{device_id}/restart")
+def d7_phase10_restart_compat(device_id: str, request: _D7Phase10Request):
+    return d7_phase10_dashboard_device_action(device_id, "restart", request)
+
+
+@app.patch("/api/devices/{device_id}/disable")
+def d7_phase10_disable_compat(device_id: str, request: _D7Phase10Request):
+    return d7_phase10_dashboard_device_action(device_id, "disable", request)
+
+
+@app.patch("/api/devices/{device_id}/enable")
+def d7_phase10_enable_compat(device_id: str, request: _D7Phase10Request):
+    return d7_phase10_dashboard_device_action(device_id, "enable", request)
+# D7M16_PHASE10_DEVICE_ACTIONS_END
+

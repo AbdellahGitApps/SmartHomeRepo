@@ -8,7 +8,12 @@
         <p data-i18n="security_logs_desc">Review all access and security events across registered homes</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline"><i class="ph ph-download-simple"></i> <span data-i18n="export_csv">Export CSV</span></button>
+        
+<button class="btn btn-outline" onclick="phase10RefreshLogs()" type="button">
+    <i class="ph ph-arrows-clockwise"></i> Refresh
+</button>
+
+<button class="btn btn-outline"><i class="ph ph-download-simple"></i> <span data-i18n="export_csv">Export CSV</span></button>
     </div>
 </div>
 
@@ -35,7 +40,7 @@
                 <tr>
                     <th data-i18n="timestamp">Timestamp</th>
                     <th data-i18n="severity">Severity</th>
-                    <th data-i18n="home">Home</th>
+                    <th data-i18n="home">HOME NUMBER</th>
                     <th data-i18n="event_type">Event Type</th>
                     <th data-i18n="details">Details</th>
                     <th data-i18n="action_taken">Action Taken</th>
@@ -64,6 +69,234 @@
         </table>
     </div>
 </div>
+
+
+
+
+
+
+
+<!-- D7M16_PHASE10_LOGS_UI_FIX_START -->
+<style>
+.phase10-severity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.phase10-severity-info {
+  color: #10b981;
+  background: rgba(16, 185, 129, .15);
+  border: 1px solid rgba(16, 185, 129, .25);
+}
+.phase10-severity-warning {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, .15);
+  border: 1px solid rgba(245, 158, 11, .25);
+}
+.phase10-severity-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, .15);
+  border: 1px solid rgba(239, 68, 68, .25);
+}
+</style>
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function lower(value) {
+    return clean(value).toLowerCase();
+  }
+
+  function titleCase(value) {
+    return clean(value)
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+  }
+
+  function table() {
+    return document.querySelector("table");
+  }
+
+  function headers() {
+    const t = table();
+    return t ? Array.from(t.querySelectorAll("thead th")) : [];
+  }
+
+  function rows() {
+    const t = table();
+    return t ? Array.from(t.querySelectorAll("tbody tr")) : [];
+  }
+
+  function exactHeaderIndex(label) {
+    const target = lower(label);
+    return headers().findIndex((th) => lower(th.textContent) === target);
+  }
+
+  function containsHeaderIndex(label) {
+    const target = lower(label);
+    return headers().findIndex((th) => lower(th.textContent).includes(target));
+  }
+
+  function normalizeHeaders() {
+    const homeIdx = containsHeaderIndex("home");
+    if (homeIdx >= 0) headers()[homeIdx].textContent = "APARTMENT NUMBER";
+  }
+
+  function apartmentOnly(value) {
+    value = clean(value);
+    value = value.replace(/^apartment\s*/i, "");
+    const apt = value.match(/^apt[-\s]*(\d+)/i);
+    if (apt) return String(Number(apt[1]));
+    return value;
+  }
+
+  function deriveEventType(details, original) {
+    const text = lower(details + " " + original);
+
+    if (text.includes("energy") || text.includes("meter")) {
+      return "Energy Monitor Command";
+    }
+
+    if (text.includes("door") || text.includes("camera") || text.includes("smart door")) {
+      return "Smart Door Command";
+    }
+
+    return titleCase(original || "System Event");
+  }
+
+  function deriveSeverity(action, details, rawSeverity) {
+    const text = lower(action + " " + details + " " + rawSeverity);
+
+    if (text.includes("disable")) return "warning";
+    if (text.includes("error") || text.includes("failed") || text.includes("critical")) return "error";
+    if (text.includes("warn")) return "warning";
+
+    return "info";
+  }
+
+  function normalizeRows() {
+    const severityIdx = exactHeaderIndex("severity");
+    const aptIdx = exactHeaderIndex("apartment number");
+    const eventIdx = exactHeaderIndex("event type");
+    const detailsIdx = exactHeaderIndex("details");
+    const actionIdx = exactHeaderIndex("action taken");
+
+    rows().forEach((row) => {
+      const details = detailsIdx >= 0 && row.children[detailsIdx] ? row.children[detailsIdx].textContent : "";
+      const originalEvent = eventIdx >= 0 && row.children[eventIdx] ? row.children[eventIdx].textContent : "";
+      const action = actionIdx >= 0 && row.children[actionIdx] ? row.children[actionIdx].textContent : "";
+      const rawSeverity = severityIdx >= 0 && row.children[severityIdx] ? row.children[severityIdx].textContent : "";
+
+      if (aptIdx >= 0 && row.children[aptIdx]) {
+        row.children[aptIdx].textContent = apartmentOnly(row.children[aptIdx].textContent);
+      }
+
+      const eventType = deriveEventType(details, originalEvent);
+      const severity = deriveSeverity(action, details, rawSeverity);
+
+      row.dataset.phase10Event = lower(eventType);
+      row.dataset.phase10Severity = severity;
+
+      if (eventIdx >= 0 && row.children[eventIdx]) {
+        row.children[eventIdx].textContent = eventType;
+      }
+
+      if (severityIdx >= 0 && row.children[severityIdx]) {
+        let cls = "phase10-severity-info";
+        if (severity === "warning") cls = "phase10-severity-warning";
+        if (severity === "error") cls = "phase10-severity-error";
+
+        row.children[severityIdx].innerHTML =
+          `<span class="phase10-severity-badge ${cls}">${severity.toUpperCase()}</span>`;
+      }
+    });
+  }
+
+  function setOptions(select, values, allLabel) {
+    if (!select) return;
+
+    select.innerHTML = "";
+
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = allLabel;
+    select.appendChild(all);
+
+    values.forEach((value) => {
+      const option = document.createElement("option");
+      option.value = lower(value);
+      option.textContent = titleCase(value);
+      select.appendChild(option);
+    });
+  }
+
+  function setupFilters() {
+    const selects = Array.from(document.querySelectorAll("select"));
+    const eventSelect = selects[0] || null;
+    const severitySelect = selects[1] || null;
+    const searchInput =
+      document.querySelector('input[placeholder*="Search" i]') ||
+      document.querySelector('input[type="search"]') ||
+      document.querySelector("input");
+
+    const eventValues = Array.from(new Set(rows().map((row) => row.dataset.phase10Event).filter(Boolean))).sort();
+    const severityValues = Array.from(new Set(rows().map((row) => row.dataset.phase10Severity).filter(Boolean))).sort();
+
+    setOptions(eventSelect, eventValues, "All Events");
+    setOptions(severitySelect, severityValues, "All Severities");
+
+    function apply() {
+      const query = searchInput ? lower(searchInput.value) : "";
+      const eventValue = eventSelect ? lower(eventSelect.value) : "";
+      const severityValue = severitySelect ? lower(severitySelect.value) : "";
+
+      rows().forEach((row) => {
+        const matchSearch = !query || lower(row.textContent).includes(query);
+        const matchEvent = !eventValue || row.dataset.phase10Event === eventValue;
+        const matchSeverity = !severityValue || row.dataset.phase10Severity === severityValue;
+
+        row.style.display = matchSearch && matchEvent && matchSeverity ? "" : "none";
+      });
+    }
+
+    if (searchInput) searchInput.addEventListener("input", apply);
+    if (eventSelect) eventSelect.addEventListener("change", apply);
+    if (severitySelect) severitySelect.addEventListener("change", apply);
+
+    apply();
+  }
+
+  window.phase10RefreshLogs = function () {
+    window.location.reload();
+  };
+
+  document.addEventListener("DOMContentLoaded", function () {
+    normalizeHeaders();
+    normalizeRows();
+    setupFilters();
+
+    document.querySelectorAll("button, a").forEach((item) => {
+      if (lower(item.textContent).includes("refresh") && !item.onclick) {
+        item.addEventListener("click", function (event) {
+          event.preventDefault();
+          window.location.reload();
+        });
+      }
+    });
+  });
+})();
+</script>
+<!-- D7M16_PHASE10_LOGS_UI_FIX_END -->
+
 {% endblock %}
 
 <!-- D7M16_SECURITY_LOGS_FRONTEND_FIX_START -->

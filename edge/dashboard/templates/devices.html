@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Device Provisioning{% endblock %}
+{% block title %}Device Provisioning
+
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -22,7 +24,7 @@
                     <th data-i18n="col_device_id">Device ID</th>
                     <th data-i18n="col_device_name">Device Name</th>
                     <th data-i18n="col_type">Type</th>
-                    <th data-i18n="col_assigned">Assigned Apartment</th>
+                    <th data-i18n="col_assigned">APARTMENT NUMBER</th>
                     <th data-i18n="col_mqtt">MQTT Topic</th>
                     <th data-i18n="col_claim_code">Claim Code</th>
                     <th data-i18n="col_claim_status">Claim Status</th>
@@ -83,8 +85,8 @@
                     <td>
                         <div style="display: flex; gap: 4px;">
                             <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="mockRestartDevice(this)"><i class="ph ph-power"></i></button>
-                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Disable/Enable Device" data-device-id="{{ device.device_id }}" onclick="mockToggleDeviceStatus('{{ device.device_id }}')">
-                                {% if device.status == 'online' %}
+                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: {% set enabled_value = device.enabled|string|lower %}{% if device.enabled is not defined or enabled_value in ['1', 'true', 'yes', 'enabled'] %}#f59e0b{% else %}#22c55e{% endif %};" title="{% if device.enabled is not defined or enabled_value in ['1', 'true', 'yes', 'enabled'] %}Disable Device{% else %}Enable Device{% endif %}" data-device-id="{{ device.device_id }}" onclick="mockToggleDeviceStatus('{{ device.device_id }}')">
+                                {% if device.enabled is not defined or enabled_value in ['1', 'true', 'yes', 'enabled'] %}
                                 <i class="ph ph-pause"></i>
                                 {% else %}
                                 <i class="ph ph-play"></i>
@@ -185,4 +187,678 @@
         translations.ar["add_first_device_desc"] = "ابدأ بتهيئة الأجهزة عند إنشاء منزل.";
     }
 </script>
+
+
+
+
+
+
+
+<!-- D7M16_PHASE10_DEVICE_LAST_FIX_START -->
+<style>
+.phase10-hidden-col {
+  display: none !important;
+}
+
+.phase10-status-badge,
+.phase10-enabled-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.phase10-online,
+.phase10-enabled {
+  color: #10b981;
+  background: rgba(16, 185, 129, .15);
+  border: 1px solid rgba(16, 185, 129, .25);
+}
+
+.phase10-offline,
+.phase10-disabled {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, .14);
+  border: 1px solid rgba(148, 163, 184, .22);
+}
+
+.phase10-action-play {
+  color: #22c55e !important;
+}
+
+.phase10-action-pause {
+  color: #f59e0b !important;
+}
+
+.phase10-advanced-device-id {
+  min-width: 160px;
+  margin-bottom: 8px;
+}
+</style>
+
+<script>
+(function () {
+  const HEADERS = {
+    "X-Actor-Role": "system_owner",
+    "X-System-Owner-Token": "dev-system-owner-token"
+  };
+
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function lower(value) {
+    return clean(value).toLowerCase();
+  }
+
+  function getTable() {
+    return document.querySelector("table");
+  }
+
+  function getHeaders() {
+    const table = getTable();
+    return table ? Array.from(table.querySelectorAll("thead th")) : [];
+  }
+
+  function getRows() {
+    const table = getTable();
+    return table ? Array.from(table.querySelectorAll("tbody tr")) : [];
+  }
+
+  function exactHeaderIndex(label) {
+    const target = lower(label);
+    return getHeaders().findIndex((th) => lower(th.textContent) === target);
+  }
+
+  function containsHeaderIndex(label) {
+    const target = lower(label);
+    return getHeaders().findIndex((th) => lower(th.textContent).includes(target));
+  }
+
+  function setHeader(oldLabel, newLabel) {
+    const idx = containsHeaderIndex(oldLabel);
+    if (idx >= 0) getHeaders()[idx].textContent = newLabel;
+  }
+
+  function isMainDeviceRow(row) {
+    if (!row) return false;
+    return !!row.querySelector("button, a, [onclick]");
+  }
+
+  function extractDeviceIdFromRow(row) {
+    if (!row) return "";
+
+    if (row.dataset.deviceId) return row.dataset.deviceId;
+
+    const html = row.innerHTML || "";
+    const patterns = [
+      /['"]([A-Z]+-[A-Z0-9]+-\d+)['"]/,
+      /([A-Z]+-[A-Z0-9]+-\d+)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        row.dataset.deviceId = match[1];
+        return match[1];
+      }
+    }
+
+    return "";
+  }
+
+  function findRowByDeviceId(deviceId) {
+    return getRows().find((row) => {
+      return row.dataset.deviceId === deviceId || clean(row.innerHTML).includes(deviceId);
+    });
+  }
+
+  function badge(text, cls) {
+    return `<span class="${cls}">${text}</span>`;
+  }
+
+  function forceStatusOnlineOffline(row) {
+    const statusIdx = exactHeaderIndex("status");
+    if (statusIdx < 0 || !row.children[statusIdx]) return;
+
+    const raw = lower(row.children[statusIdx].textContent);
+
+    // STATUS column must never show DISABLED. Disabled belongs to Enabled column only.
+    const isOnline = raw.includes("online");
+
+    row.children[statusIdx].innerHTML = isOnline
+      ? badge("ONLINE", "phase10-status-badge phase10-online")
+      : badge("OFFLINE", "phase10-status-badge phase10-offline");
+  }
+
+  function renderEnabled(row, enabled) {
+    const enabledIdx = exactHeaderIndex("enabled");
+    if (enabledIdx < 0 || !row.children[enabledIdx]) return;
+
+    row.dataset.enabledState = enabled ? "enabled" : "disabled";
+
+    row.children[enabledIdx].innerHTML = enabled
+      ? badge("ENABLED", "phase10-enabled-badge phase10-enabled")
+      : badge("DISABLED", "phase10-enabled-badge phase10-disabled");
+  }
+
+  function getInitialEnabled(row) {
+    const enabledIdx = exactHeaderIndex("enabled");
+
+    if (enabledIdx >= 0 && row.children[enabledIdx]) {
+      const text = lower(row.children[enabledIdx].textContent);
+      if (text.includes("disabled")) return false;
+      if (text.includes("enabled")) return true;
+    }
+
+    const play = row.querySelector(".ph-play");
+    const pause = row.querySelector(".ph-pause");
+
+    if (play) return false;
+    if (pause) return true;
+
+    return true;
+  }
+
+  function renderToggle(row, enabled) {
+    const button =
+      row.querySelector(".btn-toggle-status") ||
+      Array.from(row.querySelectorAll("button")).find((btn) => {
+        return btn.querySelector(".ph-play") || btn.querySelector(".ph-pause");
+      });
+
+    if (!button) return;
+
+    button.classList.remove("phase10-action-play", "phase10-action-pause");
+    button.classList.add(enabled ? "phase10-action-pause" : "phase10-action-play");
+    button.title = enabled ? "Disable Device" : "Enable Device";
+    button.innerHTML = enabled ? '<i class="ph ph-pause"></i>' : '<i class="ph ph-play"></i>';
+
+    button.onclick = function () {
+      return sendDeviceAction(row.dataset.deviceId, enabled ? "disable" : "enable");
+    };
+  }
+
+  function putDeviceIdInsideAdvancedInfo() {
+    const rows = getRows();
+
+    rows.forEach((row, index) => {
+      if (!isMainDeviceRow(row)) return;
+
+      const deviceId = extractDeviceIdFromRow(row);
+      if (!deviceId) return;
+
+      const next = rows[index + 1];
+      if (!next || isMainDeviceRow(next)) return;
+
+      const nextText = lower(next.textContent);
+
+      if (
+        !nextText.includes("device ip") &&
+        !nextText.includes("mac address") &&
+        !nextText.includes("mqtt topic") &&
+        !nextText.includes("camera stream") &&
+        !nextText.includes("camera capture")
+      ) {
+        return;
+      }
+
+      if (nextText.includes("device id")) return;
+
+      const cell = next.children[0];
+      if (!cell) return;
+
+      const item = document.createElement("div");
+      item.className = "phase10-advanced-device-id";
+      item.innerHTML = `<strong>Device ID:</strong><br>${deviceId}`;
+
+      cell.prepend(item);
+    });
+  }
+
+  function normalizeDevicesTable() {
+    setHeader("assigned apartment", "APARTMENT NUMBER");
+    setHeader("apartment", "APARTMENT NUMBER");
+
+    const deviceIdIdx = exactHeaderIndex("device id");
+    if (deviceIdIdx >= 0) {
+      getHeaders()[deviceIdIdx].classList.add("phase10-hidden-col");
+    }
+
+    getRows().forEach((row) => {
+      if (!isMainDeviceRow(row)) return;
+
+      extractDeviceIdFromRow(row);
+
+      if (deviceIdIdx >= 0 && row.children[deviceIdIdx]) {
+        row.children[deviceIdIdx].classList.add("phase10-hidden-col");
+      }
+
+      const enabled = getInitialEnabled(row);
+
+      forceStatusOnlineOffline(row);
+      renderEnabled(row, enabled);
+      renderToggle(row, enabled);
+    });
+
+    putDeviceIdInsideAdvancedInfo();
+  }
+
+  function toast(message, type = "success") {
+    if (typeof showToast === "function") {
+      showToast(message);
+      return;
+    }
+
+    const old = document.getElementById("phase10-device-toast");
+    if (old) old.remove();
+
+    const item = document.createElement("div");
+    item.id = "phase10-device-toast";
+    item.textContent = message;
+    item.style.position = "fixed";
+    item.style.right = "24px";
+    item.style.bottom = "24px";
+    item.style.zIndex = "99999";
+    item.style.padding = "12px 16px";
+    item.style.borderRadius = "10px";
+    item.style.color = "#fff";
+    item.style.fontWeight = "800";
+    item.style.background = type === "error" ? "#dc2626" : "#2563eb";
+    item.style.boxShadow = "0 10px 30px rgba(0,0,0,.35)";
+    document.body.appendChild(item);
+
+    setTimeout(() => item.remove(), 3000);
+  }
+
+  async function sendDeviceAction(deviceId, action) {
+    deviceId = clean(deviceId);
+    action = lower(action);
+
+    if (!deviceId) {
+      toast("Missing device ID", "error");
+      return;
+    }
+
+    if (action === "disable" && !confirm(`Disable device ${deviceId}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(action)}`,
+        {
+          method: "POST",
+          headers: HEADERS
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.detail || data.message || `${action} failed`);
+      }
+
+      const row = findRowByDeviceId(deviceId);
+
+      if (row) {
+        if (action === "disable") {
+          renderEnabled(row, false);
+
+          const statusIdx = exactHeaderIndex("status");
+          if (statusIdx >= 0 && row.children[statusIdx]) {
+            row.children[statusIdx].innerHTML = badge("OFFLINE", "phase10-status-badge phase10-offline");
+          }
+
+          renderToggle(row, false);
+        }
+
+        if (action === "enable") {
+          renderEnabled(row, true);
+
+          const statusIdx = exactHeaderIndex("status");
+          if (statusIdx >= 0 && row.children[statusIdx]) {
+            row.children[statusIdx].innerHTML = badge("ONLINE", "phase10-status-badge phase10-online");
+          }
+
+          renderToggle(row, true);
+        }
+      }
+
+      const mqttText = data.mqtt && data.mqtt.published ? "MQTT published" : "MQTT prepared";
+      toast(`${action.toUpperCase()} completed. ${mqttText}.`);
+    } catch (error) {
+      console.error(error);
+      toast(error.message || "Device action failed", "error");
+    }
+  }
+
+  window.restartDevice = function (input) {
+    return sendDeviceAction(clean(input), "restart");
+  };
+
+  window.enableDevice = function (input) {
+    return sendDeviceAction(clean(input), "enable");
+  };
+
+  window.disableDevice = function (input) {
+    return sendDeviceAction(clean(input), "disable");
+  };
+
+  window.mockRestartDevice = function (input) {
+    return sendDeviceAction(clean(input), "restart");
+  };
+
+  window.mockToggleDeviceStatus = function (input) {
+    const deviceId = clean(input);
+    const row = findRowByDeviceId(deviceId);
+    const enabled = row ? row.dataset.enabledState !== "disabled" : true;
+    return sendDeviceAction(deviceId, enabled ? "disable" : "enable");
+  };
+
+  function wireTopButtons() {
+    document.querySelectorAll("button, a").forEach((el) => {
+      const text = lower(el.textContent);
+
+      if (text.includes("refresh status")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.reload();
+        };
+      }
+
+      if (text.includes("register device")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.href = "/create-home";
+        };
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    normalizeDevicesTable();
+    wireTopButtons();
+
+    // Run again after template scripts finish, because old scripts love drama.
+    setTimeout(function () {
+      normalizeDevicesTable();
+      wireTopButtons();
+    }, 300);
+  });
+})();
+</script>
+<!-- D7M16_PHASE10_DEVICE_LAST_FIX_END -->
+
+
+<!-- D7M16_ADVANCED_DEVICE_ID_FIELD_START -->
+<style>
+.phase10-advanced-grid-fix {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
+  gap: 18px;
+  width: 100%;
+  align-items: start;
+}
+
+.phase10-advanced-device-id-field {
+  min-width: 150px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.phase10-advanced-device-id-field strong {
+  display: block;
+  font-weight: 800;
+  color: inherit;
+}
+</style>
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function lower(value) {
+    return clean(value).toLowerCase();
+  }
+
+  function rows() {
+    return Array.from(document.querySelectorAll("table tbody tr"));
+  }
+
+  function parseDeviceId(text) {
+    text = String(text || "");
+    const match = text.match(/\b(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+\b/i);
+    return match ? match[0].toUpperCase() : "";
+  }
+
+  function isAdvancedRow(row) {
+    const text = lower(row.textContent);
+    return (
+      text.includes("device ip") ||
+      text.includes("mac address") ||
+      text.includes("mqtt topic") ||
+      text.includes("camera stream url") ||
+      text.includes("camera capture url")
+    );
+  }
+
+  function previousMainRow(index, list) {
+    for (let i = index - 1; i >= 0; i--) {
+      if (!isAdvancedRow(list[i])) {
+        return list[i];
+      }
+    }
+    return null;
+  }
+
+  function getDeviceIdForAdvancedRow(row, index, list) {
+    let id = parseDeviceId(row.textContent) || parseDeviceId(row.innerHTML);
+    if (id) return id;
+
+    const prev = previousMainRow(index, list);
+    if (!prev) return "";
+
+    id = parseDeviceId(prev.textContent) || parseDeviceId(prev.innerHTML);
+    return id;
+  }
+
+  function makeDeviceIdField(deviceId) {
+    const field = document.createElement("div");
+    field.className = "phase10-advanced-device-id-field";
+    field.innerHTML = `<strong>Device ID:</strong>${deviceId}`;
+    return field;
+  }
+
+  function addDeviceIdField() {
+    const list = rows();
+
+    list.forEach((row, index) => {
+      if (!isAdvancedRow(row)) return;
+      if (lower(row.textContent).includes("device id")) return;
+
+      const deviceId = getDeviceIdForAdvancedRow(row, index, list);
+      if (!deviceId) return;
+
+      /*
+        If advanced info is built as multiple TD fields:
+        add a real TD before Device IP.
+      */
+      if (row.children.length > 1) {
+        const td = document.createElement("td");
+        td.appendChild(makeDeviceIdField(deviceId));
+        row.insertBefore(td, row.children[0]);
+        return;
+      }
+
+      /*
+        If advanced info is one colspan TD:
+        wrap existing fields into grid, then insert Device ID as first field.
+      */
+      const cell = row.children[0];
+      if (!cell) return;
+
+      let grid = cell.querySelector(".phase10-advanced-grid-fix");
+
+      if (!grid) {
+        grid = document.createElement("div");
+        grid.className = "phase10-advanced-grid-fix";
+
+        while (cell.firstChild) {
+          grid.appendChild(cell.firstChild);
+        }
+
+        cell.appendChild(grid);
+      }
+
+      grid.insertBefore(makeDeviceIdField(deviceId), grid.firstChild);
+    });
+  }
+
+  function fixTopButtons() {
+    document.querySelectorAll("button, a").forEach((el) => {
+      const text = lower(el.textContent);
+
+      if (text.includes("refresh status")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.reload();
+        };
+      }
+
+      if (text.includes("register device")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.href = "/create-home";
+        };
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    addDeviceIdField();
+    fixTopButtons();
+
+    setTimeout(function () {
+      addDeviceIdField();
+      fixTopButtons();
+    }, 300);
+  });
+})();
+</script>
+<!-- D7M16_ADVANCED_DEVICE_ID_FIELD_END -->
+
+
+<!-- D7M16_DEVICE_ID_VISIBLE_COLUMN_START -->
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function lower(value) {
+    return clean(value).toLowerCase();
+  }
+
+  function table() {
+    return document.querySelector("table");
+  }
+
+  function headers() {
+    const t = table();
+    return t ? Array.from(t.querySelectorAll("thead th")) : [];
+  }
+
+  function rows() {
+    const t = table();
+    return t ? Array.from(t.querySelectorAll("tbody tr")) : [];
+  }
+
+  function headerIndex(label) {
+    const target = lower(label);
+    return headers().findIndex((th) => lower(th.textContent) === target);
+  }
+
+  function isAdvancedRow(row) {
+    const text = lower(row.textContent);
+    return (
+      text.includes("device ip") ||
+      text.includes("mac address") ||
+      text.includes("mqtt topic") ||
+      text.includes("camera stream url") ||
+      text.includes("camera capture url")
+    );
+  }
+
+  function extractDeviceId(row) {
+    if (!row) return "";
+
+    if (row.dataset.deviceId) return row.dataset.deviceId;
+
+    const source = row.innerHTML + " " + row.textContent;
+    const match = source.match(/\b(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+\b/i);
+
+    if (!match) return "";
+
+    const id = match[0].toUpperCase();
+    row.dataset.deviceId = id;
+    return id;
+  }
+
+  function addVisibleDeviceIdColumn() {
+    const h = headers();
+    if (!h.length) return;
+
+    const typeIdx = headerIndex("type");
+    if (typeIdx < 0) return;
+
+    const alreadyVisible = h.some((th) => {
+      return lower(th.textContent) === "device id" && !th.classList.contains("phase10-hidden-col");
+    });
+
+    if (!alreadyVisible) {
+      const th = document.createElement("th");
+      th.textContent = "DEVICE ID";
+      th.className = "phase10-visible-device-id-header";
+      h[typeIdx].parentNode.insertBefore(th, h[typeIdx].nextSibling);
+    }
+
+    rows().forEach((row) => {
+      if (isAdvancedRow(row)) return;
+      if (row.querySelector(".phase10-visible-device-id-cell")) return;
+
+      const currentHeaders = headers();
+      const currentTypeIdx = currentHeaders.findIndex((th) => lower(th.textContent) === "type");
+      if (currentTypeIdx < 0) return;
+
+      const deviceId = extractDeviceId(row);
+      if (!deviceId) return;
+
+      const td = document.createElement("td");
+      td.className = "phase10-visible-device-id-cell";
+      td.textContent = deviceId;
+      td.style.fontFamily = "monospace";
+      td.style.fontWeight = "700";
+      td.style.fontSize = "0.86rem";
+
+      row.insertBefore(td, row.children[currentTypeIdx + 1] || null);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    addVisibleDeviceIdColumn();
+    setTimeout(addVisibleDeviceIdColumn, 300);
+    setTimeout(addVisibleDeviceIdColumn, 800);
+  });
+})();
+</script>
+<!-- D7M16_DEVICE_ID_VISIBLE_COLUMN_END -->
+
 {% endblock %}
