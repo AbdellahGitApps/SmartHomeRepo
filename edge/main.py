@@ -587,3 +587,9 @@ try:
     app.include_router(door_official_flow_router)
 except Exception as exc:
     print(f"Phase 13 door official flow router failed to load: {exc}")
+
+try:
+    from api.face_recognition_flow import router as face_recognition_flow_router
+    app.include_router(face_recognition_flow_router)
+except Exception as exc:
+    print(f"Phase 14 face recognition flow router failed to load: {exc}")
