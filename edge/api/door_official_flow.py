@@ -25,6 +25,22 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _has_table(path: Path, table_name: str) -> bool:
+    if not path.exists():
+        return False
+
+    try:
+        conn = sqlite3.connect(path)
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        conn.close()
+        return row is not None
+    except sqlite3.Error:
+        return False
+
+
 def _db_path() -> Path:
     edge_dir = Path(__file__).resolve().parents[1]
     candidates = [
@@ -35,14 +51,22 @@ def _db_path() -> Path:
     ]
 
     for path in candidates:
-        if path.exists():
+        if _has_table(path, "devices"):
             return path
 
-    found = list(edge_dir.rglob("*.db"))
-    if found:
-        return found[0]
+    for path in edge_dir.rglob("*.db"):
+        path_text = str(path).lower()
+        if "ai" in path_text or "model" in path_text:
+            continue
 
-    return edge_dir / "data" / "smart_home.db"
+        if _has_table(path, "devices"):
+            return path
+
+    for path in edge_dir.rglob("*.db"):
+        if _has_table(path, "devices"):
+            return path
+
+    return edge_dir / "database" / "smart_home.db"
 
 
 def _connect():

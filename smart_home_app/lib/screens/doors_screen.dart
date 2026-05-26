@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_home_app/providers/app_state_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../services/backend_api_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class DoorsScreen extends StatefulWidget {
@@ -14,8 +15,8 @@ class DoorsScreen extends StatefulWidget {
 class _DoorsScreenState extends State<DoorsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _listController;
+  final BackendApiService _api = BackendApiService();
 
-  // Mock access log data
   final List<Map<String, dynamic>> _accessLog = [
     {
       'doorKey': 'mainDoor',
@@ -59,6 +60,7 @@ class _DoorsScreenState extends State<DoorsScreen>
 
   @override
   void dispose() {
+    _api.close();
     _listController.dispose();
     super.dispose();
   }
@@ -76,10 +78,29 @@ class _DoorsScreenState extends State<DoorsScreen>
     }
   }
 
+  String _nowText() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _addAccessLog({required String doorKey, required bool granted}) {
+    setState(() {
+      _accessLog.insert(0, {
+        'doorKey': doorKey,
+        'userKey': granted ? 'greeting' : null,
+        'method': 'manualApp',
+        'result': granted ? 'accessGranted' : 'accessDenied',
+        'time': _nowText(),
+      });
+    });
+  }
+
   void _showPinDialog(BuildContext context, Map<String, dynamic> door) {
     final l10n = AppLocalizations.of(context)!;
     final pinController = TextEditingController();
     String? pinError;
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -129,33 +150,80 @@ class _DoorsScreenState extends State<DoorsScreen>
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.pop(dialogContext),
                   child: Text(l10n.cancel),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    if (pinController.text == '1234') {
-                      Provider.of<AppStateProvider>(
-                        context,
-                        listen: false,
-                      ).setDoorState(door['id'], false);
-                      Navigator.pop(dialogContext);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(l10n.doorUnlockedManually),
-                          backgroundColor: Colors.green,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      );
-                    } else {
-                      setDialogState(() {
-                        pinError = l10n.pinError;
-                      });
-                    }
-                  },
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (pinController.text != '1234') {
+                            setDialogState(() {
+                              pinError = l10n.pinError;
+                            });
+                            _addAccessLog(
+                              doorKey: door['nameKey'],
+                              granted: false,
+                            );
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isSubmitting = true;
+                            pinError = null;
+                          });
+
+                          final appState = Provider.of<AppStateProvider>(
+                            context,
+                            listen: false,
+                          );
+
+                          try {
+                            await _api.openDoor(
+                              source: 'flutter_app',
+                              reason: 'manual_open_from_flutter',
+                              openedBy: appState.userName,
+                            );
+
+                            if (!mounted) return;
+
+                            appState.setDoorState(door['id'], false);
+                            _addAccessLog(
+                              doorKey: door['nameKey'],
+                              granted: true,
+                            );
+
+                            Navigator.pop(dialogContext);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.doorUnlockedManually),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
+                          } catch (error) {
+                            setDialogState(() {
+                              isSubmitting = false;
+                              pinError = 'Backend error';
+                            });
+
+                            if (!mounted) return;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Door backend error: $error'),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.white,
@@ -163,7 +231,16 @@ class _DoorsScreenState extends State<DoorsScreen>
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(l10n.unlock),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(l10n.unlock),
                 ),
               ],
             );
@@ -201,7 +278,6 @@ class _DoorsScreenState extends State<DoorsScreen>
         ),
         body: TabBarView(
           children: [
-            // Tab 1: Door Controls
             SafeArea(
               child: ListView.separated(
                 padding: const EdgeInsets.all(24.0),
@@ -407,8 +483,6 @@ class _DoorsScreenState extends State<DoorsScreen>
                 },
               ),
             ),
-
-            // Tab 2: Access Log
             _accessLog.isEmpty
                 ? Center(child: Text(l10n.noAccessLogs))
                 : ListView.separated(

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 class SimpleEnergyChart extends StatefulWidget {
-  const SimpleEnergyChart({super.key});
+  const SimpleEnergyChart({super.key, this.values, this.labels});
+
+  final List<double>? values;
+  final List<String>? labels;
 
   @override
   State<SimpleEnergyChart> createState() => _SimpleEnergyChartState();
@@ -11,8 +14,24 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
-  final List<double> values = [0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3];
-  final List<String> days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  static const List<double> _fallbackValues = [
+    0.4,
+    0.7,
+    0.5,
+    0.9,
+    0.6,
+    0.8,
+    0.3,
+  ];
+  static const List<String> _fallbackLabels = [
+    'Mo',
+    'Tu',
+    'We',
+    'Th',
+    'Fr',
+    'Sa',
+    'Su',
+  ];
 
   @override
   void initState() {
@@ -25,14 +44,42 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
   }
 
   @override
+  void didUpdateWidget(covariant SimpleEnergyChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.values != widget.values ||
+        oldWidget.labels != widget.labels) {
+      _controller
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
+  List<double> get _values {
+    final incoming = widget.values;
+    if (incoming == null || incoming.isEmpty) return _fallbackValues;
+    return incoming.map((v) => v <= 0 ? 0.05 : v).toList();
+  }
+
+  List<String> get _labels {
+    final incoming = widget.labels;
+    if (incoming == null || incoming.isEmpty) return _fallbackLabels;
+    return incoming;
+  }
+
   @override
   Widget build(BuildContext context) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final values = _values;
+    final labels = _labels;
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    final safeMax = maxValue <= 0 ? 1.0 : maxValue;
 
     return SizedBox(
       height: 200,
@@ -40,7 +87,6 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(values.length, (index) {
-          // Stagger each bar's animation
           final begin = index / (values.length + 2);
           final end = (index + 3) / (values.length + 2);
           final barAnimation = Tween<double>(begin: 0, end: 1).animate(
@@ -54,15 +100,23 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
             ),
           );
 
+          final normalizedHeight = (values[index] / safeMax).clamp(0.05, 1.0);
+          final label = index < labels.length ? labels[index] : '';
+
           return AnimatedBuilder(
             animation: barAnimation,
             builder: (context, child) {
               return Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  Text(
+                    values[index].toStringAsFixed(1),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 6),
                   Container(
                     width: 28,
-                    height: 150 * values[index] * barAnimation.value,
+                    height: 150 * normalizedHeight * barAnimation.value,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -88,10 +142,7 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    days[index],
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  Text(label, style: Theme.of(context).textTheme.bodyMedium),
                 ],
               );
             },
