@@ -1,47 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
 import '../widgets/add_member_bottom_sheet.dart';
 
-class FamilyScreen extends StatelessWidget {
+class FamilyScreen extends StatefulWidget {
   const FamilyScreen({super.key});
+
+  @override
+  State<FamilyScreen> createState() => _FamilyScreenState();
+}
+
+class _FamilyScreenState extends State<FamilyScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AppStateProvider>(context, listen: false).loadFamilyMembers();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final appState = Provider.of<AppStateProvider>(context);
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canManage = appState.canManageFamily;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.family), elevation: 0, centerTitle: true),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(24),
-        itemCount: appState.familyMembers.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          final member = appState.familyMembers[index];
-          return _buildMemberCard(context, member, l10n, isDark);
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => AddMemberBottomSheet.show(
-          context,
-          l10n: l10n,
-          appState: appState,
-          isDark: isDark,
-        ),
-        backgroundColor: Theme.of(context).primaryColor,
-        icon: const Icon(LucideIcons.plus, color: Colors.white),
-        label: Text(
-          l10n.addMember,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+      appBar: AppBar(
+        title: Text(l10n.family),
+        elevation: 0,
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: appState.loadFamilyMembers,
+            icon: const Icon(LucideIcons.refreshCcw),
           ),
-        ),
+        ],
       ),
+      body: RefreshIndicator(
+        onRefresh: appState.loadFamilyMembers,
+        child: appState.familyLoading && appState.familyMembers.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : appState.familyError != null && appState.familyMembers.isEmpty
+            ? ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const SizedBox(height: 120),
+                  Icon(
+                    LucideIcons.serverCrash,
+                    size: 42,
+                    color: Colors.red.withOpacity(0.8),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Family backend error:\\n${appState.familyError}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ],
+              )
+            : appState.familyMembers.isEmpty
+            ? ListView(
+                padding: const EdgeInsets.all(24),
+                children: const [
+                  SizedBox(height: 120),
+                  Center(child: Text('No family members from backend yet')),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(24),
+                itemCount: appState.familyMembers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final member = appState.familyMembers[index];
+                  return _buildMemberCard(
+                    context,
+                    member,
+                    l10n,
+                    isDark,
+                    canManage,
+                  );
+                },
+              ),
+      ),
+      floatingActionButton: canManage
+          ? FloatingActionButton.extended(
+              onPressed: () => AddMemberBottomSheet.show(
+                context,
+                l10n: l10n,
+                appState: appState,
+                isDark: isDark,
+              ),
+              backgroundColor: Theme.of(context).primaryColor,
+              icon: const Icon(LucideIcons.plus, color: Colors.white),
+              label: Text(
+                l10n.addMember,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -50,6 +115,7 @@ class FamilyScreen extends StatelessWidget {
     FamilyMember member,
     AppLocalizations l10n,
     bool isDark,
+    bool canManage,
   ) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -158,98 +224,102 @@ class FamilyScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Divider(
-            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
-            height: 1,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              TextButton.icon(
-                onPressed: () {
-                  AddMemberBottomSheet.show(
-                    context,
-                    l10n: l10n,
-                    appState: Provider.of<AppStateProvider>(
+          if (canManage) ...[
+            const SizedBox(height: 16),
+            Divider(
+              color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+              height: 1,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    AddMemberBottomSheet.show(
                       context,
-                      listen: false,
-                    ),
-                    isDark: isDark,
-                    memberToEdit: member,
-                  );
-                },
-                icon: Icon(
-                  LucideIcons.edit,
-                  size: 18,
-                  color: Theme.of(context).primaryColor,
-                ),
-                label: Text(
-                  l10n.edit,
-                  style: TextStyle(color: Theme.of(context).primaryColor),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  Provider.of<AppStateProvider>(
-                    context,
-                    listen: false,
-                  ).toggleFamilyMemberStatus(member.id);
-                },
-                icon: Icon(
-                  member.isEnabled ? LucideIcons.userX : LucideIcons.userCheck,
-                  size: 18,
-                  color: member.isEnabled ? Colors.orange : Colors.green,
-                ),
-                label: Text(
-                  member.isEnabled ? l10n.disable : l10n.enable,
-                  style: TextStyle(
-                    color: member.isEnabled ? Colors.orange : Colors.green,
+                      l10n: l10n,
+                      appState: Provider.of<AppStateProvider>(
+                        context,
+                        listen: false,
+                      ),
+                      isDark: isDark,
+                      memberToEdit: member,
+                    );
+                  },
+                  icon: Icon(
+                    LucideIcons.edit,
+                    size: 18,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  label: Text(
+                    l10n.edit,
+                    style: TextStyle(color: Theme.of(context).primaryColor),
                   ),
                 ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: Text(l10n.deleteMember),
-                      content: Text(l10n.removeMemberPrompt(member.name)),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: Text(l10n.cancel),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Provider.of<AppStateProvider>(
-                              context,
-                              listen: false,
-                            ).deleteFamilyMember(member.id);
-                            Navigator.pop(ctx);
-                          },
-                          child: Text(
-                            l10n.delete,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
+                TextButton.icon(
+                  onPressed: () {
+                    Provider.of<AppStateProvider>(
+                      context,
+                      listen: false,
+                    ).toggleFamilyMemberStatus(member.id);
+                  },
+                  icon: Icon(
+                    member.isEnabled
+                        ? LucideIcons.userX
+                        : LucideIcons.userCheck,
+                    size: 18,
+                    color: member.isEnabled ? Colors.orange : Colors.green,
+                  ),
+                  label: Text(
+                    member.isEnabled ? l10n.disable : l10n.enable,
+                    style: TextStyle(
+                      color: member.isEnabled ? Colors.orange : Colors.green,
                     ),
-                  );
-                },
-                icon: const Icon(
-                  LucideIcons.trash2,
-                  size: 18,
-                  color: Colors.red,
+                  ),
                 ),
-                label: Text(
-                  l10n.delete,
-                  style: const TextStyle(color: Colors.red),
+                TextButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(l10n.deleteMember),
+                        content: Text(l10n.removeMemberPrompt(member.name)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text(l10n.cancel),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Provider.of<AppStateProvider>(
+                                context,
+                                listen: false,
+                              ).deleteFamilyMember(member.id);
+                              Navigator.pop(ctx);
+                            },
+                            child: Text(
+                              l10n.delete,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    LucideIcons.trash2,
+                    size: 18,
+                    color: Colors.red,
+                  ),
+                  label: Text(
+                    l10n.delete,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );

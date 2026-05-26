@@ -937,3 +937,12 @@ def d7_phase10_enable_compat(device_id: str, request: _D7Phase10Request):
     return d7_phase10_dashboard_device_action(device_id, "enable", request)
 # D7M16_PHASE10_DEVICE_ACTIONS_END
 
+
+# D7M16_PHASE17_6_FAMILY_MANAGEMENT_START
+try:
+    from api.family_management_flow import router as family_management_flow_router
+    app.include_router(family_management_flow_router)
+except Exception as exc:
+    print(f"Phase 17.6 family management router failed to load: {exc}")
+# D7M16_PHASE17_6_FAMILY_MANAGEMENT_END
+

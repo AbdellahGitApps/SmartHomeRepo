@@ -139,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen>
     final pin = _userPinCtrl.text.trim();
     final appState = Provider.of<AppStateProvider>(context, listen: false);
 
-    if (pin == appState.userPin) {
+    if (pin == appState.userAccountPassword) {
       setState(() => _errorMessage = null);
       appState.login('User Guest', 'User');
     } else {

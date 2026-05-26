@@ -73,6 +73,30 @@ class BackendApiService {
     return _decodeResponse(response);
   }
 
+  Future<Map<String, dynamic>> _patch(
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, dynamic>? query,
+  }) async {
+    final response = await _client
+        .patch(
+          _uri(path, query),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode(body ?? <String, dynamic>{}),
+        )
+        .timeout(BackendConfig.requestTimeout);
+
+    return _decodeResponse(response);
+  }
+
+  Future<Map<String, dynamic>> _delete(String path) async {
+    final response = await _client
+        .delete(_uri(path))
+        .timeout(BackendConfig.requestTimeout);
+
+    return _decodeResponse(response);
+  }
+
   Map<String, dynamic> _decodeResponse(http.Response response) {
     final text = response.body.trim();
 
@@ -191,6 +215,78 @@ class BackendApiService {
         'save_unknown_snapshot': saveUnknownSnapshot,
       },
     );
+  }
+
+  Future<Map<String, dynamic>> getFamilyStatus() {
+    return _get('/api/family/status');
+  }
+
+  Future<Map<String, dynamic>> getFamilyMembers({
+    int? homeId,
+    bool includeDisabled = true,
+  }) {
+    return _get(
+      '/api/family/members',
+      query: {
+        if (homeId != null) 'home_id': homeId,
+        'include_disabled': includeDisabled,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> createFamilyMember({
+    required String name,
+    required String role,
+    int homeId = 1,
+    bool faceEnrolled = false,
+    bool enabled = true,
+    String? notes,
+  }) {
+    return _post(
+      '/api/family/members',
+      body: {
+        'home_id': homeId,
+        'name': name,
+        'role': role,
+        'face_enrolled': faceEnrolled,
+        'enabled': enabled,
+        if (notes != null) 'notes': notes,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> updateFamilyMember({
+    required String id,
+    required String name,
+    required String role,
+    bool faceEnrolled = false,
+    bool enabled = true,
+    int homeId = 1,
+    String? notes,
+  }) {
+    return _patch(
+      '/api/family/members/$id',
+      body: {
+        'home_id': homeId,
+        'name': name,
+        'role': role,
+        'face_enrolled': faceEnrolled,
+        'enabled': enabled,
+        if (notes != null) 'notes': notes,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> enableFamilyMember(String id) {
+    return _patch('/api/family/members/$id/enable');
+  }
+
+  Future<Map<String, dynamic>> disableFamilyMember(String id) {
+    return _patch('/api/family/members/$id/disable');
+  }
+
+  Future<Map<String, dynamic>> deleteFamilyMember(String id) {
+    return _delete('/api/family/members/$id');
   }
 
   void close() {

@@ -1,44 +1,38 @@
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:developer' as developer;
 
 class PermissionService {
   static Future<bool> requestCameraPermission() async {
-    PermissionStatus status = await Permission.camera.status;
-    developer.log(
-      'Camera Permission Status: $status',
-      name: 'PermissionService',
-    );
+    if (kIsWeb) return true;
 
-    if (status.isGranted) return true;
-
-    status = await Permission.camera.request();
-    developer.log(
-      'Requested Camera Permission: $status',
-      name: 'PermissionService',
-    );
-
+    final status = await Permission.camera.request();
     return status.isGranted;
   }
 
   static Future<bool> requestGalleryPermission() async {
-    PermissionStatus status = await Permission.photos.status;
-    developer.log(
-      'Gallery Permission Status: $status',
-      name: 'PermissionService',
-    );
+    if (kIsWeb) return true;
 
-    if (status.isGranted) return true;
+    final status = await Permission.photos.request();
+    return status.isGranted || status.isLimited;
+  }
 
-    status = await Permission.photos.request();
-    developer.log(
-      'Requested Gallery Permission: $status',
-      name: 'PermissionService',
-    );
+  static Future<bool> requestStoragePermission() async {
+    if (kIsWeb) return true;
 
+    final status = await Permission.storage.request();
     return status.isGranted;
   }
 
-  static Future<void> openSettings() async {
-    await openAppSettings();
+  static Future<bool> requestMicrophonePermission() async {
+    if (kIsWeb) return true;
+
+    final status = await Permission.microphone.request();
+    return status.isGranted;
+  }
+
+  static Future<bool> openSettings() async {
+    if (kIsWeb) return true;
+
+    return openAppSettings();
   }
 }

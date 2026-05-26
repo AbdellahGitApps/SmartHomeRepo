@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
 import '../models/device_model.dart';
 import '../widgets/device_card.dart';
+import 'alerts_screen.dart';
 
 class HomeDashboard extends StatefulWidget {
   const HomeDashboard({super.key});
@@ -201,7 +202,7 @@ class _HomeDashboardState extends State<HomeDashboard>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${l10n.lastUpdate}: 2026-05-19 14:32:10',
+                            '${l10n.lastUpdate}: ${appState.lastUpdateText}',
                             style: TextStyle(
                               color: isDark
                                   ? Colors.grey.shade400
@@ -226,9 +227,47 @@ class _HomeDashboardState extends State<HomeDashboard>
                                   ),
                                 ],
                         ),
-                        child: IconButton(
-                          icon: const Icon(LucideIcons.bell),
-                          onPressed: () {},
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            IconButton(
+                              icon: const Icon(LucideIcons.bell),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const AlertsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (appState.activeAlertCount > 0)
+                              Positioned(
+                                right: 8,
+                                top: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  child: Text(
+                                    appState.activeAlertCount > 9
+                                        ? '9+'
+                                        : appState.activeAlertCount.toString(),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],

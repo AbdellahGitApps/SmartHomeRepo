@@ -19,6 +19,13 @@ class _AlertsScreenState extends State<AlertsScreen>
   // Filter: 0 = All, 1 = Security, 2 = System
   int _filterIndex = 0;
 
+  bool _canManageAlerts(BuildContext context) {
+    return Provider.of<AppStateProvider>(
+      context,
+      listen: false,
+    ).canManageAlerts;
+  }
+
   // Mock Alerts with types and resolve status
   late List<Map<String, dynamic>> mockAlerts;
 
@@ -96,6 +103,16 @@ class _AlertsScreenState extends State<AlertsScreen>
     ];
   }
 
+  void _syncActiveAlertCount() {
+    final count = mockAlerts
+        .where((alert) => alert['isResolved'] == false)
+        .length;
+    Provider.of<AppStateProvider>(
+      context,
+      listen: false,
+    ).setActiveAlertCount(count);
+  }
+
   @override
   void dispose() {
     _listController.dispose();
@@ -144,6 +161,7 @@ class _AlertsScreenState extends State<AlertsScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final appState = Provider.of<AppStateProvider>(context);
     final filtered = _filteredAlerts;
 
     return Scaffold(
@@ -157,6 +175,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                   alert['isResolved'] = true;
                 }
               });
+              _syncActiveAlertCount();
             },
             child: Text(
               l10n.clear,
@@ -431,7 +450,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                 ),
               ),
               // Action buttons
-              if (!isResolved) ...[
+              if (!isResolved && _canManageAlerts(context)) ...[
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -440,7 +459,37 @@ class _AlertsScreenState extends State<AlertsScreen>
                       icon: LucideIcons.eye,
                       color: const Color(0xFF3B82F6),
                       isDark: isDark,
-                      onTap: () {},
+                      onTap: () async {
+                        final appState = Provider.of<AppStateProvider>(
+                          context,
+                          listen: false,
+                        );
+
+                        final opened = await appState.openDoorFromAlert();
+
+                        if (!context.mounted) return;
+
+                        if (opened) {
+                          setState(() => alert['isResolved'] = true);
+                          _syncActiveAlertCount();
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Door open command sent'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to send door open command'),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
                     ),
                     const SizedBox(width: 8),
                     _buildActionButton(
@@ -450,6 +499,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                       isDark: isDark,
                       onTap: () {
                         setState(() => alert['isResolved'] = true);
+                        _syncActiveAlertCount();
                       },
                     ),
                     const SizedBox(width: 8),
@@ -469,6 +519,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                           isDark: isDark,
                           onAdded: () {
                             setState(() => alert['isResolved'] = true);
+                            _syncActiveAlertCount();
                           },
                         );
                       },
@@ -548,13 +599,16 @@ class _AlertsScreenState extends State<AlertsScreen>
             ],
 
             // ── Resolve button (for non-unknownFace alerts) ──
-            if (!isResolved && alert['type'] != 'unknownFace') ...[
+            if (!isResolved &&
+                _canManageAlerts(context) &&
+                alert['type'] != 'unknownFace') ...[
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
                     setState(() => alert['isResolved'] = true);
+                    _syncActiveAlertCount();
                   },
                   icon: const Icon(LucideIcons.checkCircle, size: 18),
                   label: Text(l10n.resolve),

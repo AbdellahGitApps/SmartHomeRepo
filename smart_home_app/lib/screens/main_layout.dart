@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
+
 import '../l10n/app_localizations.dart';
+import '../providers/app_state_provider.dart';
 import 'home_dashboard.dart';
 import 'doors_screen.dart';
 import 'energy_screen.dart';
@@ -19,19 +22,57 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeDashboard(),
-    const DoorsScreen(),
-    const EnergyScreen(),
-    const AlertsScreen(),
-    const CameraScreen(),
-    const FamilyScreen(),
-    const ProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final appState = Provider.of<AppStateProvider>(context);
+
+    final screens = <Widget>[
+      const HomeDashboard(),
+      if (appState.canViewDoors) const DoorsScreen(),
+      const EnergyScreen(),
+      const AlertsScreen(),
+      const CameraScreen(),
+      if (appState.canViewFamily) const FamilyScreen(),
+      const ProfileScreen(),
+    ];
+
+    final items = <BottomNavigationBarItem>[
+      BottomNavigationBarItem(
+        icon: const Icon(LucideIcons.home, size: 20),
+        label: l10n.home,
+      ),
+      if (appState.canViewDoors)
+        BottomNavigationBarItem(
+          icon: const Icon(LucideIcons.doorClosed, size: 20),
+          label: l10n.doors,
+        ),
+      BottomNavigationBarItem(
+        icon: const Icon(LucideIcons.zap, size: 20),
+        label: l10n.energy,
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(LucideIcons.bellRing, size: 20),
+        label: l10n.alerts,
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(LucideIcons.camera, size: 20),
+        label: l10n.camera,
+      ),
+      if (appState.canViewFamily)
+        BottomNavigationBarItem(
+          icon: const Icon(LucideIcons.users, size: 20),
+          label: l10n.family,
+        ),
+      BottomNavigationBarItem(
+        icon: const Icon(LucideIcons.user, size: 20),
+        label: l10n.settings,
+      ),
+    ];
+
+    if (_currentIndex >= screens.length) {
+      _currentIndex = 0;
+    }
 
     return Scaffold(
       body: AnimatedSwitcher(
@@ -43,7 +84,7 @@ class _MainLayoutState extends State<MainLayout> {
         },
         child: KeyedSubtree(
           key: ValueKey<int>(_currentIndex),
-          child: _screens[_currentIndex],
+          child: screens[_currentIndex],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -56,36 +97,7 @@ class _MainLayoutState extends State<MainLayout> {
             _currentIndex = index;
           });
         },
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.home, size: 20),
-            label: l10n.home,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.doorClosed, size: 20),
-            label: l10n.doors,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.zap, size: 20),
-            label: l10n.energy,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.bellRing, size: 20),
-            label: l10n.alerts,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.camera, size: 20),
-            label: l10n.camera,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.users, size: 20),
-            label: l10n.family,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.user, size: 20),
-            label: l10n.settings,
-          ),
-        ],
+        items: items,
       ),
     );
   }

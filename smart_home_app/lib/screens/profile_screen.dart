@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
 
@@ -13,21 +14,23 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _nameController = TextEditingController();
-  final _pinController = TextEditingController();
-  final _passwordController = TextEditingController(text: '1');
+  final _adminNameController = TextEditingController();
+  final _adminPasswordController = TextEditingController();
+  final _doorPinController = TextEditingController();
+  final _userAccountController = TextEditingController();
   final _aptController = TextEditingController(text: 'Apt 4B - Building 2');
   final _homeIdController = TextEditingController(text: 'HOME-APT4B');
   final _homeCodeController = TextEditingController();
 
-  bool _obscurePin = true;
-  bool _obscurePassword = true;
+  bool _obscureAdminPassword = true;
+  bool _obscureDoorPin = true;
+  bool _obscureUserAccount = true;
   bool _obscureHomeCode = true;
-  String _actualHomeCode = "";
 
-  // Edit states for sections
   bool _editAccount = false;
   bool _editSecurity = false;
+
+  String _actualHomeCode = '';
 
   @override
   void initState() {
@@ -37,26 +40,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _initializeControllers(AppStateProvider appState) {
-    _nameController.text = appState.userName;
-    _pinController.text = appState.userPin;
+    _adminNameController.text = appState.adminName;
+    _adminPasswordController.text = appState.password;
+    _doorPinController.text = appState.doorPin;
+    _userAccountController.text = appState.userAccountPassword;
     _actualHomeCode = appState.homeCode;
     _homeCodeController.text = _obscureHomeCode ? '********' : _actualHomeCode;
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _pinController.dispose();
-    _passwordController.dispose();
+    _adminNameController.dispose();
+    _adminPasswordController.dispose();
+    _doorPinController.dispose();
+    _userAccountController.dispose();
     _aptController.dispose();
     _homeIdController.dispose();
     _homeCodeController.dispose();
     super.dispose();
   }
 
+  String _hiddenValue() => '*********';
+
   void _saveSettings(AppStateProvider appState, AppLocalizations l10n) {
-    appState.updateName(_nameController.text);
-    appState.updateSecuritySettings(pin: _pinController.text);
+    if (appState.isAdmin) {
+      appState.updateName(_adminNameController.text);
+      appState.updatePassword(_adminPasswordController.text);
+      appState.updateDoorPin(_doorPinController.text);
+      appState.updateUserAccountPassword(_userAccountController.text);
+    }
 
     setState(() {
       _editAccount = false;
@@ -73,6 +85,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _resetToDefaults(AppStateProvider appState, AppLocalizations l10n) {
+    if (!appState.isAdmin) return;
+
     appState.resetToDefaults();
     _initializeControllers(appState);
 
@@ -89,88 +103,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showChangePasswordDialog(bool isDark, AppLocalizations l10n) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            l10n.changePassword,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: "Current Password",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: "New Password",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: "Confirm Password",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Password updated successfully')),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text("Save"),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  void _showSimplePasswordDialog({
+    required String title,
+    required String label,
+    required bool isDark,
+    required void Function(String value) onSave,
+  }) {
+    final valueController = TextEditingController();
+    final confirmController = TextEditingController();
 
-  void _showChangePinDialog(bool isDark, AppLocalizations l10n) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Text(
-            "Change PIN",
+            title,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : Colors.black,
@@ -180,32 +131,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
+                controller: valueController,
                 obscureText: true,
                 decoration: InputDecoration(
-                  labelText: "Current PIN",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelText: label,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                  fillColor: isDark
+                      ? const Color(0xFF0F172A)
+                      : Colors.grey.shade50,
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
+                controller: confirmController,
                 obscureText: true,
                 decoration: InputDecoration(
-                  labelText: "New PIN",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelText: 'Confirm',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: "Confirm PIN",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                  fillColor: isDark
+                      ? const Color(0xFF0F172A)
+                      : Colors.grey.shade50,
                 ),
               ),
             ],
@@ -213,21 +164,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
+                if (valueController.text.trim().isEmpty ||
+                    valueController.text != confirmController.text) {
+                  return;
+                }
+
+                onSave(valueController.text.trim());
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PIN updated')),
-                );
+
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('$title updated')));
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text("Save"),
+              child: const Text('Save'),
             ),
           ],
         );
@@ -239,7 +199,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final appState = Provider.of<AppStateProvider>(context);
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAdmin = appState.isAdmin;
+
+    _adminNameController.text = appState.adminName;
 
     return Scaffold(
       appBar: AppBar(
@@ -251,15 +214,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
           children: [
-            // --- 1. HOME INFO SECTION ---
             _buildSection(
-              title: "Home Info",
+              title: 'Home Info',
               icon: LucideIcons.home,
               isDark: isDark,
               showEditButton: false,
               children: [
                 _buildTextField(
-                  label: "Apartment Number",
+                  label: 'Apartment Number',
                   controller: _aptController,
                   icon: null,
                   isDark: isDark,
@@ -267,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _buildTextField(
-                  label: "Home ID",
+                  label: 'Home ID',
                   controller: _homeIdController,
                   icon: null,
                   isDark: isDark,
@@ -275,11 +237,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _buildTextField(
-                  label: "Home Code",
+                  label: 'Home Code',
                   controller: _homeCodeController,
                   icon: null,
                   isDark: isDark,
-                  obscureText: false,
                   enabled: true,
                   readOnly: true,
                   suffix: Row(
@@ -294,8 +255,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         onPressed: () => setState(() {
                           _obscureHomeCode = !_obscureHomeCode;
-                          _homeCodeController.text =
-                              _obscureHomeCode ? '********' : _actualHomeCode;
+                          _homeCodeController.text = _obscureHomeCode
+                              ? '********'
+                              : _actualHomeCode;
                         }),
                       ),
                       IconButton(
@@ -319,106 +281,178 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
 
-            // --- 1. ACCOUNT SECTION ---
             _buildSection(
               title: l10n.account,
               icon: LucideIcons.user,
               isDark: isDark,
-              isEditing: _editAccount,
-              onEditToggle: () => setState(() => _editAccount = !_editAccount),
+              isEditing: isAdmin && _editAccount,
+              showEditButton: isAdmin,
+              onEditToggle: isAdmin
+                  ? () => setState(() => _editAccount = !_editAccount)
+                  : null,
               children: [
                 _buildTextField(
                   label: l10n.adminName,
-                  controller: _nameController,
+                  controller: _adminNameController,
                   icon: LucideIcons.userCircle,
                   isDark: isDark,
-                  enabled: _editAccount,
+                  enabled: isAdmin && _editAccount,
+                  readOnly: !isAdmin || !_editAccount,
                 ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  label: "User Password",
-                  controller: _passwordController,
-                  icon: LucideIcons.lock,
-                  isDark: isDark,
-                  obscureText: _obscurePassword,
-                  enabled: true,
-                  readOnly: !_editAccount,
-                  suffix: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? LucideIcons.eyeOff : LucideIcons.eye,
-                      size: 18,
+                if (isAdmin) ...[
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    label: 'Admin Password',
+                    controller: _adminPasswordController,
+                    icon: LucideIcons.lock,
+                    isDark: isDark,
+                    obscureText: _obscureAdminPassword,
+                    enabled: true,
+                    readOnly: !_editAccount,
+                    suffix: IconButton(
+                      icon: Icon(
+                        _obscureAdminPassword
+                            ? LucideIcons.eyeOff
+                            : LucideIcons.eye,
+                        size: 18,
+                      ),
+                      onPressed: () => setState(
+                        () => _obscureAdminPassword = !_obscureAdminPassword,
+                      ),
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _buildSettingTile(
-                  title: l10n.changePassword,
-                  icon: LucideIcons.key,
-                  isDark: isDark,
-                  onTap: _editAccount ? () => _showChangePasswordDialog(isDark, l10n) : null,
-                  enabled: _editAccount,
-                ),
+                  const SizedBox(height: 12),
+                  _buildSettingTile(
+                    title: 'Change Admin Password',
+                    icon: LucideIcons.key,
+                    isDark: isDark,
+                    enabled: _editAccount,
+                    onTap: _editAccount
+                        ? () => _showSimplePasswordDialog(
+                            title: 'Admin Password',
+                            label: 'New Admin Password',
+                            isDark: isDark,
+                            onSave: (value) {
+                              _adminPasswordController.text = value;
+                              appState.updatePassword(value);
+                            },
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    label: 'Door PIN',
+                    controller: _doorPinController,
+                    icon: LucideIcons.lock,
+                    isDark: isDark,
+                    obscureText: _obscureDoorPin,
+                    enabled: true,
+                    readOnly: !_editAccount,
+                    suffix: IconButton(
+                      icon: Icon(
+                        _obscureDoorPin ? LucideIcons.eyeOff : LucideIcons.eye,
+                        size: 18,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscureDoorPin = !_obscureDoorPin),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSettingTile(
+                    title: 'Change Door PIN',
+                    icon: LucideIcons.key,
+                    isDark: isDark,
+                    enabled: _editAccount,
+                    onTap: _editAccount
+                        ? () => _showSimplePasswordDialog(
+                            title: 'Door PIN',
+                            label: 'New Door PIN',
+                            isDark: isDark,
+                            onSave: (value) {
+                              _doorPinController.text = value;
+                              appState.updateDoorPin(value);
+                            },
+                          )
+                        : null,
+                  ),
+                ],
               ],
             ),
-
             const SizedBox(height: 24),
 
-            // --- 2. SECURITY SECTION ---
             _buildSection(
               title: l10n.security,
               icon: LucideIcons.shield,
               isDark: isDark,
-              isEditing: _editSecurity,
-              onEditToggle: () =>
-                  setState(() => _editSecurity = !_editSecurity),
+              isEditing: isAdmin && _editSecurity,
+              showEditButton: isAdmin,
+              onEditToggle: isAdmin
+                  ? () => setState(() => _editSecurity = !_editSecurity)
+                  : null,
               children: [
                 _buildSwitchTile(
                   title: l10n.appLock,
                   value: appState.appLockEnabled,
-                  onChanged: _editSecurity
+                  onChanged: isAdmin && _editSecurity
                       ? (val) => appState.updateSecuritySettings(appLock: val)
                       : null,
                   isDark: isDark,
                 ),
                 const SizedBox(height: 12),
                 _buildTextField(
-                  label: "User PIN",
-                  controller: _pinController,
+                  label: 'User Account',
+                  controller: isAdmin
+                      ? _userAccountController
+                      : TextEditingController(text: _hiddenValue()),
                   icon: LucideIcons.lock,
                   isDark: isDark,
-                  obscureText: _obscurePin,
-                  enabled: true,
-                  readOnly: !_editSecurity,
-                  suffix: IconButton(
-                    icon: Icon(
-                      _obscurePin ? LucideIcons.eyeOff : LucideIcons.eye,
-                      size: 18,
-                    ),
-                    onPressed: () => setState(() => _obscurePin = !_obscurePin),
+                  obscureText: isAdmin ? _obscureUserAccount : false,
+                  enabled: isAdmin,
+                  readOnly: !isAdmin || !_editSecurity,
+                  suffix: isAdmin
+                      ? IconButton(
+                          icon: Icon(
+                            _obscureUserAccount
+                                ? LucideIcons.eyeOff
+                                : LucideIcons.eye,
+                            size: 18,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscureUserAccount = !_obscureUserAccount,
+                          ),
+                        )
+                      : null,
+                ),
+                if (isAdmin) ...[
+                  const SizedBox(height: 12),
+                  _buildSettingTile(
+                    title: 'Change User Account',
+                    icon: LucideIcons.key,
+                    isDark: isDark,
+                    enabled: _editSecurity,
+                    onTap: _editSecurity
+                        ? () => _showSimplePasswordDialog(
+                            title: 'User Account',
+                            label: 'New User Account Password',
+                            isDark: isDark,
+                            onSave: (value) {
+                              _userAccountController.text = value;
+                              appState.updateUserAccountPassword(value);
+                            },
+                          )
+                        : null,
                   ),
-                ),
-                const SizedBox(height: 12),
-                _buildSettingTile(
-                  title: "Change PIN",
-                  icon: LucideIcons.key,
-                  isDark: isDark,
-                  onTap: _editSecurity ? () => _showChangePinDialog(isDark, l10n) : null,
-                  enabled: _editSecurity,
-                ),
+                ],
               ],
             ),
-
             const SizedBox(height: 24),
 
-            // --- 4. APPEARANCE SECTION ---
             _buildSection(
               title: l10n.appearance,
               icon: LucideIcons.palette,
               isDark: isDark,
-              isEditing:
-                  true, // Appearance is always "editable" since it's just toggles/segments
               showEditButton: false,
+              isEditing: true,
               children: [
                 _buildSettingTile(
                   title: l10n.theme,
@@ -470,10 +504,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 32),
 
-            // --- PRIMARY ACTIONS ---
             Row(
               children: [
                 Expanded(
@@ -499,16 +531,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () => _resetToDefaults(appState, l10n),
-              icon: const Icon(LucideIcons.rotateCcw, size: 16),
-              label: Text(l10n.resetDefaults),
-              style: TextButton.styleFrom(foregroundColor: Colors.grey),
-            ),
+            if (isAdmin) ...[
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () => _resetToDefaults(appState, l10n),
+                icon: const Icon(LucideIcons.rotateCcw, size: 16),
+                label: Text(l10n.resetDefaults),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey),
+              ),
+            ],
             const SizedBox(height: 24),
-
-            // --- LOGOUT (PINNED TO BOTTOM-ISH) ---
             _buildLogoutButton(appState, l10n, isDark),
             const SizedBox(height: 32),
           ],
@@ -557,7 +589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     size: 14,
                   ),
                   label: Text(
-                    isEditing ? "Cancel" : "Edit",
+                    isEditing ? 'Cancel' : 'Edit',
                     style: const TextStyle(fontSize: 12),
                   ),
                   style: TextButton.styleFrom(
@@ -607,7 +639,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool enabled = true,
     bool readOnly = false,
   }) {
-    bool isVisuallyDisabled = !enabled || readOnly;
+    final isVisuallyDisabled = !enabled || readOnly;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -644,8 +677,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderSide: BorderSide(
                 color: isVisuallyDisabled
                     ? (isDark
-                        ? const Color(0xFF334155).withOpacity(0.5)
-                        : Colors.grey.shade200)
+                          ? const Color(0xFF334155).withOpacity(0.5)
+                          : Colors.grey.shade200)
                     : (isDark ? const Color(0xFF334155) : Colors.grey.shade300),
               ),
             ),
@@ -654,8 +687,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderSide: BorderSide(
                 color: isVisuallyDisabled
                     ? (isDark
-                        ? const Color(0xFF334155).withOpacity(0.5)
-                        : Colors.grey.shade200)
+                          ? const Color(0xFF334155).withOpacity(0.5)
+                          : Colors.grey.shade200)
                     : Theme.of(context).primaryColor,
                 width: isVisuallyDisabled ? 1 : 2,
               ),
@@ -679,7 +712,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool enabled = true,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(12),
       child: Opacity(
         opacity: enabled ? 1.0 : 0.5,
@@ -727,7 +760,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required ValueChanged<bool>? onChanged,
     required bool isDark,
   }) {
-    bool enabled = onChanged != null;
+    final enabled = onChanged != null;
+
     return Opacity(
       opacity: enabled ? 1.0 : 0.5,
       child: Row(

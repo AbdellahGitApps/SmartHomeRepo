@@ -136,17 +136,17 @@ class AddMemberBottomSheet {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (nameCtrl.text.isNotEmpty) {
                       if (memberToEdit != null) {
-                        appState.updateFamilyMember(
+                        await appState.updateFamilyMember(
                           memberToEdit.id,
                           nameCtrl.text,
                           selectedRole,
                           faceEnrolled,
                         );
                       } else {
-                        appState.addFamilyMember(
+                        await appState.addFamilyMember(
                           nameCtrl.text,
                           selectedRole,
                           faceEnrolled,
