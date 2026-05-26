@@ -599,3 +599,9 @@ try:
     app.include_router(energy_monitoring_flow_router)
 except Exception as exc:
     print(f"Phase 15 energy monitoring router failed to load: {exc}")
+
+try:
+    from api.energy_prediction_flow import router as energy_prediction_flow_router
+    app.include_router(energy_prediction_flow_router)
+except Exception as exc:
+    print(f"Phase 16 energy prediction router failed to load: {exc}")
