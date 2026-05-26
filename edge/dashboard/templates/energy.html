@@ -1,8 +1,7 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Energy Monitoring{% endblock %}
 
 {% block extra_css %}
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
@@ -13,105 +12,146 @@
         <p data-i18n="energy_monitoring_desc">Monitor electricity consumption across all registered homes</p>
     </div>
     <div class="header-actions">
-        <select class="form-control" style="width: 200px; padding: 8px 12px;">
-            <option data-i18n="all_homes">All Homes</option>
-            <option>Villa 101</option>
-            <option>Apt 4B</option>
-            <option>Villa 205</option>
-        </select>
+        <button class="btn btn-primary" onclick="loadEnergyDashboard()">Refresh Data</button>
     </div>
 </div>
+
+<div id="energyStatusMessage" class="glass-card" style="display: none; margin-bottom: 20px; padding: 12px 16px;"></div>
 
 <div class="stats-grid">
     <div class="glass-card stat-card">
         <div class="stat-icon warning"><i class="ph-fill ph-lightning"></i></div>
         <div class="stat-details">
-            <h3 data-i18n="total_daily_usage">Total Daily Usage</h3>
-            <p>145.2 <span style="font-size: 1rem; color: var(--text-secondary);" data-i18n="kwh">kWh</span></p>
+            <h3>Total Daily Usage</h3>
+            <p><span id="totalDailyUsage">--</span> <span style="font-size: 1rem; color: var(--text-secondary);">kWh</span></p>
+            <small id="latestDeviceLabel" style="color: var(--text-secondary);">Waiting for latest reading</small>
         </div>
     </div>
+
     <div class="glass-card stat-card">
         <div class="stat-icon primary"><i class="ph-fill ph-chart-line-up"></i></div>
         <div class="stat-details">
-            <h3 data-i18n="monthly_forecast">Monthly Forecast</h3>
-            <p>4,250 <span style="font-size: 1rem; color: var(--text-secondary);" data-i18n="kwh">kWh</span></p>
+            <h3>Monthly Forecast</h3>
+            <p><span id="monthlyForecast">--</span> <span style="font-size: 1rem; color: var(--text-secondary);">kWh</span></p>
+            <small id="forecastWeeksLabel" style="color: var(--text-secondary);">Waiting for forecast data</small>
         </div>
     </div>
+
     <div class="glass-card stat-card">
-        <div class="stat-icon danger"><i class="ph-fill ph-trend-up"></i></div>
+        <div class="stat-icon danger"><i class="ph-fill ph-plug-charging"></i></div>
         <div class="stat-details">
-            <h3 data-i18n="peak_time">Peak Time</h3>
-            <p>18:00 - 21:00</p>
+            <h3>Current Power</h3>
+            <p><span id="currentPower">--</span> <span style="font-size: 1rem; color: var(--text-secondary);">W</span></p>
+            <small id="latestReadingTime" style="color: var(--text-secondary);">No reading yet</small>
         </div>
     </div>
 </div>
 
 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
     <div class="glass-card">
-        <h3 style="margin-bottom: 20px;" data-i18n="system_daily_consumption">System-wide Daily Consumption</h3>
+        <h3 style="margin-bottom: 20px;">Recent Energy Readings</h3>
         <canvas id="energyChart" width="400" height="200"></canvas>
     </div>
-    
+
     <div class="glass-card">
-        <h3 style="margin-bottom: 20px;" data-i18n="top_consumers_today">Top Consumers Today</h3>
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-            <div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>Villa 101</span>
-                    <span style="font-weight: bold; color: var(--status-warning);">4.2 <span data-i18n="kwh">kWh</span></span>
-                </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
-                    <div style="width: 80%; background: var(--status-warning); height: 100%;"></div>
-                </div>
-            </div>
-            <div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>Apt 4B</span>
-                    <span style="font-weight: bold; color: var(--accent-primary);">2.8 <span data-i18n="kwh">kWh</span></span>
-                </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
-                    <div style="width: 50%; background: var(--accent-primary); height: 100%;"></div>
-                </div>
-            </div>
-            <div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>Villa 205</span>
-                    <span style="font-weight: bold; color: var(--status-success);">1.1 <span data-i18n="kwh">kWh</span></span>
-                </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
-                    <div style="width: 20%; background: var(--status-success); height: 100%;"></div>
-                </div>
-            </div>
+        <h3 style="margin-bottom: 20px;">Latest Devices Readings</h3>
+        <div id="topConsumersList" style="display: flex; flex-direction: column; gap: 16px;">
+            <p style="color: var(--text-secondary);">No readings yet.</p>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('energyChart').getContext('2d');
-    
-    // Gradient
-    let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(245, 158, 11, 0.5)'); // warning color
-    gradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
-    
-    const chart = new Chart(ctx, {
-        type: 'line',
+let energyChart = null;
+
+function formatNumber(value, digits = 2) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "--";
+    return number.toFixed(digits);
+}
+
+function formatTime(value) {
+    if (!value) return "No timestamp";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString();
+}
+
+async function fetchJson(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`${url} failed with status ${response.status}`);
+    }
+    return await response.json();
+}
+
+function showMessage(message, type = "info") {
+    const box = document.getElementById("energyStatusMessage");
+    box.style.display = "block";
+    box.textContent = message;
+
+    if (type === "error") {
+        box.style.border = "1px solid rgba(239, 68, 68, 0.35)";
+        box.style.color = "#FCA5A5";
+    } else {
+        box.style.border = "1px solid rgba(59, 130, 246, 0.25)";
+        box.style.color = "var(--text-secondary)";
+    }
+}
+
+function hideMessage() {
+    const box = document.getElementById("energyStatusMessage");
+    box.style.display = "none";
+}
+
+function readingValueForChart(reading) {
+    if (reading.kwh_today !== null && reading.kwh_today !== undefined) {
+        return Number(reading.kwh_today);
+    }
+
+    if (reading.consumption_kwh !== null && reading.consumption_kwh !== undefined) {
+        return Number(reading.consumption_kwh);
+    }
+
+    if (reading.watts !== null && reading.watts !== undefined) {
+        return Number(reading.watts) / 1000;
+    }
+
+    return 0;
+}
+
+function updateChart(logs) {
+    const ctx = document.getElementById("energyChart").getContext("2d");
+    const orderedLogs = [...logs].reverse().slice(-12);
+
+    const labels = orderedLogs.map(item => {
+        const date = new Date(item.timestamp || item.reading_date);
+        if (Number.isNaN(date.getTime())) return item.reading_date || "Reading";
+        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    });
+
+    const values = orderedLogs.map(readingValueForChart);
+
+    if (energyChart) {
+        energyChart.destroy();
+    }
+
+    energyChart = new Chart(ctx, {
+        type: "line",
         data: {
-            labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
+            labels: labels.length ? labels : ["No Data"],
             datasets: [{
-                label: 'System Consumption (kWh)',
-                data: [12, 10, 15, 35, 42, 38, 65, 45],
-                borderColor: '#F59E0B',
-                backgroundColor: gradient,
+                label: "Energy Usage",
+                data: values.length ? values : [0],
+                borderColor: "#F59E0B",
+                backgroundColor: "rgba(245, 158, 11, 0.16)",
                 borderWidth: 2,
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#0F172A',
-                pointBorderColor: '#F59E0B',
+                pointBackgroundColor: "#0F172A",
+                pointBorderColor: "#F59E0B",
                 pointBorderWidth: 2,
                 pointRadius: 4
             }]
@@ -124,16 +164,111 @@ document.addEventListener('DOMContentLoaded', function() {
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: '#94A3B8' }
+                    grid: { color: "rgba(255, 255, 255, 0.05)" },
+                    ticks: { color: "#94A3B8" }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#94A3B8' }
+                    ticks: { color: "#94A3B8" }
                 }
             }
         }
     });
-});
+}
+
+function updateLatestCards(latest, forecasts) {
+    const usage = latest ? (latest.kwh_today ?? latest.consumption_kwh) : null;
+    const watts = latest ? latest.watts : null;
+
+    document.getElementById("totalDailyUsage").textContent = formatNumber(usage, 2);
+    document.getElementById("currentPower").textContent = formatNumber(watts, 0);
+
+    document.getElementById("latestDeviceLabel").textContent = latest && latest.device_id
+        ? latest.device_id
+        : "No device reading yet";
+
+    document.getElementById("latestReadingTime").textContent = latest
+        ? formatTime(latest.timestamp)
+        : "No reading yet";
+
+    const forecastTotal = forecasts.reduce((sum, item) => sum + Number(item.predicted_kwh || 0), 0);
+
+    document.getElementById("monthlyForecast").textContent = forecasts.length
+        ? formatNumber(forecastTotal, 2)
+        : "--";
+
+    document.getElementById("forecastWeeksLabel").textContent = forecasts.length
+        ? `${forecasts.length} forecast weeks`
+        : "No forecast run yet";
+}
+
+function updateTopConsumers(logs) {
+    const container = document.getElementById("topConsumersList");
+
+    if (!logs.length) {
+        container.innerHTML = '<p style="color: var(--text-secondary);">No readings yet.</p>';
+        return;
+    }
+
+    const latestByDevice = new Map();
+
+    for (const item of logs) {
+        const deviceId = item.device_id || "Unknown Device";
+        if (!latestByDevice.has(deviceId)) {
+            latestByDevice.set(deviceId, item);
+        }
+    }
+
+    const items = Array.from(latestByDevice.values()).slice(0, 5);
+    const maxUsage = Math.max(...items.map(item => Number(item.kwh_today ?? item.consumption_kwh ?? 0)), 1);
+
+    container.innerHTML = items.map(item => {
+        const usage = Number(item.kwh_today ?? item.consumption_kwh ?? 0);
+        const width = Math.max(5, Math.min(100, (usage / maxUsage) * 100));
+
+        return `
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>${item.device_id || "Unknown Device"}</span>
+                    <span style="font-weight: bold; color: var(--status-warning);">${formatNumber(usage, 2)} kWh</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
+                    ${formatNumber(item.watts, 0)} W · ${formatTime(item.timestamp)}
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div style="width: ${width}%; background: var(--status-warning); height: 100%;"></div>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+async function loadEnergyDashboard() {
+    showMessage("Loading real energy data...");
+
+    try {
+        const [latestResponse, logsResponse, forecastResponse] = await Promise.all([
+            fetchJson("/api/energy/latest"),
+            fetchJson("/api/energy/logs?limit=50"),
+            fetchJson("/api/energy/forecast/latest?limit=4")
+        ]);
+
+        const latest = latestResponse.latest || null;
+        const logs = logsResponse.logs || [];
+        const forecasts = forecastResponse.forecasts || [];
+
+        updateLatestCards(latest, forecasts);
+        updateTopConsumers(logs);
+        updateChart(logs);
+
+        hideMessage();
+    } catch (error) {
+        console.error("Energy dashboard load error:", error);
+        showMessage("Could not load real energy data. Check the backend APIs.", "error");
+        updateChart([]);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadEnergyDashboard);
 </script>
 {% endblock %}
