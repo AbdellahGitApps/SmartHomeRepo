@@ -581,3 +581,9 @@ def users_page(request: Request):
         },
     )
 
+
+try:
+    from api.door_official_flow import router as door_official_flow_router
+    app.include_router(door_official_flow_router)
+except Exception as exc:
+    print(f"Phase 13 door official flow router failed to load: {exc}")
