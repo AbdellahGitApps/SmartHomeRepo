@@ -503,3 +503,81 @@ async def api_dashboard_logs():
         "logs": logs
     }
 
+
+@app.get("/users")
+def users_page(request: Request):
+    import sqlite3
+    from pathlib import Path
+    from fastapi.templating import Jinja2Templates
+
+    template_engine = globals().get("templates")
+    if template_engine is None:
+        template_engine = Jinja2Templates(
+            directory=str(Path(__file__).resolve().parent / "dashboard" / "templates")
+        )
+
+    db_path = globals().get("DB_PATH")
+    if db_path is None:
+        db_path = Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+    users = [
+        {
+            "initials": "SO",
+            "name": "System Owner",
+            "email": "admin@edge-system.local",
+            "role": "SYSTEM OWNER",
+            "home": "-- (All)",
+            "associated_home": "-- (All)",
+            "status": "ACTIVE",
+            "last_login": "Just now",
+            "can_disable": False,
+        }
+    ]
+
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        homes = cursor.execute("""
+            SELECT id, home_code, apartment_number, owner_name, owner_email
+            FROM homes
+            ORDER BY id DESC
+        """).fetchall()
+
+        conn.close()
+
+        for home in homes:
+            owner_name = home["owner_name"] or "Home Owner"
+            owner_email = home["owner_email"] or "owner@example.com"
+            apartment = home["apartment_number"] or home["home_code"] or "Home"
+
+            parts = owner_name.split()
+            initials = "".join([p[0] for p in parts[:2]]).upper() or "HO"
+
+            users.append(
+                {
+                    "initials": initials,
+                    "name": owner_name,
+                    "email": owner_email,
+                    "role": "HOME OWNER",
+                    "home": f"Apartment {apartment}",
+                    "associated_home": f"Apartment {apartment}",
+                    "status": "ACTIVE",
+                    "last_login": "Not logged in yet",
+                    "can_disable": True,
+                }
+            )
+
+    except Exception as e:
+        print("USERS PAGE DB ERROR:", e)
+
+    return template_engine.TemplateResponse(
+        "users.html",
+        {
+            "request": request,
+            "users": users,
+            "active_page": "users",
+        },
+    )
+
