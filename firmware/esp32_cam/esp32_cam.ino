@@ -4,6 +4,7 @@
 #include <HTTPClient.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <ESP32Servo.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
@@ -20,6 +21,14 @@ String DEVICE_TYPE = "esp32_cam";
 String DEVICE_ID = "esp32_cam_01";
 String DEVICE_TOKEN = "";
 String MQTT_TOPIC = "";
+
+const int SERVO_PIN = 13;
+const int SERVO_LOCK_ANGLE = 0;
+const int SERVO_OPEN_ANGLE = 90;
+const unsigned long SERVO_OPEN_TIME_MS = 3000;
+
+Servo doorServo;
+bool doorEnabled = true;
 
 WebServer server(80);
 WiFiClient wifiClient;
@@ -287,6 +296,74 @@ void sendHeartbeat() {
   http.end();
 }
 
+void initServo() {
+  doorServo.setPeriodHertz(50);
+  doorServo.attach(SERVO_PIN, 500, 2400);
+  doorServo.write(SERVO_LOCK_ANGLE);
+
+  Serial.print("Servo initialized on GPIO ");
+  Serial.println(SERVO_PIN);
+}
+
+String extractCommand(String message) {
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, message);
+
+  if (!error) {
+    if (doc["command"].is<const char*>()) {
+      String command = doc["command"].as<String>();
+      command.toLowerCase();
+      return command;
+    }
+
+    if (doc["action"].is<const char*>()) {
+      String action = doc["action"].as<String>();
+      action.toLowerCase();
+      return action;
+    }
+  }
+
+  message.toLowerCase();
+  return message;
+}
+
+void lockDoorServo() {
+  doorServo.write(SERVO_LOCK_ANGLE);
+  publishStatus("locked");
+  Serial.println("Door servo locked");
+}
+
+void unlockDoorServo() {
+  if (!doorEnabled) {
+    publishStatus("disabled");
+    Serial.println("Door command ignored because device is disabled");
+    return;
+  }
+
+  doorServo.write(SERVO_OPEN_ANGLE);
+  publishStatus("unlocked");
+  Serial.println("Door servo unlocked");
+}
+
+void openDoorOnce() {
+  if (!doorEnabled) {
+    publishStatus("disabled");
+    Serial.println("Open command ignored because device is disabled");
+    return;
+  }
+
+  publishStatus("opening");
+  Serial.println("Door servo opening");
+
+  doorServo.write(SERVO_OPEN_ANGLE);
+  delay(SERVO_OPEN_TIME_MS);
+
+  doorServo.write(SERVO_LOCK_ANGLE);
+  publishStatus("locked");
+
+  Serial.println("Door servo returned to locked position");
+}
+
 void publishStatus(String statusText) {
   if (!mqttClient.connected()) {
     return;
@@ -313,20 +390,68 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
 
+  String command = extractCommand(message);
+
   Serial.print("MQTT command on ");
   Serial.print(topic);
   Serial.print(": ");
   Serial.println(message);
+  Serial.print("Parsed command: ");
+  Serial.println(command);
 
-  if (message.indexOf("restart") >= 0) {
+  if (command.indexOf("restart") >= 0) {
     publishStatus("restarting");
     delay(500);
     ESP.restart();
+    return;
   }
 
-  if (message.indexOf("status") >= 0) {
+  if (command.indexOf("status") >= 0) {
     publishStatus("online");
+    return;
   }
+
+  if (command.indexOf("enable") >= 0) {
+    doorEnabled = true;
+    publishStatus("enabled");
+    Serial.println("Door device enabled");
+    return;
+  }
+
+  if (command.indexOf("disable") >= 0) {
+    doorEnabled = false;
+    publishStatus("disabled");
+    Serial.println("Door device disabled");
+    return;
+  }
+
+  if (command.indexOf("open") >= 0) {
+    openDoorOnce();
+    return;
+  }
+
+  if (command.indexOf("unlock") >= 0) {
+    unlockDoorServo();
+    return;
+  }
+
+  if (command.indexOf("lock") >= 0) {
+    lockDoorServo();
+    return;
+  }
+
+  Serial.println("Unknown MQTT command");
+}
+
+void subscribeCommandTopic(String topic) {
+  if (topic.length() == 0) {
+    return;
+  }
+
+  mqttClient.subscribe(topic.c_str());
+
+  Serial.print("Subscribed to MQTT topic: ");
+  Serial.println(topic);
 }
 
 void connectMqtt() {
@@ -342,12 +467,13 @@ void connectMqtt() {
     if (mqttClient.connect(clientId.c_str())) {
       Serial.println("connected");
 
-      String fallbackCommandTopic = "device/" + DEVICE_ID + "/cmd";
-      mqttClient.subscribe(fallbackCommandTopic.c_str());
+      subscribeCommandTopic("device/" + DEVICE_ID + "/cmd");
+      subscribeCommandTopic("device/" + DEVICE_ID + "/control");
 
       if (MQTT_TOPIC.length() > 0) {
-        String generatedCommandTopic = MQTT_TOPIC + "/cmd";
-        mqttClient.subscribe(generatedCommandTopic.c_str());
+        subscribeCommandTopic(MQTT_TOPIC + "/cmd");
+        subscribeCommandTopic(MQTT_TOPIC + "/control");
+        subscribeCommandTopic(MQTT_TOPIC + "/door/control");
       }
 
       publishStatus("online");
@@ -373,6 +499,8 @@ void setup() {
   }
 
   Serial.println("Camera initialized");
+
+  initServo();
 
   startHttpServer();
 

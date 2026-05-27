@@ -15,9 +15,15 @@ This firmware prepares an ESP32-CAM device to work with the local Smart Home bac
 - Sends claim request to FastAPI backend
 - Sends heartbeat request to FastAPI backend
 - Connects to MQTT broker
-- Listens for basic MQTT commands:
+- Listens for MQTT commands:
   - status
   - restart
+  - enable
+  - disable
+  - open
+  - unlock
+  - lock
+- Controls a door servo through MQTT open/lock commands
 
 ## Required Arduino libraries
 
@@ -25,6 +31,7 @@ Install these from Arduino Library Manager:
 
 - PubSubClient
 - ArduinoJson
+- ESP32Servo
 
 ESP32 board package is also required.
 
@@ -57,5 +64,27 @@ http://192.168.1.55/stream
 
 ## Notes
 
-Door servo control is not added in this phase.
-It belongs to the later official door flow phase.
+Door servo control is prepared in this firmware. Real testing still requires ESP32-CAM, external 5V servo power, shared GND, and matching MQTT topics.
+
+
+## Servo wiring
+
+Recommended demo wiring:
+
+ESP32-CAM GPIO 13 -> Servo Signal
+External 5V       -> Servo VCC
+External GND      -> Servo GND
+ESP32-CAM GND     -> External GND
+
+Do not power the servo from ESP32-CAM 3.3V.
+
+## MQTT door behavior
+
+When the firmware receives command `open`, it moves the servo to the open angle, waits, then returns to lock angle.
+
+Default values in firmware:
+
+SERVO_PIN = 13
+SERVO_LOCK_ANGLE = 0
+SERVO_OPEN_ANGLE = 90
+SERVO_OPEN_TIME_MS = 3000
