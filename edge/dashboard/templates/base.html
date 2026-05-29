@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -83,6 +83,7 @@
                     </div>
                     <span data-i18n="system_admin">System Owner</span>
                 </div>
+                <a href="/dashboard-logout" class="btn btn-outline d7m16-topbar-logout">Logout</a>
             </div>
         </header>
 
@@ -248,6 +249,1047 @@
 })();
 </script>
 <!-- PHASE8_HIDE_MAIN_MQTT_TOPIC_END -->
+
+
+
+
+
+
+
+
+<!-- D7M16_FINAL_QA_TOPBAR_BELL_RTL_START -->
+<script>
+(function () {
+    const dict = {
+        ar: {
+            nav_dashboard: "لوحة التحكم",
+            nav_create_home: "إنشاء منزل",
+            nav_devices: "الأجهزة",
+            nav_cameras: "الكاميرات",
+            nav_energy: "الطاقة",
+            nav_users: "المستخدمون",
+            nav_status: "حالة النظام",
+            nav_logs: "سجلات الأمن",
+            server_online: "السيرفر Online",
+            system_admin: "System Owner",
+            homes_overview: "نظرة عامة على المنازل",
+            homes_overview_desc: "مراقبة المنازل المسجلة وحالة النظام",
+            add_home: "إضافة منزل",
+            total_homes: "إجمالي المنازل",
+            total_devices: "إجمالي الأجهزة",
+            online_devices: "الأجهزة Online",
+            system_errors: "أخطاء النظام",
+            registered_homes: "المنازل المسجلة",
+            create_home: "إنشاء منزل",
+            no_homes_found: "لا توجد منازل مسجلة.",
+            apartment: "الشقة",
+            owner: "المالك",
+            home_id: "Home ID",
+            devices: "الأجهزة",
+            members: "الأفراد",
+            view_details: "عرض التفاصيل",
+            back_to_homes: "رجوع للمنازل",
+            edit_home: "تعديل المنزل",
+            delete: "حذف",
+            home_information: "معلومات المنزل",
+            apartment_number_label: "رقم الشقة:",
+            home_id_label: "Home ID:",
+            home_code_label: "Home Code:",
+            owner_name_label: "اسم المالك:",
+            email_label: "البريد:",
+            registered_label: "تاريخ التسجيل:",
+            devices_label: "الأجهزة:",
+            members_label: "الأفراد:",
+            door_status: "حالة الباب",
+            energy_usage: "استهلاك الطاقة",
+            recent_access_logs: "آخر سجلات الوصول",
+            time: "الوقت",
+            event: "الحدث",
+            details: "التفاصيل",
+            view_all_logs: "عرض كل السجلات"
+        },
+        en: {}
+    };
+
+    function currentLang() {
+        return localStorage.getItem("d7m16_dashboard_lang") || "en";
+    }
+
+    window.d7T = function (key, fallback) {
+        const lang = currentLang();
+        return (dict[lang] && dict[lang][key]) || fallback || key;
+    };
+
+    function translatePage() {
+        const lang = currentLang();
+        const useArabic = lang === "ar";
+
+        document.documentElement.setAttribute("dir", useArabic ? "rtl" : "ltr");
+        document.documentElement.setAttribute("lang", useArabic ? "ar" : "en");
+
+        document.querySelectorAll("[data-i18n]").forEach(function (el) {
+            const key = el.getAttribute("data-i18n");
+            const fallback = el.getAttribute("data-i18n-fallback") || el.textContent;
+            const value = window.d7T(key, fallback);
+            if (!value) return;
+
+            const icon = el.querySelector("i");
+            if (icon) {
+                const iconHtml = icon.outerHTML;
+                el.innerHTML = iconHtml + " " + value;
+            } else {
+                el.textContent = value;
+            }
+        });
+
+        const label = document.getElementById("langLabel");
+        if (label) label.textContent = useArabic ? "EN" : "AR";
+    }
+
+    window.toggleLanguage = function () {
+        const next = currentLang() === "ar" ? "en" : "ar";
+        localStorage.setItem("d7m16_dashboard_lang", next);
+        translatePage();
+        document.dispatchEvent(new CustomEvent("d7-language-changed"));
+    };
+
+    function findBellElement() {
+        const icon = document.querySelector(".ph-bell, .ph-fill.ph-bell, .ph-bell-simple");
+        if (!icon) return null;
+        return icon.closest("a,button,div,span") || icon;
+    }
+
+    function markLogsSeenIfNeeded() {
+        if (window.location.pathname === "/logs") {
+            localStorage.setItem("d7m16_dashboard_logs_seen_at", String(Date.now()));
+        }
+    }
+
+    async function loadNotificationBadge() {
+        const bell = findBellElement();
+        if (!bell) return;
+
+        bell.classList.add("d7m16-notification-holder");
+        bell.onclick = function (event) {
+            event.preventDefault();
+            localStorage.setItem("d7m16_dashboard_logs_seen_at", String(Date.now()));
+            window.location.href = "/logs";
+        };
+
+        let badge = bell.querySelector(".d7m16-notification-badge");
+        if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "d7m16-notification-badge";
+            badge.style.display = "none";
+            bell.appendChild(badge);
+        }
+
+        if (window.location.pathname === "/logs") {
+            badge.style.display = "none";
+            return;
+        }
+
+        try {
+            const seenAt = Number(localStorage.getItem("d7m16_dashboard_logs_seen_at") || "0");
+            const res = await fetch("/api/dashboard/security-logs-data?limit=100", { cache: "no-store" });
+            const data = await res.json();
+            const logs = data.logs || data.items || [];
+
+            const count = logs.filter(function (log) {
+                const severity = String(log.severity || "").toUpperCase();
+                if (!["WARNING", "ERROR", "CRITICAL"].includes(severity)) return false;
+
+                const rawTime = log.timestamp || log.created_at || log.time;
+                const parsed = rawTime ? Date.parse(rawTime) : NaN;
+
+                if (!seenAt) return true;
+                if (Number.isNaN(parsed)) return true;
+                return parsed > seenAt;
+            }).length;
+
+            if (count > 0) {
+                badge.textContent = count > 99 ? "99+" : String(count);
+                badge.style.display = "inline-block";
+            } else {
+                badge.style.display = "none";
+            }
+        } catch (error) {
+            badge.style.display = "none";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        markLogsSeenIfNeeded();
+        translatePage();
+        loadNotificationBadge();
+        setInterval(loadNotificationBadge, 30000);
+    });
+})();
+</script>
+<!-- D7M16_FINAL_QA_TOPBAR_BELL_RTL_END -->
+
+
+<!-- D7M16_FINAL_DEVICE_ACTION_OVERRIDE_START -->
+<script>
+(function () {
+  function showFinalDeviceToast(message, type = "success") {
+    const old = document.getElementById("d7-final-device-toast");
+    if (old) old.remove();
+
+    const toast = document.createElement("div");
+    toast.id = "d7-final-device-toast";
+    toast.textContent = message;
+    toast.style.position = "fixed";
+    toast.style.right = "24px";
+    toast.style.bottom = "24px";
+    toast.style.zIndex = "999999";
+    toast.style.padding = "12px 16px";
+    toast.style.borderRadius = "10px";
+    toast.style.fontWeight = "800";
+    toast.style.color = "#fff";
+    toast.style.background = type === "error" ? "#dc2626" : "#2563eb";
+    toast.style.boxShadow = "0 10px 30px rgba(0,0,0,.35)";
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  async function finalDeviceAction(deviceId, action) {
+    if (!deviceId) {
+      showFinalDeviceToast("Missing device ID.", "error");
+      return;
+    }
+
+    action = String(action).toLowerCase();
+
+    if (action === "remove" && !confirm(`Remove device ${deviceId}?`)) return;
+    if (action === "disable" && !confirm(`Disable device ${deviceId}?`)) return;
+
+    try {
+      const response = await fetch(`/api/dashboard/final-devices/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(action)}`, {
+        method: "POST",
+        headers: {
+          "X-Actor-Role": "system_owner",
+          "X-System-Owner-Token": "dev-system-owner-token"
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.detail || data.message || "Device action failed.");
+      }
+
+      showFinalDeviceToast(data.message || `${action.toUpperCase()} completed. MQTT published.`);
+
+      if (typeof loadDevices === "function") {
+        await loadDevices();
+      } else {
+        setTimeout(() => window.location.reload(), 700);
+      }
+    } catch (error) {
+      showFinalDeviceToast(error.message || "Device action failed.", "error");
+    }
+  }
+
+  window.officialDeviceAction = finalDeviceAction;
+  window.restartDevice = function (deviceId) { return finalDeviceAction(deviceId, "restart"); };
+  window.enableDevice = function (deviceId) { return finalDeviceAction(deviceId, "enable"); };
+  window.disableDevice = function (deviceId) { return finalDeviceAction(deviceId, "disable"); };
+  window.removeDevice = function (deviceId) { return finalDeviceAction(deviceId, "remove"); };
+})();
+</script>
+<!-- D7M16_FINAL_DEVICE_ACTION_OVERRIDE_END -->
+
+
+
+
+
+
+
+<!-- D7M16_UI_FIX5_ONLY_START -->
+<style>
+  .sidebar a i,
+  .sidebar .nav-item i,
+  .sidebar-nav a i,
+  .sidebar-nav .nav-item i,
+  .sidebar a .ph,
+  .sidebar .nav-item .ph,
+  .sidebar-nav a .ph,
+  .sidebar-nav .nav-item .ph {
+    font-size: 1.13rem !important;
+    width: 17px !important;
+    min-width: 17px !important;
+    margin-right: 6px !important;
+    text-align: center !important;
+  }
+
+  .sidebar a,
+  .sidebar .nav-item,
+  .sidebar-nav a,
+  .sidebar-nav .nav-item {
+    font-size: 1.02rem !important;
+    font-weight: 650 !important;
+    gap: 6px !important;
+  }
+</style>
+
+<script>
+(function () {
+  function cleanId(value) {
+    return String(value || "").replace(/\s+/g, "").trim();
+  }
+
+  function deletedSet() {
+    try {
+      return JSON.parse(localStorage.getItem("d7_deleted_devices") || "[]");
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveDeleted(id) {
+    const clean = cleanId(id);
+    const list = deletedSet();
+    if (clean && !list.includes(clean)) list.push(clean);
+    localStorage.setItem("d7_deleted_devices", JSON.stringify(list));
+  }
+
+  function isDeletedText(text) {
+    const clean = cleanId(text);
+    return deletedSet().some(id => clean.includes(id));
+  }
+
+  function extractDeviceId(input) {
+    if (typeof input === "string") return cleanId(input);
+
+    if (input && input.dataset) {
+      const direct = input.dataset.deviceId || input.dataset.id || input.dataset.device;
+      if (direct) return cleanId(direct);
+    }
+
+    if (input && input.closest) {
+      const row = input.closest("tr");
+      if (row) {
+        const cells = Array.from(row.querySelectorAll("td"));
+        for (const cell of cells) {
+          const value = cleanId(cell.textContent);
+          if (value.includes("DOOR-") || value.includes("METER-") || value.includes("CAM-")) {
+            return value;
+          }
+        }
+      }
+    }
+
+    return "";
+  }
+
+  function applyDeletedDevicesFilter() {
+    document.querySelectorAll("tr, .device-card, .device-item, .connected-device").forEach(el => {
+      if (isDeletedText(el.textContent)) {
+        el.remove();
+      }
+    });
+  }
+
+  async function deleteDeviceFinal(input) {
+    const id = extractDeviceId(input);
+
+    if (!id) {
+      alert("Device ID not found.");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to remove this device?")) return;
+
+    const response = await fetch(`/api/dashboard/final-devices-v5/${encodeURIComponent(id)}/remove`, {
+      method: "POST",
+      headers: {
+        "X-Actor-Role": "system_owner",
+        "X-System-Owner-Token": "dev-system-owner-token"
+      }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success === false) {
+      alert(data.detail || data.message || "Failed to remove device.");
+      return;
+    }
+
+    saveDeleted(id);
+    applyDeletedDevicesFilter();
+
+    const old = document.getElementById("d7-final-device-toast");
+    if (old) old.remove();
+
+    const box = document.createElement("div");
+    box.id = "d7-final-device-toast";
+    box.textContent = "Device removed from system.";
+    box.style.position = "fixed";
+    box.style.right = "24px";
+    box.style.bottom = "24px";
+    box.style.zIndex = "999999";
+    box.style.padding = "12px 16px";
+    box.style.borderRadius = "10px";
+    box.style.fontWeight = "800";
+    box.style.color = "#fff";
+    box.style.background = "#2563eb";
+    box.style.boxShadow = "0 10px 30px rgba(0,0,0,.35)";
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 3000);
+  }
+
+  window.deleteDevice = function (input) { return deleteDeviceFinal(input); };
+  window.removeDevice = function (input) { return deleteDeviceFinal(input); };
+
+  document.addEventListener("DOMContentLoaded", function () {
+    applyDeletedDevicesFilter();
+
+    const observer = new MutationObserver(applyDeletedDevicesFilter);
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+})();
+</script>
+<!-- D7M16_UI_FIX5_ONLY_END -->
+
+
+
+
+
+
+
+
+
+
+
+<!-- D7M16_HEADER_FINAL_ONLY_START -->
+<style>
+/* يرجع SERVER ONLINE صغير ومرتب مثل القديم */
+.d7m16-clean-server-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: max-content !important;
+    height: 22px !important;
+    padding: 4px 11px !important;
+    border-radius: 999px !important;
+    background: rgba(16, 185, 129, 0.14) !important;
+    border: 1px solid rgba(16, 185, 129, 0.18) !important;
+    color: #34d399 !important;
+    font-size: 0.70rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.045em !important;
+    line-height: 1 !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+    box-shadow: none !important;
+}
+
+.d7m16-clean-server-dot {
+    width: 6px !important;
+    height: 6px !important;
+    min-width: 6px !important;
+    border-radius: 50% !important;
+    background: #10b981 !important;
+    display: inline-block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08) !important;
+}
+
+.d7m16-clean-server-pill.d7m16-offline {
+    background: rgba(239, 68, 68, 0.13) !important;
+    border-color: rgba(239, 68, 68, 0.20) !important;
+    color: #fca5a5 !important;
+}
+
+.d7m16-clean-server-pill.d7m16-offline .d7m16-clean-server-dot {
+    background: #ef4444 !important;
+}
+
+/* تثبيت يمين الهيدر بدون إنزال Logout */
+.d7m16-header-host-final {
+    position: relative !important;
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.d7m16-actions-right-final {
+    position: absolute !important;
+    right: 18px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    margin: 0 !important;
+    z-index: 50 !important;
+}
+
+.d7m16-actions-right-final a,
+.d7m16-actions-right-final button,
+.d7m16-actions-right-final span,
+.d7m16-actions-right-final div {
+    max-height: 36px;
+}
+
+.d7m16-logout-final {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    margin: 0 !important;
+    padding: 6px 12px !important;
+    border-radius: 12px !important;
+    line-height: 1 !important;
+}
+</style>
+
+<script>
+(function () {
+    "use strict";
+
+    function textOf(el) {
+        return String(el && el.textContent || "").trim();
+    }
+
+    function topVisible(el) {
+        if (!el || !el.getBoundingClientRect) return false;
+        const r = el.getBoundingClientRect();
+        return r.top >= 70 && r.top <= 180 && r.height > 0 && r.width > 0;
+    }
+
+    function findLogout() {
+        return Array.from(document.querySelectorAll("a, button")).find(function (el) {
+            const data = [
+                el.getAttribute("href") || "",
+                el.getAttribute("onclick") || "",
+                textOf(el)
+            ].join(" ").toLowerCase();
+
+            return topVisible(el) && data.includes("logout");
+        });
+    }
+
+    function findOwner() {
+        return Array.from(document.querySelectorAll("span, div, strong, a, button")).find(function (el) {
+            return topVisible(el) && el.children.length <= 4 && textOf(el) === "System Owner";
+        });
+    }
+
+    function findActionGroup(owner, logout) {
+        if (!owner) return null;
+
+        let cur = owner.parentElement;
+        let best = cur;
+
+        while (cur && cur !== document.body) {
+            const r = cur.getBoundingClientRect();
+            const t = textOf(cur);
+
+            if (
+                r.top >= 70 &&
+                r.top <= 180 &&
+                r.width > 180 &&
+                r.width < 650 &&
+                t.includes("System Owner")
+            ) {
+                best = cur;
+            }
+
+            if (logout && cur.contains(logout) && t.includes("System Owner")) {
+                best = cur;
+            }
+
+            cur = cur.parentElement;
+        }
+
+        return best;
+    }
+
+    function findHeaderHost(group) {
+        let cur = group ? group.parentElement : null;
+        let best = cur;
+
+        while (cur && cur !== document.body) {
+            const r = cur.getBoundingClientRect();
+
+            if (r.top >= 60 && r.top <= 180 && r.width > 700 && r.height >= 40 && r.height <= 90) {
+                best = cur;
+            }
+
+            cur = cur.parentElement;
+        }
+
+        return best;
+    }
+
+    function fixRightActions() {
+        const owner = findOwner();
+        const logout = findLogout();
+
+        if (!owner || !logout) return;
+
+        const group = findActionGroup(owner, logout);
+        if (!group) return;
+
+        const host = findHeaderHost(group);
+        if (host) {
+            host.classList.add("d7m16-header-host-final");
+        }
+
+        group.classList.add("d7m16-actions-right-final");
+        logout.classList.add("d7m16-logout-final");
+
+        if (logout.parentElement !== group) {
+            group.appendChild(logout);
+        }
+    }
+
+    function findServerPill() {
+        const candidates = Array.from(document.querySelectorAll("span, div, a, button"))
+            .filter(function (el) {
+                const t = textOf(el).replace(/\s+/g, " ").toUpperCase();
+                if (!topVisible(el)) return false;
+                if (!t.includes("SERVER ONLINE") && !t.includes("SERVER OFFLINE")) return false;
+
+                const r = el.getBoundingClientRect();
+                return r.left < 650 && r.width < 360 && r.height < 50;
+            })
+            .sort(function (a, b) {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                return (ar.width * ar.height) - (br.width * br.height);
+            });
+
+        if (!candidates.length) return null;
+
+        let pill = candidates[0];
+        let cur = pill.parentElement;
+
+        while (cur && cur !== document.body) {
+            const r = cur.getBoundingClientRect();
+            const t = textOf(cur).replace(/\s+/g, " ").toUpperCase();
+
+            if (
+                topVisible(cur) &&
+                r.left < 650 &&
+                r.width < 360 &&
+                r.height < 50 &&
+                (t.includes("SERVER ONLINE") || t.includes("SERVER OFFLINE"))
+            ) {
+                pill = cur;
+            }
+
+            cur = cur.parentElement;
+        }
+
+        return pill;
+    }
+
+    function fixServerOnline() {
+        const pill = findServerPill();
+        if (!pill) return;
+
+        const raw = textOf(pill).toUpperCase();
+        const isOffline = raw.includes("SERVER OFFLINE");
+
+        pill.className = (pill.className || "")
+            .replace(/\bd7m16-[^\s]+/g, "")
+            .trim();
+
+        pill.classList.add("d7m16-clean-server-pill");
+        pill.classList.toggle("d7m16-offline", isOffline);
+
+        // أهم سطر: يمسح النص القديم عشان لا يصير SERVER ONLINE SERVER ONLINE
+        pill.innerHTML = "";
+
+        const dot = document.createElement("span");
+        dot.className = "d7m16-clean-server-dot";
+
+        const label = document.createElement("span");
+        label.textContent = isOffline ? "SERVER OFFLINE" : "SERVER ONLINE";
+
+        pill.appendChild(dot);
+        pill.appendChild(label);
+    }
+
+    function applyHeaderFix() {
+        fixRightActions();
+        fixServerOnline();
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        applyHeaderFix();
+        setTimeout(applyHeaderFix, 150);
+        setTimeout(applyHeaderFix, 500);
+        setTimeout(applyHeaderFix, 1200);
+    });
+})();
+</script>
+<!-- D7M16_HEADER_FINAL_ONLY_END -->
+
+<!-- D7M16_LOGOUT_VISIBLE_RIGHT_ONLY_START -->
+<style>
+/* فقط Logout ويمين الهيدر. لا يلمس Server Online ولا Devices ولا Logs. */
+.topbar {
+    position: relative !important;
+}
+
+.topbar .topbar-right,
+.d7m16-actions-right-final {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    overflow: visible !important;
+    margin-left: auto !important;
+    right: 18px !important;
+    max-width: calc(100vw - 360px) !important;
+}
+
+.topbar .topbar-right {
+    padding-right: 18px !important;
+}
+
+.d7m16-topbar-logout,
+.d7m16-logout-final,
+.d7m16-logout-visible-final {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 6px 12px !important;
+    margin: 0 !important;
+    border-radius: 12px !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+    z-index: 9999 !important;
+}
+</style>
+<!-- D7M16_LOGOUT_VISIBLE_RIGHT_ONLY_END -->
+
+
+<!-- D7M16_LANG_TOGGLE_INSTANT_ONLY_START -->
+<script>
+(function () {
+    const EN = {
+        nav_dashboard: "Dashboard",
+        nav_create_home: "Create Home",
+        nav_devices: "Devices",
+        nav_cameras: "Cameras",
+        nav_energy: "Energy",
+        nav_users: "Users",
+        nav_status: "System Status",
+        nav_logs: "Security Logs",
+        server_online: "Server Online",
+        system_admin: "System Owner",
+        homes_overview: "Homes Overview",
+        homes_overview_desc: "Monitor all registered homes and system status",
+        add_home: "Add Home",
+        total_homes: "Total Homes",
+        total_devices: "Total Devices",
+        online_devices: "Online Devices",
+        active_devices: "Active Devices",
+        camera_devices: "Camera Devices",
+        system_errors: "System Errors",
+        registered_homes: "Registered Homes",
+        create_home: "Create Home",
+        no_homes_found: "No homes found.",
+        apartment: "Apartment",
+        owner: "Owner",
+        home_id: "Home ID",
+        devices: "Devices",
+        members: "Members",
+        view_details: "View Details",
+        back_to_homes: "Back to Homes",
+        edit_home: "Edit Home",
+        delete: "Delete",
+        home_information: "Home Information",
+        apartment_number_label: "Apartment Number:",
+        home_id_label: "Home ID:",
+        home_code_label: "Home Code:",
+        owner_name_label: "Owner Name:",
+        email_label: "Email:",
+        registered_label: "Registered:",
+        devices_label: "Devices:",
+        members_label: "Members:",
+        door_status: "Door Status",
+        energy_usage: "Energy Usage",
+        recent_access_logs: "Recent Access Logs",
+        time: "Time",
+        event: "Event",
+        details: "Details",
+        view_all_logs: "View all logs"
+    };
+
+    const AR = {
+        nav_dashboard: "لوحة التحكم",
+        nav_create_home: "إنشاء منزل",
+        nav_devices: "الأجهزة",
+        nav_cameras: "الكاميرات",
+        nav_energy: "الطاقة",
+        nav_users: "المستخدمون",
+        nav_status: "حالة النظام",
+        nav_logs: "سجلات الأمن",
+        server_online: "السيرفر Online",
+        system_admin: "System Owner",
+        homes_overview: "نظرة عامة على المنازل",
+        homes_overview_desc: "مراقبة المنازل المسجلة وحالة النظام",
+        add_home: "إضافة منزل",
+        total_homes: "إجمالي المنازل",
+        total_devices: "إجمالي الأجهزة",
+        online_devices: "الأجهزة Online",
+        active_devices: "الأجهزة النشطة",
+        camera_devices: "أجهزة الكاميرا",
+        system_errors: "أخطاء النظام",
+        registered_homes: "المنازل المسجلة",
+        create_home: "إنشاء منزل",
+        no_homes_found: "لا توجد منازل مسجلة.",
+        apartment: "الشقة",
+        owner: "المالك",
+        home_id: "Home ID",
+        devices: "الأجهزة",
+        members: "الأفراد",
+        view_details: "عرض التفاصيل",
+        back_to_homes: "رجوع للمنازل",
+        edit_home: "تعديل المنزل",
+        delete: "حذف",
+        home_information: "معلومات المنزل",
+        apartment_number_label: "رقم الشقة:",
+        home_id_label: "Home ID:",
+        home_code_label: "Home Code:",
+        owner_name_label: "اسم المالك:",
+        email_label: "البريد:",
+        registered_label: "تاريخ التسجيل:",
+        devices_label: "الأجهزة:",
+        members_label: "الأفراد:",
+        door_status: "حالة الباب",
+        energy_usage: "استهلاك الطاقة",
+        recent_access_logs: "آخر سجلات الوصول",
+        time: "الوقت",
+        event: "الحدث",
+        details: "التفاصيل",
+        view_all_logs: "عرض كل السجلات"
+    };
+
+    function currentLang() {
+        return localStorage.getItem("d7m16_dashboard_lang") || "en";
+    }
+
+    function setTextKeepingIcon(el, value) {
+        const icon = el.querySelector("i");
+        if (icon) {
+            el.innerHTML = icon.outerHTML + " " + value;
+        } else {
+            el.textContent = value;
+        }
+    }
+
+    window.d7m16ApplyLanguageInstant = function (lang) {
+        lang = lang === "ar" ? "ar" : "en";
+        localStorage.setItem("d7m16_dashboard_lang", lang);
+
+        const useArabic = lang === "ar";
+        document.documentElement.setAttribute("dir", useArabic ? "rtl" : "ltr");
+        document.documentElement.setAttribute("lang", useArabic ? "ar" : "en");
+
+        document.querySelectorAll("[data-i18n]").forEach(function (el) {
+            const key = el.getAttribute("data-i18n");
+            const value = (useArabic ? AR[key] : EN[key]) || el.getAttribute("data-i18n-fallback") || el.textContent;
+            if (value) setTextKeepingIcon(el, value);
+        });
+
+        const label = document.getElementById("langLabel");
+        if (label) label.textContent = useArabic ? "EN" : "AR";
+
+        document.dispatchEvent(new CustomEvent("d7-language-changed", { detail: { lang: lang } }));
+    };
+
+    window.toggleLanguage = function () {
+        const next = currentLang() === "ar" ? "en" : "ar";
+        window.d7m16ApplyLanguageInstant(next);
+
+        setTimeout(function () {
+            window.d7m16ApplyLanguageInstant(next);
+        }, 50);
+    };
+
+    document.addEventListener("DOMContentLoaded", function () {
+        setTimeout(function () {
+            window.d7m16ApplyLanguageInstant(currentLang());
+        }, 0);
+    });
+})();
+</script>
+<!-- D7M16_LANG_TOGGLE_INSTANT_ONLY_END -->
+
+
+<script>
+(function () {
+  if (window.__d7ForceUserLogActorUiInstalled) return;
+  window.__d7ForceUserLogActorUiInstalled = true;
+
+  function fixUserLogActors() {
+    document.querySelectorAll("tr").forEach(function (row) {
+      var text = row.innerText || "";
+      var isUserLog =
+        text.includes("User Management") ||
+        text.includes("ENABLE USER") ||
+        text.includes("DISABLE USER") ||
+        text.includes("UPDATE SYSTEM OWNER") ||
+        text.includes("home owner account") ||
+        text.includes("System Owner account updated");
+
+      if (!isUserLog) return;
+
+      row.querySelectorAll("td, span, div").forEach(function (cell) {
+        if ((cell.textContent || "").trim() === "Server") {
+          cell.textContent = "System Owner";
+        }
+      });
+    });
+  }
+
+  window.addEventListener("DOMContentLoaded", fixUserLogActors);
+  window.addEventListener("pageshow", fixUserLogActors);
+  setInterval(fixUserLogActors, 500);
+})();
+</script>
+
+<!-- D7M16_GLOBAL_DATETIME_FINAL_FIX_START -->
+<style>
+  .d7m16-datetime-fixed {
+    white-space: nowrap !important;
+    font-size: 0.86rem !important;
+    letter-spacing: 0 !important;
+    direction: ltr !important;
+  }
+</style>
+
+<script>
+(function () {
+  if (window.__d7m16GlobalDateTimeFinalFixInstalled) return;
+  window.__d7m16GlobalDateTimeFinalFixInstalled = true;
+
+  const dateTimeRe = /(\d{4}-\d{2}-\d{2})\s*,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/gi;
+
+  function pad2(value) {
+    return String(value || "00").padStart(2, "0");
+  }
+
+  function formatDateTime(datePart, hourPart, minutePart, secondPart, suffixPart) {
+    let hour = parseInt(hourPart, 10);
+    const suffix = suffixPart ? suffixPart.toUpperCase() : (hour >= 12 ? "PM" : "AM");
+
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+
+    return `${datePart}, ${pad2(hour)}:${pad2(minutePart)}:${pad2(secondPart || "00")} ${suffix}`;
+  }
+
+  function normalizeDateTimeText(text) {
+    if (!text || !/\d{4}-\d{2}-\d{2}/.test(text) || !/\d{1,2}:\d{2}/.test(text)) {
+      return text;
+    }
+
+    return String(text).replace(
+      dateTimeRe,
+      function (_, datePart, hourPart, minutePart, secondPart, suffixPart) {
+        return formatDateTime(datePart, hourPart, minutePart, secondPart || "00", suffixPart);
+      }
+    );
+  }
+
+  function isBlockedParent(node) {
+    const parent = node.parentElement;
+    if (!parent) return true;
+
+    const blocked = ["SCRIPT", "STYLE", "INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON", "PRE", "CODE"];
+    return blocked.includes(parent.tagName);
+  }
+
+  function fixTextNode(node) {
+    if (!node || isBlockedParent(node)) return;
+
+    const oldText = node.nodeValue || "";
+    const newText = normalizeDateTimeText(oldText);
+
+    if (newText !== oldText) {
+      node.nodeValue = newText;
+
+      const parent = node.parentElement;
+      if (parent) {
+        parent.classList.add("d7m16-datetime-fixed");
+        parent.setAttribute("dir", "ltr");
+      }
+    }
+  }
+
+  function runDateTimeFix() {
+    const root = document.body || document.documentElement;
+    if (!root) return;
+
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function (node) {
+          const text = node.nodeValue || "";
+          if (!/\d{4}-\d{2}-\d{2}/.test(text) || !/\d{1,2}:\d{2}/.test(text)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(fixTextNode);
+  }
+
+  let timer = null;
+  function scheduleFix() {
+    clearTimeout(timer);
+    timer = setTimeout(runDateTimeFix, 80);
+  }
+
+  document.addEventListener("DOMContentLoaded", runDateTimeFix);
+  window.addEventListener("load", runDateTimeFix);
+  window.addEventListener("pageshow", runDateTimeFix);
+
+  setTimeout(runDateTimeFix, 100);
+  setTimeout(runDateTimeFix, 500);
+  setTimeout(runDateTimeFix, 1200);
+
+  const target = document.body || document.documentElement;
+  if (target) {
+    new MutationObserver(scheduleFix).observe(target, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+})();
+</script>
+<!-- D7M16_GLOBAL_DATETIME_FINAL_FIX_END -->
 
 </body>
 </html>

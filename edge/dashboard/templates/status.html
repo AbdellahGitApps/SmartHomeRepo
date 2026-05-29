@@ -1,5 +1,63 @@
 {% extends "base.html" %}
-{% block title %}System Status{% endblock %}
+{% block title %}System Status
+<script>
+/* STATUS_RUNTIME_METRICS_JS_START */
+(function () {
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    function setBar(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.style.width = Math.max(0, Math.min(100, value)) + "%";
+    }
+
+    function fmt(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return "--";
+        return n.toFixed(1).replace(".0", "");
+    }
+
+    async function loadRuntimeMetrics() {
+        try {
+            const res = await fetch("/api/system/runtime?ts=" + Date.now(), { cache: "no-store" });
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            if (data.cpu_percent !== null && data.cpu_percent !== undefined) {
+                setText("runtimeCpuText", fmt(data.cpu_percent) + "%");
+                setBar("runtimeCpuBar", Number(data.cpu_percent));
+            }
+
+            if (data.memory_percent !== null && data.memory_percent !== undefined) {
+                setText(
+                    "runtimeMemoryText",
+                    fmt(data.memory_used_gb) + " / " + fmt(data.memory_total_gb) + " GB (" + fmt(data.memory_percent) + "%)"
+                );
+                setBar("runtimeMemoryBar", Number(data.memory_percent));
+            }
+
+            if (data.storage_percent !== null && data.storage_percent !== undefined) {
+                setText(
+                    "runtimeStorageText",
+                    fmt(data.storage_used_gb) + " / " + fmt(data.storage_total_gb) + " GB (" + fmt(data.storage_percent) + "%)"
+                );
+                setBar("runtimeStorageBar", Number(data.storage_percent));
+            }
+        } catch (e) {
+            console.warn("Runtime metrics failed:", e);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadRuntimeMetrics);
+    setInterval(loadRuntimeMetrics, 15000);
+})();
+/* STATUS_RUNTIME_METRICS_JS_END */
+</script>
+
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -8,101 +66,208 @@
         <p data-i18n="system_status_desc">Monitor backend infrastructure and services</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline" onclick="window.location.reload()"><i class="ph ph-arrows-clockwise"></i> <span data-i18n="btn_refresh">Refresh</span></button>
+        <button class="btn btn-outline" onclick="window.location.reload()">
+            <i class="ph ph-arrows-clockwise"></i>
+            <span data-i18n="btn_refresh">Refresh</span>
+        </button>
     </div>
 </div>
 
-<div class="card-grid" style="margin-bottom: 32px;">
+<style>
+    .status-grid-clean {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(260px, 390px));
+        justify-content: start;
+        gap: 20px;
+        margin-bottom: 32px;
+        align-items: stretch;
+    }
+
+    .status-card-clean {
+        min-height: 260px;
+    }
+
+    .status-card-header-clean {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        gap: 12px;
+    }
+
+    .status-card-header-clean h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+    }
+
+    .status-lines-clean {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        font-size: 0.9rem;
+    }
+
+    .status-line-clean {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .status-label-clean {
+        color: var(--text-secondary);
+    }
+
+    .status-value-clean {
+        color: var(--text-primary);
+        font-weight: 700;
+        text-align: right;
+    }
+
+    .status-divider-clean {
+        border: 0;
+        border-top: 1px solid var(--glass-border);
+        margin: 6px 0;
+    }
+
+    .status-bar-clean {
+        width: 100%;
+        background: rgba(255,255,255,0.1);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+
+    .status-bar-clean span {
+        display: block;
+        height: 100%;
+        background: var(--status-success);
+        border-radius: 3px;
+    }
+
+    .infra-log-box-clean {
+        background: rgba(0,0,0,0.4);
+        padding: 16px;
+        border-radius: var(--border-radius-md);
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #A7F3D0;
+        max-height: 250px;
+        overflow-y: auto;
+        direction: ltr;
+        text-align: left;
+    }
+
+    @media (max-width: 1100px) {
+        .status-grid-clean {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="status-grid-clean">
     <!-- MQTT Broker -->
-    <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-broadcast" style="color: var(--accent-primary);"></i> <span data-i18n="mqtt_broker">MQTT Broker</span></h3>
+    <div class="glass-card status-card-clean">
+        <div class="status-card-header-clean">
+            <h3>
+                <i class="ph-fill ph-broadcast" style="color: var(--accent-primary);"></i>
+                <span data-i18n="mqtt_broker">MQTT Broker</span>
+            </h3>
             <span class="badge badge-success" data-i18n="badge_healthy">Healthy</span>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;">
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="mqtt_broker">MQTT Broker:</span>
-                <span>smarthome.local:1883</span>
+
+        <div class="status-lines-clean">
+            <div class="status-line-clean">
+                <span class="status-label-clean">MQTT Broker:</span>
+                <span class="status-value-clean">smarthome.local:1883</span>
             </div>
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="label_status">Status:</span>
-                <span data-i18n="status_connected">Connected</span>
+            <div class="status-line-clean">
+                <span class="status-label-clean" data-i18n="label_status">Status:</span>
+                <span class="status-value-clean" data-i18n="status_connected">Connected</span>
             </div>
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="label_messages_min">Messages/min:</span>
-                <span>~145</span>
+            <div class="status-line-clean">
+                <span class="status-label-clean" data-i18n="label_messages_min">Messages/min:</span>
+                <span class="status-value-clean">~145</span>
             </div>
         </div>
     </div>
 
-    <!-- Database -->
-    <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-database" style="color: var(--accent-primary);"></i> <span data-i18n="sqlite_db">SQLite Database</span></h3>
-            <span class="badge badge-success" data-i18n="badge_healthy">Healthy</span>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;">
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="label_status">Status:</span>
-                <span data-i18n="status_connected">Connected</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="label_size">Size:</span>
-                <span>14.2 MB</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);" data-i18n="label_location">Location:</span>
-                <span style="font-size: 0.8rem;">/database/smart_home_edge.db</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Server Hardware Mock -->
-    <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-hard-drives" style="color: var(--accent-primary);"></i> <span data-i18n="edge_server">Edge Server</span></h3>
+    <!-- Edge Server -->
+    <div class="glass-card status-card-clean">
+        <div class="status-card-header-clean">
+            <h3>
+                <i class="ph-fill ph-hard-drives" style="color: var(--accent-primary);"></i>
+                <span data-i18n="edge_server">Edge Server</span>
+            </h3>
             <span class="badge badge-success" data-i18n="badge_running">Running</span>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem;">
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Server URL:</span>
-                <span>http://smarthome.local:8000</span>
+
+        <div class="status-lines-clean">
+            <div class="status-line-clean">
+                <span class="status-label-clean">Server URL:</span>
+                <span class="status-value-clean">http://smarthome.local:8000</span>
             </div>
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">Current LAN IP:</span>
-                <span>192.168.1.100</span>
+            <div class="status-line-clean">
+                <span class="status-label-clean">Current LAN IP:</span>
+                <span class="status-value-clean">192.168.1.100</span>
             </div>
-            <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-secondary);">API Status:</span>
-                <span style="color: var(--status-success);">Online</span>
+            <div class="status-line-clean">
+                <span class="status-label-clean">API Status:</span>
+                <span class="status-value-clean" style="color: var(--status-success);">Online</span>
             </div>
-            <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 4px 0;">
+
+            <hr class="status-divider-clean">
+
             <div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-secondary);" data-i18n="cpu_usage">CPU Usage</span>
-                    <span>24%</span>
+                <div class="status-line-clean">
+                    <span class="status-label-clean" data-i18n="cpu_usage">CPU Usage</span>
+                    <span class="status-value-clean" id="runtimeCpuText">Loading...</span>
                 </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
-                    <div style="width: 24%; background: var(--status-success); height: 100%; border-radius: 3px;"></div>
-                </div>
+                <div class="status-bar-clean"><span id="runtimeCpuBar" style="width: 0%;"></span></div>
             </div>
+
             <div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-secondary);" data-i18n="memory_ram">Memory (RAM)</span>
-                    <span>1.2 / 4.0 GB (30%)</span>
+                <div class="status-line-clean">
+                    <span class="status-label-clean" data-i18n="memory_ram">Memory (RAM)</span>
+                    <span class="status-value-clean" id="runtimeMemoryText">Loading...</span>
                 </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
-                    <div style="width: 30%; background: var(--status-success); height: 100%; border-radius: 3px;"></div>
-                </div>
+                <div class="status-bar-clean"><span id="runtimeMemoryBar" style="width: 0%;"></span></div>
             </div>
+
             <div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-secondary);" data-i18n="storage">Storage</span>
-                    <span>12 / 64 GB (18%)</span>
+                <div class="status-line-clean">
+                    <span class="status-label-clean" data-i18n="storage">Storage</span>
+                    <span class="status-value-clean" id="runtimeStorageText">Loading...</span>
                 </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px;">
-                    <div style="width: 18%; background: var(--status-success); height: 100%; border-radius: 3px;"></div>
-                </div>
+                <div class="status-bar-clean"><span id="runtimeStorageBar" style="width: 0%;"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SQLite Database -->
+    <div class="glass-card status-card-clean">
+        <div class="status-card-header-clean">
+            <h3>
+                <i class="ph-fill ph-database" style="color: var(--accent-primary);"></i>
+                <span data-i18n="sqlite_db">SQLite Database</span>
+            </h3>
+            <span class="badge badge-success" data-i18n="badge_healthy">Healthy</span>
+        </div>
+
+        <div class="status-lines-clean">
+            <div class="status-line-clean">
+                <span class="status-label-clean" data-i18n="label_status">Status:</span>
+                <span class="status-value-clean" data-i18n="status_connected">Connected</span>
+            </div>
+            <div class="status-line-clean">
+                <span class="status-label-clean" data-i18n="label_size">Size:</span>
+                <span class="status-value-clean">14.2 MB</span>
+            </div>
+            <div class="status-line-clean">
+                <span class="status-label-clean" data-i18n="label_location">Location:</span>
+                <span class="status-value-clean" style="font-size: 0.8rem;">/database/smart_home_edge.db</span>
             </div>
         </div>
     </div>
@@ -110,16 +275,74 @@
 
 <div class="glass-card">
     <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-        <i class="ph ph-terminal-window"></i> <span data-i18n="recent_sys_logs">Recent System Logs</span>
+        <i class="ph ph-terminal-window"></i>
+        <span>Recent Infrastructure Logs</span>
     </h3>
-    <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: var(--border-radius-md); font-family: monospace; font-size: 0.85rem; color: #A7F3D0; max-height: 250px; overflow-y: auto;">
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:15 - MQTT client connected successfully.</div>
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:16 - Subscribed to topic: home/+/cam</div>
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:16 - Subscribed to topic: home/+/meter</div>
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:35:22 - Received heartbeat from CAM-101-A</div>
-        <div style="margin-bottom: 4px; color: #FCD34D;">[WARN] 2026-05-13 20:42:10 - Missed heartbeat from CAM-205-A</div>
-        <div style="margin-bottom: 4px; color: #FCA5A5;">[ERROR] 2026-05-13 20:45:00 - Failed to parse payload from METER-205-M</div>
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:50:00 - Database backup created successfully.</div>
+
+    <div class="infra-log-box-clean">
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:15 - MQTT broker connection checked.</div>
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:16 - Edge server API is online.</div>
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:17 - SQLite database connection verified.</div>
+        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:35:22 - Infrastructure status refresh completed.</div>
+        <div style="margin-bottom: 4px; color: #FCD34D;">[WARN] 2026-05-13 20:42:10 - Hardware runtime metrics will be fully real after deployment.</div>
     </div>
 </div>
+
+<script>
+/* STATUS_RUNTIME_METRICS_JS_START */
+(function () {
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    function setBar(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.style.width = Math.max(0, Math.min(100, value)) + "%";
+    }
+
+    function fmt(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return "--";
+        return n.toFixed(1).replace(".0", "");
+    }
+
+    async function loadRuntimeMetrics() {
+        try {
+            const res = await fetch("/api/system/runtime?ts=" + Date.now(), { cache: "no-store" });
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            if (data.cpu_percent !== null && data.cpu_percent !== undefined) {
+                setText("runtimeCpuText", fmt(data.cpu_percent) + "%");
+                setBar("runtimeCpuBar", Number(data.cpu_percent));
+            }
+
+            if (data.memory_percent !== null && data.memory_percent !== undefined) {
+                setText(
+                    "runtimeMemoryText",
+                    fmt(data.memory_used_gb) + " / " + fmt(data.memory_total_gb) + " GB (" + fmt(data.memory_percent) + "%)"
+                );
+                setBar("runtimeMemoryBar", Number(data.memory_percent));
+            }
+
+            if (data.storage_percent !== null && data.storage_percent !== undefined) {
+                setText(
+                    "runtimeStorageText",
+                    fmt(data.storage_used_gb) + " / " + fmt(data.storage_total_gb) + " GB (" + fmt(data.storage_percent) + "%)"
+                );
+                setBar("runtimeStorageBar", Number(data.storage_percent));
+            }
+        } catch (e) {
+            console.warn("Runtime metrics failed:", e);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadRuntimeMetrics);
+    setInterval(loadRuntimeMetrics, 15000);
+})();
+/* STATUS_RUNTIME_METRICS_JS_END */
+</script>
+
 {% endblock %}

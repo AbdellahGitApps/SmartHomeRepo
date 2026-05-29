@@ -2,242 +2,171 @@
 {% block title %}Home Details{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <div class="page-title">
-        <a href="/" style="color: var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px; margin-bottom: 10px;"><i class="ph ph-arrow-left"></i> <span data-i18n="back_homes">Back to Homes</span></a>
-        <h1>{{ home.name }}</h1>
-        <p><span data-i18n="owner">Owner</span>: {{ home.owner_name or '--' }} | <span data-i18n="status">Status</span>: <span class="badge badge-success" data-i18n="status_online">Online</span></p>
+<div id="homeDetailsRoot" data-home-id="{{ home.id }}">
+    <div class="page-header">
+        <div class="page-title">
+            <a href="/" style="color: var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px; margin-bottom: 10px;">
+                <i class="ph ph-arrow-left"></i> <span data-i18n="back_to_homes">Back to Homes</span>
+            </a>
+            <h1 id="homeTitle">Loading...</h1>
+            <p id="ownerLine">Loading home details...</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" onclick="openEditHomeModal()"><i class="ph ph-pencil"></i> <span data-i18n="edit_home">Edit Home</span></button>
+            <button class="btn btn-outline" onclick="deleteCurrentHome()" style="color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);">
+                <i class="ph ph-trash"></i> <span data-i18n="delete">Delete</span>
+            </button>
+        </div>
     </div>
-    <div class="header-actions">
-        <button class="btn btn-outline"><i class="ph ph-pencil"></i> <span data-i18n="edit_home">Edit Home</span></button>
-        <button onclick="deleteHome('{{ home.id }}')" class="btn btn-outline" style="color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);"><i class="ph ph-trash"></i> <span data-i18n="delete">Delete</span></button>
+
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+            <div class="glass-card">
+                <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph ph-info"></i> <span data-i18n="home_information">Home Information</span>
+                </h3>
+
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.95rem;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);" data-i18n="apartment_number_label">Apartment Number:</span>
+                        <span id="apartmentNumber" style="font-weight: 500;">-</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);" data-i18n="home_id_label">Home ID:</span>
+                        <span id="homeId" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">-</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);" data-i18n="home_code_label">Home Code:</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="homeCodeDisplay" data-code="" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; letter-spacing: 2px;">•••••••••</span>
+                            <button onclick="toggleHomeCode()" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
+                                <i id="homeCodeIcon" class="ph ph-eye"></i>
+                            </button>
+                            <button onclick="copyHomeCode()" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
+                                <i class="ph ph-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 4px 0;">
+
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);" data-i18n="owner_name_label">Owner Name:</span>
+                        <span id="ownerName">-</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);" data-i18n="email_label">Email:</span>
+                        <span id="ownerEmail">-</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);" data-i18n="registered_label">Registered:</span>
+                        <span id="registeredAt" dir="ltr">-</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);" data-i18n="devices_label">Devices:</span>
+                        <span id="devicesCount">0 Devices</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);" data-i18n="members_label">Members:</span>
+                        <span id="membersCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph ph-plugs"></i> <span data-i18n="devices">Devices</span>
+                </h3>
+                <div id="devicesContainer" style="display: flex; flex-direction: column; gap: 16px;">
+                    <p style="color: var(--text-secondary);">Loading devices...</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div class="glass-card" style="text-align: center; padding: 30px;">
+                    <i class="ph-fill ph-door" style="font-size: 3rem; color: var(--status-success); margin-bottom: 10px;"></i>
+                    <h3 data-i18n="door_status">Door Status</h3>
+                    <p id="doorStatusValue" style="font-size: 1.5rem; font-weight: bold; margin-top: 5px;">Unknown</p>
+                    <p id="doorLastOpened" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">No door events yet</p>
+                </div>
+
+                <div class="glass-card" style="text-align: center; padding: 30px;">
+                    <i class="ph-fill ph-lightning" style="font-size: 3rem; color: var(--status-warning); margin-bottom: 10px;"></i>
+                    <h3 data-i18n="energy_usage">Energy Usage</h3>
+                    <p id="energyUsageValue" style="font-size: 1.5rem; font-weight: bold; margin-top: 5px;">--</p>
+                    <p id="energyLastUpdate" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">No energy readings yet</p>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph ph-list-dashes"></i> <span data-i18n="recent_access_logs">Recent Access Logs</span>
+                </h3>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="time">Time</th>
+                                <th data-i18n="event">Event</th>
+                                <th data-i18n="details">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentLogsBody">
+                            <tr>
+                                <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 18px;">Loading logs...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 16px; text-align: center;">
+                    <a href="/logs" style="color: var(--accent-primary); text-decoration: none; font-size: 0.9rem;">
+                        <span data-i18n="view_all_logs">View all logs</span> <i class="ph ph-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
-    <!-- Left Column: Info & Connected Devices -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
-        <div class="glass-card">
-            <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-info"></i> <span data-i18n="home_info">Home Information</span>
-            </h3>
-            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.95rem;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--text-secondary);" data-i18n="apt_number">Apartment Number:</span>
-                    <span style="font-weight: 500;">{{ home.apartment_number }}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--text-secondary);" data-i18n="home_id">Home ID:</span>
-                    <span style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">{{ home.id }}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="color: var(--text-secondary);" data-i18n="home_code">Home Code:</span>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span id="homeCodeDisplay" data-code="{{ home.home_code }}" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; letter-spacing: 2px;">•••••••••</span>
-                        <button onclick="toggleHomeCode()" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
-                            <i id="homeCodeIcon" class="ph ph-eye"></i>
-                        </button>
-                        <button onclick="copyHomeCode()" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
-                            <i class="ph ph-copy"></i>
-                        </button>
-                    </div>
-                </div>
-                <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 4px 0;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--text-secondary);">Email:</span>
-                    <span>{{ home.owner_email or '--' }}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--text-secondary);">Registered:</span>
-                    <span>Active</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--text-secondary);">Members:</span>
-                    <span>3 Registered Faces</span>
-                </div>
-            </div>
+<div id="editHomeModal" style="position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2,6,23,.72); z-index: 99999;">
+    <div class="glass-card" style="width: min(620px, 92vw);">
+        <h3 style="margin-bottom: 16px;">Edit Home</h3>
+        <input type="hidden" id="editHomeRawId">
+
+        <div style="display: grid; gap: 12px;">
+            <label>Apartment Number</label>
+            <input id="editApartmentNumber" class="form-control" type="text">
+
+            <label>Owner Name</label>
+            <input id="editOwnerName" class="form-control" type="text">
+
+            <label>Owner Email</label>
+            <input id="editOwnerEmail" class="form-control" type="email">
+
+            <hr style="border:0; border-top:1px solid var(--glass-border); margin: 10px 0;">
+
+            <h4>Add Device</h4>
+            <input id="newDeviceName" class="form-control" type="text" placeholder="Device Name">
+            <select id="newDeviceType" class="form-control">
+                <option value="smart_door">smart_door</option>
+                <option value="energy_monitor">energy_monitor</option>
+            </select>
+            <button class="btn btn-outline" onclick="addDeviceToHome()">+ Add Device</button>
         </div>
 
-        <script>
-            function toggleHomeCode() {
-                const display = document.getElementById('homeCodeDisplay');
-                const icon = document.getElementById('homeCodeIcon');
-                const realCode = display.getAttribute('data-code');
-                
-                if (display.textContent === '•••••••••') {
-                    display.textContent = realCode;
-                    display.style.letterSpacing = 'normal';
-                    icon.classList.replace('ph-eye', 'ph-eye-slash');
-                } else {
-                    display.textContent = '•••••••••';
-                    display.style.letterSpacing = '2px';
-                    icon.classList.replace('ph-eye-slash', 'ph-eye');
-                }
-            }
-
-            function copyHomeCode() {
-                const display = document.getElementById('homeCodeDisplay');
-                const realCode = display.getAttribute('data-code');
-                navigator.clipboard.writeText(realCode).then(() => {
-                    alert('Home Code copied to clipboard!');
-                }).catch(err => {
-                    console.error('Failed to copy: ', err);
-                    alert('Home Code: ' + realCode);
-                });
-            }
-        </script>
-
-        <div class="glass-card">
-            <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-plugs"></i> <span data-i18n="connected_devices">Connected Devices</span>
-            </h3>
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-                {% for device in devices %}
-                <div style="padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            {% if device.device_type == 'smart_door' %}
-                            <i class="ph-fill ph-camera" style="font-size: 2rem; color: var(--accent-primary);"></i>
-                            {% else %}
-                            <i class="ph-fill ph-lightning" style="font-size: 2rem; color: var(--status-warning);"></i>
-                            {% endif %}
-                            <div>
-                                <div style="font-weight: 600; font-size: 1.1rem;">{{ device.device_name }}</div>
-                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">Type: {{ device.device_type }}</div>
-                            </div>
-                        </div>
-                        {% if device.status == 'online' %}
-                        <span class="badge badge-success device-status-badge" data-device-id="{{ device.device_id }}">Online</span>
-                        {% else %}
-                        <span class="badge badge-offline device-status-badge" data-device-id="{{ device.device_id }}">Offline</span>
-                        {% endif %}
-                    </div>
-                    <div style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">ID:</span>
-                            <span style="font-family: monospace; letter-spacing: 0.5px;">{{ device.device_id }}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">MQTT Topic:</span>
-                            <span style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">{{ device.mqtt_topic }}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Claim Code:</span>
-                            <span style="font-family: monospace; font-size: 0.95em;">{{ device.claim_code or '--' }}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Claim Status:</span>
-                            <span style="font-weight: 500;">{{ device.claim_status }}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Last Seen:</span>
-                            <span style="font-weight: 500;">{{ device.last_seen or 'Not available yet' }}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: var(--text-secondary);">Device Token:</span>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span id="token-{{ loop.index }}" data-token="{{ device.device_token }}" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--status-success);">Created</span>
-                                <button onclick="toggleDeviceToken('token-{{ loop.index }}', 'icon-{{ loop.index }}')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Show/Hide">
-                                    <i id="icon-{{ loop.index }}" class="ph ph-eye"></i>
-                                </button>
-                                <button onclick="copyDeviceToken('token-{{ loop.index }}')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
-                                    <i class="ph ph-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% else %}
-                <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
-                    <i class="ph ph-devices" style="font-size: 2rem; margin-bottom: 8px; color: var(--accent-primary); display: block;"></i>
-                    <p data-i18n="no_associated_devices">No associated devices found for this home.</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <script>
-            function toggleDeviceToken(tokenId, iconId) {
-                const display = document.getElementById(tokenId);
-                const icon = document.getElementById(iconId);
-                const realToken = display.getAttribute('data-token');
-                
-                if (display.textContent === 'Created' || display.textContent === '••••••••') {
-                    display.textContent = realToken;
-                    display.style.color = 'var(--text-primary)';
-                    icon.classList.replace('ph-eye', 'ph-eye-slash');
-                } else {
-                    display.textContent = 'Created';
-                    display.style.color = 'var(--status-success)';
-                    icon.classList.replace('ph-eye-slash', 'ph-eye');
-                }
-            }
-
-            function copyDeviceToken(tokenId) {
-                const display = document.getElementById(tokenId);
-                const realToken = display.getAttribute('data-token');
-                navigator.clipboard.writeText(realToken).then(() => {
-                    alert('Device Token copied to clipboard!');
-                }).catch(err => {
-                    console.error('Failed to copy: ', err);
-                    alert('Device Token: ' + realToken);
-                });
-            }
-        </script>
-    </div>
-
-    <!-- Right Column: Live Status & Logs -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-            <div class="glass-card" style="text-align: center; padding: 30px;">
-                <i class="ph-fill ph-door" style="font-size: 3rem; color: var(--status-success); margin-bottom: 10px;"></i>
-                <h3>Door Status</h3>
-                <p style="font-size: 1.5rem; font-weight: bold; margin-top: 5px;">Locked</p>
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">Last opened: 2 hours ago</p>
-            </div>
-            <div class="glass-card" style="text-align: center; padding: 30px;">
-                <i class="ph-fill ph-lightning" style="font-size: 3rem; color: var(--status-warning); margin-bottom: 10px;"></i>
-                <h3>Energy Usage</h3>
-                <p style="font-size: 1.5rem; font-weight: bold; margin-top: 5px;">4.2 kWh</p>
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">Today's total consumption</p>
-            </div>
-        </div>
-
-        <div class="glass-card">
-            <h3 style="margin-bottom: 16px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-list-dashes"></i> <span data-i18n="recent_logs">Recent Access Logs</span>
-            </h3>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Event</th>
-                            <th>Subject</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>10:45 AM</td>
-                            <td><span class="badge badge-success">Door Unlocked</span></td>
-                            <td>Known Face (John)</td>
-                        </tr>
-                        <tr>
-                            <td>08:30 AM</td>
-                            <td><span class="badge badge-warning">Unknown Face</span></td>
-                            <td>Admin action required</td>
-                        </tr>
-                        <tr>
-                            <td>Yesterday</td>
-                            <td><span class="badge badge-success">Door Unlocked</span></td>
-                            <td>App Manual Override</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div style="margin-top: 16px; text-align: center;">
-                <a href="/logs" style="color: var(--accent-primary); text-decoration: none; font-size: 0.9rem;">View all logs <i class="ph ph-arrow-right"></i></a>
-            </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+            <button class="btn btn-outline" onclick="closeEditHomeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveHomeEdit()">Save Changes</button>
         </div>
     </div>
 </div>
@@ -245,28 +174,668 @@
 
 {% block extra_js %}
 <script>
-    async function deleteHome(homeId) {
-        if (!confirm("Are you sure you want to delete this home and all its devices?")) return;
+let d7HomeDetails = null;
 
-        try {
-            const res = await fetch(`/home/${homeId}`, {
-                method: "DELETE"
-            });
+function tr(key, fallback) {
+    if (window.d7T) return window.d7T(key, fallback);
+    return fallback || key;
+}
 
-            if (res.ok) {
-                alert("Home deleted successfully");
-                window.location.href = "/";
-            } else {
-                let errMsg = "Failed to delete home";
-                try {
-                    const err = await res.json();
-                    errMsg = err.detail || errMsg;
-                } catch (_) {}
-                alert(errMsg);
-            }
-        } catch (e) {
-            alert("Network error: " + e.message);
+function safe(value, fallback = '-') {
+    if (value === null || value === undefined || value === '') return fallback;
+    return String(value);
+}
+
+function escapeHtml(value) {
+    return safe(value).replace(/[&<>"']/g, function (char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
+}
+
+function formatTimestamp(value) {
+    if (!value || value === 'Not available yet') return 'Not available yet';
+
+    const raw = String(value).trim();
+
+    const m = raw.match(/(\d{4})-(\d{2})-(\d{2})[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+
+    if (m) {
+        let hour = parseInt(m[4], 10);
+        const minute = String(m[5] || '00').padStart(2, '0');
+        const second = String(m[6] || '00').padStart(2, '0');
+        const ampm = m[7] ? m[7].toUpperCase() : (hour >= 12 ? 'PM' : 'AM');
+
+        if (hour > 12) hour -= 12;
+        if (hour === 0) hour = 12;
+
+        return `${m[1]}-${m[2]}-${m[3]}, ${String(hour).padStart(2, '0')}:${minute}:${second} ${ampm}`;
+    }
+
+    return raw;
+}
+
+function statusBadge(value) {
+    const status = safe(value, 'Offline');
+    const online = status.toLowerCase() === 'online';
+    const cls = online ? 'badge-success' : '';
+    const style = online ? '' : 'background: rgba(148,163,184,.16); color:#cbd5e1; border:1px solid rgba(148,163,184,.22);';
+    return `<span class="badge ${cls}" style="${style}">${escapeHtml(status.toUpperCase())}</span>`;
+}
+
+function availabilityBadge(value) {
+    return value
+        ? `<span class="badge badge-success">Available</span>`
+        : `<span class="badge" style="background: rgba(148,163,184,.16); color:#cbd5e1; border:1px solid rgba(148,163,184,.22);">Not Available</span>`;
+}
+
+function getDeviceIcon(type) {
+    const lower = safe(type, '').toLowerCase();
+    if (lower.includes('energy') || lower.includes('meter')) return 'ph-fill ph-lightning';
+    if (lower.includes('camera') || lower.includes('esp32') || lower.includes('door')) return 'ph-fill ph-camera';
+    return 'ph-fill ph-devices';
+}
+
+function getDeviceColor(type) {
+    const lower = safe(type, '').toLowerCase();
+    if (lower.includes('energy') || lower.includes('meter')) return 'var(--status-warning)';
+    if (lower.includes('camera') || lower.includes('esp32') || lower.includes('door')) return 'var(--accent-primary)';
+    return 'var(--text-secondary)';
+}
+
+function toggleHomeCode() {
+    const display = document.getElementById('homeCodeDisplay');
+    const icon = document.getElementById('homeCodeIcon');
+    const realCode = display.getAttribute('data-code') || '';
+
+    if (display.textContent.includes('•')) {
+        display.textContent = realCode || '-';
+        display.style.letterSpacing = 'normal';
+        icon.classList.replace('ph-eye', 'ph-eye-slash');
+    } else {
+        display.textContent = '•••••••••';
+        display.style.letterSpacing = '2px';
+        icon.classList.replace('ph-eye-slash', 'ph-eye');
+    }
+}
+
+function copyHomeCode() {
+    const realCode = document.getElementById('homeCodeDisplay').getAttribute('data-code') || '';
+    if (!realCode) return alert('No Home Code found');
+    navigator.clipboard.writeText(realCode).then(() => alert('Home Code copied to clipboard!'));
+}
+
+function copyDeviceToken(token) {
+    if (!token) return alert('No Device Token found');
+    navigator.clipboard.writeText(token).then(() => alert('Device Token copied to clipboard!'));
+}
+
+function renderHomeInfo(home) {
+    document.getElementById('homeTitle').textContent = `Apartment ${safe(home.apartment_number)}`;
+    document.getElementById('ownerLine').innerHTML = `Status: ${statusBadge(home.home_status || 'Offline')}`;
+
+    document.getElementById('apartmentNumber').textContent = safe(home.apartment_number);
+    document.getElementById('homeId').textContent = safe(home.home_id);
+    document.getElementById('homeCodeDisplay').setAttribute('data-code', safe(home.home_code || home.home_id, ''));
+    document.getElementById('ownerName').textContent = safe(home.owner_name);
+    document.getElementById('ownerEmail').textContent = safe(home.owner_email);
+    document.getElementById('registeredAt').textContent = formatTimestamp(home.registered_at);
+    document.getElementById('devicesCount').textContent = safe(home.devices_count, 0);
+    document.getElementById('membersCount').textContent = safe(home.members_count, 0);
+}
+
+function renderDevices(devices) {
+    const container = document.getElementById('devicesContainer');
+    container.innerHTML = '';
+
+    if (!devices || devices.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary);">No devices registered for this home.</p>';
+        return;
+    }
+
+    devices.forEach((device, index) => {
+        const token = safe(device.device_token, '');
+        const icon = getDeviceIcon(device.device_type || device.type);
+        const color = getDeviceColor(device.device_type || device.type);
+        const showStream = !!device.is_door && !device.is_energy;
+
+        const card = document.createElement('div');
+        card.style.cssText = 'padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px;';
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="${icon}" style="font-size: 2rem; color: ${color};"></i>
+                    <div>
+                        <div style="font-weight: 600; font-size: 1.1rem;">${escapeHtml(device.device_name || device.name)}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">Type: ${escapeHtml(device.device_type || device.type)}</div>
+                    </div>
+                </div>
+                ${statusBadge(device.status)}
+            </div>
+
+            <div style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">ID:</span>
+                    <span style="font-family: monospace; letter-spacing: 0.5px;">${escapeHtml(device.id)}</span>
+                </div>
+
+                ${showStream ? `
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Camera Stream:</span>
+                    ${availabilityBadge(device.stream_available)}
+                </div>` : ''}
+
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Last Seen:</span>
+                    <span dir="ltr" style="font-family: monospace;">${escapeHtml(formatTimestamp(device.last_seen))}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-secondary);">MQTT Topic:</span>
+                    <span style="font-family: monospace; font-size: 0.86rem; color: var(--text-secondary);">${escapeHtml(device.mqtt_topic)}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Claim Code:</span>
+                    <span style="font-family: monospace; font-size: 0.95em;">${escapeHtml(device.claim_code || '--')}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Claim Status:</span>
+                    <span style="font-weight: 500;">${escapeHtml(device.claim_status || '--')}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-secondary);">Device Token:</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="token-${index}" data-token="${escapeHtml(token)}" style="font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; color: var(--status-success);">Created</span>
+                        <button onclick="copyDeviceToken('${escapeHtml(token)}')" class="btn btn-icon btn-sm" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Copy">
+                            <i class="ph ph-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function renderDoorStatus(data) {
+    const door = data.door_status || {};
+    document.getElementById('doorStatusValue').textContent = door.status || 'Unknown';
+    document.getElementById('doorLastOpened').textContent =
+        door.last_opened && door.last_opened !== 'No door events yet'
+            ? `Last opened: ${formatTimestamp(door.last_opened)}`
+            : 'No door events yet';
+}
+
+function renderEnergy(data) {
+    const energy = data.energy;
+    if (!energy) {
+        document.getElementById('energyUsageValue').textContent = '--';
+        document.getElementById('energyLastUpdate').textContent = 'No energy readings yet';
+        return;
+    }
+
+    const kwh = energy.kwh !== null && energy.kwh !== undefined ? `${Number(energy.kwh).toFixed(2)} kWh` : '';
+    const watts = energy.watts !== null && energy.watts !== undefined ? `${Number(energy.watts).toFixed(0)} W` : '';
+
+    document.getElementById('energyUsageValue').textContent = kwh || watts || '--';
+    document.getElementById('energyLastUpdate').textContent =
+        energy.timestamp ? `Last update: ${formatTimestamp(energy.timestamp)}` : 'No timestamp';
+}
+
+function renderRecentLogs(logs) {
+    const tbody = document.getElementById('recentLogsBody');
+
+    if (!logs || !logs.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3" style="text-align:center; color:var(--text-secondary); padding:18px;">
+                    No recent access logs yet.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = logs.map((log) => `
+        <tr>
+            <td dir="ltr">${escapeHtml(formatTimestamp(log.timestamp))}</td>
+            <td><span class="badge ${String(log.severity).toUpperCase() === 'WARNING' ? 'badge-warning' : 'badge-success'}">${escapeHtml(log.event_type || 'Event')}</span></td>
+            <td>${escapeHtml(log.details || log.action_taken || '--')}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadHomeDetails() {
+    const root = document.getElementById('homeDetailsRoot');
+    const homeId = root.dataset.homeId || new URLSearchParams(window.location.search).get('home_id');
+
+    const response = await fetch(`/api/dashboard/home-details-data?home_id=${encodeURIComponent(homeId)}`, { cache: 'no-store' });
+    const data = await response.json();
+
+    if (!response.ok || data.success === false) {
+        throw new Error(data.detail || data.message || 'Failed to load home details');
+    }
+
+    d7HomeDetails = data;
+    renderHomeInfo(data.home);
+    renderDevices(data.devices || []);
+    renderDoorStatus(data);
+    renderEnergy(data);
+    renderRecentLogs(data.recent_logs || []);
+}
+
+function openEditHomeModal() {
+    if (!d7HomeDetails) return;
+
+    const home = d7HomeDetails.home;
+    document.getElementById('editHomeRawId').value = home.raw_id;
+    document.getElementById('editApartmentNumber').value = home.apartment_number || '';
+    document.getElementById('editOwnerName').value = home.owner_name || '';
+    document.getElementById('editOwnerEmail').value = home.owner_email || '';
+    document.getElementById('editHomeModal').style.display = 'flex';
+}
+
+function closeEditHomeModal() {
+    pendingDevicesToAdd = [];
+    renderPendingDevices();
+    document.getElementById('editHomeModal').style.display = 'none';
+}
+
+async function saveHomeEdit() {
+    const homeId = document.getElementById('editHomeRawId').value;
+
+    const payload = {
+        apartment_number: document.getElementById('editApartmentNumber').value.trim(),
+        owner_name: document.getElementById('editOwnerName').value.trim(),
+        owner_email: document.getElementById('editOwnerEmail').value.trim(),
+    };
+
+    const response = await fetch(`/api/dashboard/homes/${encodeURIComponent(homeId)}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success === false) {
+        alert(data.detail || data.message || 'Failed to update home');
+        return;
+    }
+
+    for (const device of pendingDevicesToAdd) {
+        const addResponse = await fetch(`/api/dashboard/homes/${encodeURIComponent(homeId)}/devices`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(device)
+        });
+
+        const addData = await addResponse.json().catch(() => ({}));
+
+        if (!addResponse.ok || addData.success === false) {
+            alert(addData.detail || addData.message || `Failed to add device: ${device.device_name}`);
+            return;
         }
     }
+
+    pendingDevicesToAdd = [];
+    closeEditHomeModal();
+    await loadHomeDetails();
+    alert('Home updated successfully');
+}
+
+let pendingDevicesToAdd = [];
+
+function renderPendingDevices() {
+    let box = document.getElementById('pendingDevicesBox');
+    if (!box) {
+        const button = document.querySelector('button[onclick="addDeviceToHome()"]');
+        if (!button) return;
+        box = document.createElement('div');
+        box.id = 'pendingDevicesBox';
+        box.style.cssText = 'display:flex; flex-direction:column; gap:6px; color:var(--text-secondary); font-size:.86rem;';
+        button.insertAdjacentElement('afterend', box);
+    }
+
+    if (!pendingDevicesToAdd.length) {
+        box.innerHTML = '';
+        return;
+    }
+
+    box.innerHTML = pendingDevicesToAdd.map((d, i) => `
+        <div style="display:flex; justify-content:space-between; gap:10px; padding:6px 8px; border:1px solid var(--glass-border); border-radius:6px;">
+            <span>${escapeHtml(d.device_name)} · ${escapeHtml(d.device_type)}</span>
+            <button class="btn btn-icon btn-sm" style="padding:2px 6px;" onclick="removePendingDevice(${i})">×</button>
+        </div>
+    `).join('');
+}
+
+function removePendingDevice(index) {
+    pendingDevicesToAdd.splice(index, 1);
+    renderPendingDevices();
+}
+
+function addDeviceToHome() {
+    const deviceName = document.getElementById('newDeviceName').value.trim();
+    const deviceType = document.getElementById('newDeviceType').value;
+
+    if (!deviceName) {
+        alert('Enter device name first');
+        return;
+    }
+
+    pendingDevicesToAdd.push({
+        device_name: deviceName,
+        device_type: deviceType
+    });
+
+    document.getElementById('newDeviceName').value = '';
+    renderPendingDevices();
+}
+
+
+async function deleteCurrentHome() {
+    if (!d7HomeDetails || !d7HomeDetails.home) {
+        alert('Home data is not loaded yet.');
+        return;
+    }
+
+    const home = d7HomeDetails.home;
+    const label = home.apartment_number || home.home_id || home.raw_id;
+
+    if (!confirm(`Delete Apartment ${label}? This will remove the home and its devices from the database.`)) {
+        return;
+    }
+
+    const response = await fetch(`/api/dashboard/homes-v4/${encodeURIComponent(home.raw_id)}/delete`, {
+        method: 'POST',
+        headers: {
+            'X-Actor-Role': 'system_owner',
+            'X-System-Owner-Token': 'dev-system-owner-token'
+        }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success === false) {
+        alert(data.detail || data.message || 'Failed to delete home');
+        return;
+    }
+
+    alert('Home deleted successfully');
+    window.location.href = '/';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadHomeDetails().catch((error) => {
+        console.error(error);
+        document.getElementById('homeTitle').textContent = 'Error';
+        document.getElementById('ownerLine').textContent = 'Failed to load home details.';
+    });
+});
 </script>
+
+<!-- D7M16_HOME_DETAILS_VALIDATION_V6_START -->
+
+<script>
+(function () {
+    const allowedDomains = ["gmail.com", "hotmail.com", "outlook.com", "live.com", "yahoo.com", "icloud.com"];
+
+    function scriptOfWord(word) {
+        if (/^[\p{Script=Arabic}\p{Mark}]+$/u.test(word)) return "arabic";
+        if (/^[\p{Script=Latin}\p{Mark}]+$/u.test(word)) return "latin";
+        if (/^[\p{Script=Han}\p{Mark}]+$/u.test(word)) return "han";
+        if (/^[\p{Script=Cyrillic}\p{Mark}]+$/u.test(word)) return "cyrillic";
+        if (/^[\p{Script=Greek}\p{Mark}]+$/u.test(word)) return "greek";
+        if (/^[\p{Letter}\p{Mark}]+$/u.test(word)) return "other";
+        return "";
+    }
+
+    function validOwnerName(value) {
+        const parts = String(value || "").trim().split(/\s+/u).filter(Boolean);
+        if (parts.length !== 4) return false;
+        const scripts = parts.map(scriptOfWord);
+        if (scripts.some(s => !s)) return false;
+        return scripts.every(s => s === scripts[0]);
+    }
+
+    function validEmail(value) {
+        const v = String(value || "").trim().toLowerCase();
+        const match = v.match(/^[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})$/i);
+        return !!match && allowedDomains.includes(match[1]);
+    }
+
+    function bySelectors(selectors) {
+        for (const s of selectors) {
+            const el = document.querySelector(s);
+            if (el) return el;
+        }
+        return null;
+    }
+
+    function fields(scope) {
+        scope = scope || document;
+        return {
+            apartment: scope.querySelector('input[name="apartment_number"], input[id*="apartment" i], input[placeholder*="36"]'),
+            owner: scope.querySelector('input[name="owner_name"], input[id*="owner" i][id*="name" i], input[placeholder*="John Doe" i]'),
+            email: scope.querySelector('input[name="owner_email"], input[type="email"], input[id*="email" i], input[placeholder*="john@example" i]')
+        };
+    }
+
+    function validateScope(scope) {
+        const f = fields(scope);
+        if (f.apartment && !/^\d+$/.test(f.apartment.value.trim())) {
+            alert("Apartment Number must contain digits only.");
+            f.apartment.focus();
+            return false;
+        }
+        if (f.owner && !validOwnerName(f.owner.value)) {
+            alert("Owner Name must be exactly 4 names, letters only, all in one writing system.");
+            f.owner.focus();
+            return false;
+        }
+        if (f.email && !validEmail(f.email.value)) {
+            alert("Owner Email must be a valid email using gmail.com, hotmail.com, outlook.com, live.com, yahoo.com, or icloud.com.");
+            f.email.focus();
+            return false;
+        }
+        return true;
+    }
+
+    function normalizeDefaultDeviceInputs() {
+        document.querySelectorAll("input").forEach(input => {
+            const value = input.value.trim();
+            if (value === "Front Door Camera" || value === "Main Energy Meter") {
+                input.placeholder = value;
+                input.dataset.defaultDeviceName = value;
+                input.value = "";
+            }
+        });
+    }
+
+    function fillDefaultDeviceNames() {
+        document.querySelectorAll("input").forEach(input => {
+            const row = input.closest("div, tr, section, fieldset") || input.parentElement;
+            const select = row ? row.querySelector("select") : null;
+            const type = select ? String(select.value || "").toLowerCase() : "";
+
+            if (!input.value.trim()) {
+                if (input.dataset.defaultDeviceName) {
+                    input.value = input.dataset.defaultDeviceName;
+                } else if (type.includes("smart_door")) {
+                    input.value = "Front Door Camera";
+                } else if (type.includes("energy_monitor") || type.includes("energy")) {
+                    input.value = "Main Energy Meter";
+                }
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        normalizeDefaultDeviceInputs();
+
+        document.querySelectorAll("form").forEach(form => {
+            form.addEventListener("submit", function (e) {
+                if (!validateScope(form)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+                fillDefaultDeviceNames();
+            }, true);
+        });
+
+        document.addEventListener("click", function (e) {
+            const btn = e.target.closest("button, input[type='submit']");
+            if (!btn) return;
+            const text = (btn.textContent || btn.value || "").toLowerCase();
+            if (text.includes("save") || text.includes("register") || text.includes("create")) {
+                const modal = btn.closest(".modal, [role='dialog'], .dialog, .popup") || document;
+                if (!validateScope(modal)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+                fillDefaultDeviceNames();
+            }
+        }, true);
+    });
+})();
+</script>
+
+<!-- D7M16_HOME_DETAILS_VALIDATION_V6_END -->
 {% endblock %}
+
+
+<!-- FINAL_TARGET_DATETIME_FIX_START -->
+<style>
+  .final-datetime-nowrap {
+    white-space: nowrap !important;
+    font-size: 0.88rem !important;
+    letter-spacing: 0 !important;
+  }
+</style>
+
+<script>
+(function () {
+  function pad2(v) {
+    return String(v).padStart(2, "0");
+  }
+
+  function formatDateTime(datePart, hourPart, minutePart, secondPart, suffixPart) {
+    let hour = parseInt(hourPart, 10);
+    const minute = pad2(minutePart || "00");
+    const second = pad2(secondPart || "00");
+
+    let suffix = suffixPart ? suffixPart.toUpperCase() : (hour >= 12 ? "PM" : "AM");
+
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+
+    return `${datePart}, ${pad2(hour)}:${minute}:${second} ${suffix}`;
+  }
+
+  function normalizeText(text) {
+    if (!text) return text;
+
+    let clean = String(text).replace(/\s+/g, " ").trim();
+
+    clean = clean.replace(
+      /(\d{4}-\d{2}-\d{2})\s*,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/gi,
+      function (_, datePart, hourPart, minutePart, secondPart, suffixPart) {
+        return formatDateTime(datePart, hourPart, minutePart, secondPart || "00", suffixPart);
+      }
+    );
+
+    return clean;
+  }
+
+  function isSmallDateTimeOnly(text) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    return /^(\d{4}-\d{2}-\d{2})\s*,?\s+\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/i.test(clean);
+  }
+
+  function fixDateTimeElements() {
+    const selectors = [
+      "td",
+      "span",
+      "small",
+      "strong",
+      ".value",
+      ".info-value",
+      ".meta-value",
+      ".device-value",
+      ".camera-value",
+      ".last-seen",
+      "[data-last-seen]",
+      "[data-created-at]",
+      "[data-registered-at]"
+    ];
+
+    document.querySelectorAll(selectors.join(",")).forEach(function (el) {
+      const text = el.textContent || "";
+      const compact = text.replace(/\s+/g, " ").trim();
+
+      if (!compact.includes("-") || !/\d{4}-\d{2}-\d{2}/.test(compact) || !/\d{1,2}:\d{2}/.test(compact)) {
+        return;
+      }
+
+      if (compact.length <= 80 || isSmallDateTimeOnly(compact)) {
+        const fixed = normalizeText(compact);
+        if (fixed !== compact) {
+          el.textContent = fixed;
+        }
+        el.classList.add("final-datetime-nowrap");
+      }
+    });
+
+    // إصلاح خاص لو التاريخ والوقت داخل نفس الكارد لكن ملتفين بسبب العرض
+    document.querySelectorAll("*").forEach(function (el) {
+      if (["SCRIPT", "STYLE", "INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON", "PRE", "CODE"].includes(el.tagName)) {
+        return;
+      }
+
+      if (el.children.length > 3) return;
+
+      const text = el.textContent || "";
+      const compact = text.replace(/\s+/g, " ").trim();
+
+      if (
+        compact.length <= 70 &&
+        /^(\d{4}-\d{2}-\d{2})\s*,?\s+\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/i.test(compact)
+      ) {
+        el.textContent = normalizeText(compact);
+        el.classList.add("final-datetime-nowrap");
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", fixDateTimeElements);
+  window.addEventListener("load", fixDateTimeElements);
+
+  const observer = new MutationObserver(function () {
+    clearTimeout(window.__finalDateTimeTimer);
+    window.__finalDateTimeTimer = setTimeout(fixDateTimeElements, 80);
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  fixDateTimeElements();
+})();
+</script>
+<!-- FINAL_TARGET_DATETIME_FIX_END -->
+

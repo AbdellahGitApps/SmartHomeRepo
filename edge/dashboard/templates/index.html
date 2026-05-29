@@ -8,112 +8,209 @@
         <p data-i18n="homes_overview_desc">Monitor all registered homes and system status</p>
     </div>
     <div class="header-actions">
-        <a href="/create-home" class="btn btn-primary"><i class="ph ph-plus"></i> <span data-i18n="add_home">Add Home</span></a>
+        <a href="/create-home" class="btn btn-primary" style="text-decoration: none;">
+            <i class="ph ph-plus"></i> <span data-i18n="add_home">Add Home</span>
+        </a>
     </div>
 </div>
 
-<!-- System Summary Stats -->
-<div class="stats-grid">
-    <div class="glass-card stat-card">
-        <div class="stat-icon primary"><i class="ph-fill ph-house"></i></div>
-        <div class="stat-details">
-            <h3 data-i18n="total_homes">Total Homes</h3>
-            <p>{{ stats.total_homes }}</p>
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px;">
+    <div class="glass-card" style="display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center;">
+            <i class="ph-fill ph-house" style="font-size: 1.7rem; color: #3b82f6;"></i>
+        </div>
+        <div>
+            <div data-i18n="total_homes" style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;">TOTAL HOMES</div>
+            <div id="totalHomes" style="font-size: 1.7rem; font-weight: 700;">0</div>
         </div>
     </div>
-    <div class="glass-card stat-card">
-        <div class="stat-icon success"><i class="ph-fill ph-devices"></i></div>
-        <div class="stat-details">
-            <h3 data-i18n="total_devices">Total Devices</h3>
-            <p>{{ stats.total_devices }}</p>
+
+    <div class="glass-card" style="display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center;">
+            <i class="ph-fill ph-devices" style="font-size: 1.7rem; color: #10b981;"></i>
+        </div>
+        <div>
+            <div data-i18n="total_devices" style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;">TOTAL DEVICES</div>
+            <div id="totalDevices" style="font-size: 1.7rem; font-weight: 700;">0</div>
         </div>
     </div>
-    <div class="glass-card stat-card">
-        <div class="stat-icon warning"><i class="ph-fill ph-wifi-high"></i></div>
-        <div class="stat-details">
-            <h3 data-i18n="online_devices">Online Devices</h3>
-            <p>{{ stats.online_devices }}</p>
+
+    <div class="glass-card" style="display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center;">
+            <i class="ph-fill ph-broadcast" style="font-size: 1.7rem; color: #f59e0b;"></i>
+        </div>
+        <div>
+            <div data-i18n="online_devices" style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;">ONLINE DEVICES</div>
+            <div id="onlineDevices" style="font-size: 1.7rem; font-weight: 700;">0</div>
         </div>
     </div>
-    <div class="glass-card stat-card">
-        <div class="stat-icon danger"><i class="ph-fill ph-clock"></i></div>
-        <div class="stat-details">
-            <h3 data-i18n="pending_claims">Pending Claims</h3>
-            <p>{{ stats.pending_claims }}</p>
+
+    <div class="glass-card" style="display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center;">
+            <i class="ph-fill ph-warning-circle" style="font-size: 1.7rem; color: #ef4444;"></i>
+        </div>
+        <div>
+            <div data-i18n="system_errors" style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;">SYSTEM ERRORS</div>
+            <div id="systemErrors" style="font-size: 1.7rem; font-weight: 700;">0</div>
         </div>
     </div>
 </div>
 
-<!-- Homes Grid -->
-<div class="page-header" style="margin-top: 40px; margin-bottom: 20px;">
-    <div class="page-title">
-        <h2 style="font-size: 1.4rem;" data-i18n="registered_homes">Registered Homes</h2>
-    </div>
-    <div style="display: flex; gap: 10px;">
-        <input type="text" class="form-control" data-i18n="search_homes" placeholder="Search homes..." style="width: 250px;">
-    </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2 data-i18n="registered_homes" style="font-size: 1.25rem;">Registered Homes</h2>
+    <input
+        id="homeSearch"
+        type="text"
+        placeholder="Search homes..."
+        class="form-control"
+        style="max-width: 260px;"
+    >
 </div>
 
-{% if homes %}
-<div class="glass-card">
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th data-i18n="home_id">Home ID</th>
-                    <th data-i18n="col_home_name">Home Name</th>
-                    <th data-i18n="home_code">Home Code</th>
-                    <th data-i18n="owner_name">Owner Name</th>
-                    <th data-i18n="apt_number">Apartment Number</th>
-                    <th data-i18n="col_actions">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for home in homes %}
-                <tr>
-                    <td style="font-family: monospace;">{{ home.id }}</td>
-                    <td style="font-weight: 500;">{{ home.name }}</td>
-                    <td style="font-family: monospace; font-size: 0.95em; color: var(--text-secondary);">{{ home.home_code }}</td>
-                    <td>{{ home.owner_name or '--' }}</td>
-                    <td><span class="badge" style="background: rgba(255,255,255,0.05);">{{ home.apartment_number }}</span></td>
-                    <td>
-                        <a href="/home-details?home_id={{ home.id }}" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.85rem;" data-i18n="view_details">View Details</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div id="homesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
+    <div class="glass-card">
+        <p style="color: var(--text-secondary);">Loading homes...</p>
     </div>
 </div>
-{% else %}
-<div class="glass-card" style="text-align: center; padding: 48px; color: var(--text-secondary);">
-    <i class="ph ph-house" style="font-size: 3rem; margin-bottom: 16px; color: var(--accent-primary);"></i>
-    <p style="font-size: 1.1rem; font-weight: 500;" data-i18n="no_homes_msg">No homes registered yet.</p>
-    <p style="font-size: 0.9rem; margin-top: 8px;" data-i18n="add_first_home_desc">Get started by registering your first home.</p>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    if (typeof translations !== 'undefined') {
-        translations.en["total_devices"] = "Total Devices";
-        translations.ar["total_devices"] = "إجمالي الأجهزة";
-        
-        translations.en["online_devices"] = "Online Devices";
-        translations.ar["online_devices"] = "الأجهزة المتصلة";
-        
-        translations.en["pending_claims"] = "Pending Claims";
-        translations.ar["pending_claims"] = "المطالبات المعلقة";
+let allHomes = [];
 
-        translations.en["col_home_name"] = "Home Name";
-        translations.ar["col_home_name"] = "اسم المنزل";
+function tr(key, fallback) {
+    if (window.d7T) return window.d7T(key, fallback);
+    return fallback || key;
+}
 
-        translations.en["no_homes_msg"] = "No homes registered yet.";
-        translations.ar["no_homes_msg"] = "لا توجد منازل مسجلة بعد.";
+function safe(value, fallback = '-') {
+    if (value === null || value === undefined || value === '') return fallback;
+    return String(value);
+}
 
-        translations.en["add_first_home_desc"] = "Get started by registering your first home.";
-        translations.ar["add_first_home_desc"] = "ابدأ بتسجيل منزلك الأول.";
+function escapeHtml(value) {
+    return safe(value).replace(/[&<>"']/g, function (char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
+}
+
+function renderStatus(value) {
+    const status = safe(value, 'Offline');
+    const lower = status.toLowerCase();
+    const cls = lower === 'online' ? 'badge-success' : '';
+    const style = lower === 'online'
+        ? ''
+        : 'background: rgba(148,163,184,.16); color:#cbd5e1; border:1px solid rgba(148,163,184,.22);';
+    return `<span class="badge ${cls}" style="${style}">${escapeHtml(status.toUpperCase())}</span>`;
+}
+
+function renderStats(stats) {
+    document.getElementById('totalHomes').textContent = stats.total_homes ?? 0;
+    document.getElementById('totalDevices').textContent = stats.total_devices ?? 0;
+    document.getElementById('onlineDevices').textContent = stats.online_devices ?? 0;
+    document.getElementById('systemErrors').textContent = stats.system_errors ?? 0;
+}
+
+function renderHomes(homes) {
+    const container = document.getElementById('homesContainer');
+    container.innerHTML = '';
+
+    if (!homes || homes.length === 0) {
+        container.innerHTML = `
+            <div class="glass-card">
+                <p style="color: var(--text-secondary);">${tr('no_homes_found', 'No homes found. Create a home first.')}</p>
+                <a href="/create-home" class="btn btn-primary" style="margin-top: 16px; text-decoration: none;">${tr('create_home', 'Create Home')}</a>
+            </div>
+        `;
+        return;
     }
+
+    homes.forEach((home) => {
+        const card = document.createElement('div');
+        card.className = 'glass-card';
+        card.style.cssText = 'display: flex; flex-direction: column; gap: 14px;';
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 4px;">${tr('apartment', 'Apartment')} ${escapeHtml(home.apartment_number)}</h3>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">${tr('owner', 'Owner')}: ${escapeHtml(home.owner_name)}</div>
+                </div>
+                ${renderStatus(home.home_status || 'Offline')}
+            </div>
+
+            <div style="font-size: 0.9rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 7px;">
+                <div><i class="ph ph-house-line"></i> ${tr('home_id', 'Home ID')}: <strong>${escapeHtml(home.home_id)}</strong></div>
+                <div><i class="ph ph-devices"></i> ${tr('devices', 'Devices')}: <strong>${escapeHtml(home.devices_count ?? 0)}</strong></div>
+                <div><i class="ph ph-users"></i> ${tr('members', 'Members')}: <strong>${escapeHtml(home.members_count ?? 0)}</strong></div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 4px 0;">
+
+            <a
+                href="/home-details?home_id=${encodeURIComponent(home.raw_id)}"
+                class="btn btn-primary"
+                style="text-align: center; text-decoration: none;"
+            >
+                ${tr('view_details', 'View Details')}
+            </a>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function applySearch() {
+    const keyword = document.getElementById('homeSearch').value.toLowerCase().trim();
+
+    if (!keyword) {
+        renderHomes(allHomes);
+        return;
+    }
+
+    const filtered = allHomes.filter((home) => {
+        return safe(home.apartment_number).toLowerCase().includes(keyword)
+            || safe(home.home_id).toLowerCase().includes(keyword)
+            || safe(home.owner_name).toLowerCase().includes(keyword)
+            || safe(home.owner_email).toLowerCase().includes(keyword)
+            || safe(home.search_text).toLowerCase().includes(keyword);
+    });
+
+    renderHomes(filtered);
+}
+
+async function loadHomes() {
+    try {
+        const response = await fetch('/api/dashboard/home-overview-data', { cache: 'no-store' });
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.message || 'Failed to load homes');
+        }
+
+        allHomes = data.homes || [];
+        renderStats(data.stats || {});
+        renderHomes(allHomes);
+    } catch (error) {
+        console.error(error);
+        document.getElementById('homesContainer').innerHTML = `
+            <div class="glass-card">
+                <p style="color: var(--status-danger);">Failed to load homes from API.</p>
+            </div>
+        `;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadHomes();
+    document.getElementById('homeSearch').addEventListener('input', applySearch);
+    document.addEventListener('d7-language-changed', () => renderHomes(document.getElementById('homeSearch').value ? allHomes.filter(() => true) : allHomes));
+});
 </script>
 {% endblock %}

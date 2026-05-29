@@ -1,0 +1,214 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>System Owner Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, rgba(59,130,246,.18), transparent 35%),
+                  linear-gradient(135deg, #0f172a, #111827);
+      color: #fff;
+      font-family: Inter, system-ui, Arial, sans-serif;
+    }
+
+    .login-card {
+      width: min(420px, calc(100vw - 32px));
+      background: rgba(15, 23, 42, .92);
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.35);
+    }
+
+    .login-title {
+      margin: 0 0 8px;
+      font-size: 1.8rem;
+      font-weight: 900;
+    }
+
+    .login-subtitle {
+      margin: 0 0 28px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+      font-size: .9rem;
+      font-weight: 700;
+    }
+
+    .field input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 13px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, .25);
+      background: rgba(2, 6, 23, .65);
+      color: #fff;
+      outline: none;
+      font-size: 1rem;
+    }
+
+    .field input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+    }
+
+    .login-btn {
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 16px;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 900;
+      cursor: pointer;
+      margin-top: 8px;
+      font-size: 1rem;
+    }
+
+    .login-btn:hover {
+      background: #1d4ed8;
+    }
+
+    .error {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(239, 68, 68, .14);
+      border: 1px solid rgba(239, 68, 68, .35);
+      color: #fecaca;
+      font-weight: 700;
+      font-size: .9rem;
+    }
+</style>
+</head>
+<body>
+  <form class="login-card" method="post" action="/dashboard-login">
+    <h1 class="login-title">System Owner Login</h1>
+    <p class="login-subtitle">
+      Access the Smart Home Dashboard as the system owner.
+    </p>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <div class="field">
+      <label>Username</label>
+      <input name="username" autocomplete="username" required autofocus>
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <input name="password" type="password" autocomplete="current-password" required>
+    </div>
+
+    <button class="login-btn" type="submit">Login</button>
+</form>
+
+<script>
+(function () {
+  if (window.__d7SystemOwnerLoginBridgeInstalled) return;
+  window.__d7SystemOwnerLoginBridgeInstalled = true;
+
+  function showLoginError(message) {
+    let box = document.querySelector(".error, .alert, .login-error, [data-login-error]");
+    if (!box) {
+      box = document.createElement("div");
+      box.setAttribute("data-login-error", "1");
+      box.style.marginBottom = "14px";
+      box.style.padding = "12px 14px";
+      box.style.border = "1px solid rgba(239,68,68,.55)";
+      box.style.borderRadius = "10px";
+      box.style.background = "rgba(127,29,29,.35)";
+      box.style.color = "#fecaca";
+      box.style.fontWeight = "700";
+      const form = document.querySelector("form");
+      if (form) form.prepend(box);
+    }
+    box.textContent = message || "Invalid username or password";
+    box.style.display = "block";
+  }
+
+  function findLoginForm() {
+    const forms = Array.from(document.querySelectorAll("form"));
+    return forms.find(f => (f.getAttribute("action") || "").includes("dashboard-login")) || forms[0];
+  }
+
+  const form = findLoginForm();
+  if (!form) return;
+
+  form.addEventListener("submit", async function (event) {
+    if (form.dataset.d7InternalSubmit === "1") return;
+
+    event.preventDefault();
+
+    const usernameInput =
+      form.querySelector('input[name="username"]') ||
+      form.querySelector('input[name="email"]') ||
+      form.querySelector('input[type="text"]');
+
+    const passwordInput =
+      form.querySelector('input[name="password"]') ||
+      form.querySelector('input[type="password"]');
+
+    const username = usernameInput ? usernameInput.value.trim() : "";
+    const password = passwordInput ? passwordInput.value.trim() : "";
+
+    try {
+      const res = await fetch("/api/d7/system-owner-auth-check", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({username: username, password: password})
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        showLoginError("Invalid username or password");
+        return;
+      }
+
+      const hiddenForm = document.createElement("form");
+      hiddenForm.method = "POST";
+      hiddenForm.action = "/dashboard-login";
+      hiddenForm.style.display = "none";
+      hiddenForm.dataset.d7InternalSubmit = "1";
+
+      const u = document.createElement("input");
+      u.name = "username";
+      u.value = "system_owner";
+
+      const p = document.createElement("input");
+      p.name = "password";
+      p.value = "1";
+
+      hiddenForm.appendChild(u);
+      hiddenForm.appendChild(p);
+      document.body.appendChild(hiddenForm);
+      hiddenForm.submit();
+    } catch (e) {
+      showLoginError("Login check failed");
+    }
+  }, true);
+})();
+</script>
+
+</body>
+</html>

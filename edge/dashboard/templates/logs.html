@@ -1,337 +1,1072 @@
-{% extends "base.html" %}
-{% block title %}Security Logs{% endblock %}
+﻿{% extends "base.html" %}
+{% block title %}Security Logs
+<!-- D7M16_FINAL_APARTMENT_FILTER_START -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const filtersRow =
+        document.querySelector(".logs-filters") ||
+        document.querySelector(".filters-row") ||
+        document.querySelector(".filter-row") ||
+        document.querySelector("input[placeholder*='Search']")?.parentElement;
 
+    if (!filtersRow || document.getElementById("apartmentFilterInput")) return;
+
+    const input = document.createElement("input");
+    input.id = "apartmentFilterInput";
+    input.className = "form-control";
+    input.placeholder = "Apartment";
+    input.style.maxWidth = "130px";
+    input.style.minWidth = "110px";
+    input.style.marginLeft = "10px";
+
+    filtersRow.appendChild(input);
+
+    function rowApartment(row) {
+        const cells = Array.from(row.querySelectorAll("td"));
+        if (cells.length >= 5) {
+            return (cells[3]?.textContent || "").trim().toLowerCase();
+        }
+        return "";
+    }
+
+    function applyApartmentFilter() {
+        const value = input.value.trim().toLowerCase();
+        document.querySelectorAll("table tbody tr").forEach((row) => {
+            if (!value) {
+                row.style.display = "";
+                return;
+            }
+
+            const apt = rowApartment(row);
+            const text = row.textContent.toLowerCase();
+            row.style.display = apt.includes(value) || text.includes(`apartment ${value}`) ? "" : "none";
+        });
+    }
+
+    input.addEventListener("input", applyApartmentFilter);
+});
+</script>
+<!-- D7M16_FINAL_APARTMENT_FILTER_END -->
+
+<!-- D7M16_FINAL_LOG_SEARCH_EXACT_APT_START -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const searchInput =
+    document.querySelector("input[placeholder*='Search']") ||
+    document.querySelector("input[type='search']") ||
+    document.querySelector(".logs-container input");
+
+  if (!searchInput) return;
+
+  searchInput.placeholder = "Search actor/event/details or exact apartment...";
+
+  function getRows() {
+    return Array.from(document.querySelectorAll("table tbody tr"));
+  }
+
+  function getCellText(row, index) {
+    const cells = Array.from(row.querySelectorAll("td"));
+    return (cells[index]?.textContent || "").trim();
+  }
+
+  function applyExactSearch() {
+    const value = searchInput.value.trim().toLowerCase();
+    const isApartmentNumber = /^[0-9]+$/.test(value);
+
+    getRows().forEach(function (row) {
+      if (!value) {
+        row.style.display = "";
+        return;
+      }
+
+      const apartment = getCellText(row, 4).toLowerCase();
+      const rowText = row.textContent.toLowerCase();
+
+      if (isApartmentNumber) {
+        row.style.display = apartment === value ? "" : "none";
+      } else {
+        row.style.display = rowText.includes(value) ? "" : "none";
+      }
+    });
+  }
+
+  searchInput.addEventListener("input", function () {
+    setTimeout(applyExactSearch, 0);
+    setTimeout(applyExactSearch, 80);
+  });
+
+  document.querySelectorAll("select").forEach(function (select) {
+    select.addEventListener("change", function () {
+      setTimeout(applyExactSearch, 50);
+    });
+  });
+});
+</script>
+<!-- D7M16_FINAL_LOG_SEARCH_EXACT_APT_END -->
+
+
+<!-- D7M16_FINAL_QA_LOG_EXACT_SEARCH_FIX4_START -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const oldInput =
+    document.querySelector("input[placeholder*='Search']") ||
+    document.querySelector("input[type='search']") ||
+    document.querySelector(".logs-container input");
+
+  if (!oldInput) return;
+
+  const input = oldInput.cloneNode(true);
+  oldInput.parentNode.replaceChild(input, oldInput);
+
+  input.placeholder = "Search exact apartment number or actor...";
+
+  function columnIndex(namePart, fallback) {
+    const headers = Array.from(document.querySelectorAll("table thead th"));
+    const found = headers.findIndex(th => (th.textContent || "").toLowerCase().includes(namePart));
+    return found >= 0 ? found : fallback;
+  }
+
+  function getRows() {
+    return Array.from(document.querySelectorAll("table tbody tr"));
+  }
+
+  function getCell(row, index) {
+    const cells = Array.from(row.querySelectorAll("td"));
+    return (cells[index]?.textContent || "").trim();
+  }
+
+  function applySearch() {
+    const value = input.value.trim().toLowerCase();
+    const isNumber = /^[0-9]+$/.test(value);
+
+    const actorIndex = columnIndex("actor", 3);
+    const apartmentIndex = columnIndex("apartment", 4);
+
+    getRows().forEach(function (row) {
+      if (!value) {
+        row.style.display = "";
+        row.hidden = false;
+        return;
+      }
+
+      const actor = getCell(row, actorIndex).toLowerCase();
+      const apartment = getCell(row, apartmentIndex).toLowerCase();
+
+      let show = false;
+
+      if (isNumber) {
+        show = apartment === value;
+      } else {
+        show = actor.includes(value);
+      }
+
+      row.hidden = !show;
+      row.style.display = show ? "" : "none";
+    });
+  }
+
+  input.addEventListener("input", function (e) {
+    e.stopImmediatePropagation();
+    applySearch();
+  }, true);
+
+  input.addEventListener("keyup", function (e) {
+    e.stopImmediatePropagation();
+    applySearch();
+  }, true);
+
+  const tbody = document.querySelector("table tbody");
+  if (tbody) {
+    const observer = new MutationObserver(function () {
+      applySearch();
+    });
+    observer.observe(tbody, { childList: true, subtree: true });
+  }
+
+  document.querySelectorAll("select").forEach(function (select) {
+    select.addEventListener("change", function () {
+      setTimeout(applySearch, 80);
+    });
+  });
+});
+</script>
+<!-- D7M16_FINAL_QA_LOG_EXACT_SEARCH_FIX4_END -->
+
+
+<!-- D7M16_LOG_SEARCH_FIX5_ONLY_START -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const input =
+    document.querySelector("input[placeholder*='Search']") ||
+    document.querySelector("input[type='search']");
+
+  if (!input) return;
+
+  input.placeholder = "Number = Apartment only / Text = Actor only";
+
+  function getColumnIndex(keyword, fallback) {
+    const headers = Array.from(document.querySelectorAll("table thead th"));
+    const index = headers.findIndex(th => (th.textContent || "").toLowerCase().includes(keyword));
+    return index >= 0 ? index : fallback;
+  }
+
+  function cell(row, index) {
+    const cells = Array.from(row.querySelectorAll("td"));
+    return (cells[index]?.textContent || "").trim().toLowerCase();
+  }
+
+  function applyStrictSearch() {
+    const value = input.value.trim().toLowerCase();
+    const isNumber = /^[0-9]+$/.test(value);
+
+    const actorIndex = getColumnIndex("actor", 3);
+    const apartmentIndex = getColumnIndex("apartment", 4);
+
+    document.querySelectorAll("table tbody tr").forEach(row => {
+      if (!value) {
+        row.style.removeProperty("display");
+        return;
+      }
+
+      const actor = cell(row, actorIndex);
+      const apartment = cell(row, apartmentIndex);
+
+      let show = false;
+
+      if (isNumber) {
+        show = apartment === value;
+      } else {
+        show = actor.includes(value);
+      }
+
+      if (show) {
+        row.style.removeProperty("display");
+      } else {
+        row.style.setProperty("display", "none", "important");
+      }
+    });
+  }
+
+  input.addEventListener("input", function (e) {
+    e.stopImmediatePropagation();
+    applyStrictSearch();
+  }, true);
+
+  input.addEventListener("keyup", function (e) {
+    e.stopImmediatePropagation();
+    applyStrictSearch();
+  }, true);
+
+  setInterval(applyStrictSearch, 250);
+});
+</script>
+<!-- D7M16_LOG_SEARCH_FIX5_ONLY_END -->
+
+{% endblock %}
 {% block content %}
+<!-- D7M16_FINAL_SECURITY_TIMESTAMP_SINGLE_LINE_START -->
+<style>
+  /* Security Logs only: force timestamp to stay on one line */
+  .security-logs-table {
+    table-layout: auto !important;
+    min-width: 1320px !important;
+  }
+
+  .security-logs-table th:nth-child(2),
+  .security-logs-table td:nth-child(2),
+  #logsTableBody td.d7m16-log-timestamp {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+    min-width: 245px !important;
+    width: 245px !important;
+    max-width: 245px !important;
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    font-size: 0.84rem !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  .security-logs-table th:nth-child(1),
+  .security-logs-table td:nth-child(1) {
+    width: 46px !important;
+    min-width: 46px !important;
+  }
+
+  .security-logs-table th,
+  .security-logs-table td {
+    vertical-align: middle !important;
+  }
+
+  .security-logs-table-wrap {
+    overflow-x: auto !important;
+  }
+</style>
+<!-- D7M16_FINAL_SECURITY_TIMESTAMP_SINGLE_LINE_END -->
+
 <div class="page-header">
     <div class="page-title">
-        <h1 data-i18n="security_logs">Security Logs</h1>
-        <p data-i18n="security_logs_desc">Review all access and security events across registered homes</p>
+        <h1>Security Logs</h1>
+        <p>Review access and security events across registered homes</p>
     </div>
     <div class="header-actions">
-        
-<button class="btn btn-outline" onclick="phase10RefreshLogs()" type="button">
-    <i class="ph ph-arrows-clockwise"></i> Refresh
-</button>
-
-<button class="btn btn-outline"><i class="ph ph-download-simple"></i> <span data-i18n="export_csv">Export CSV</span></button>
+        <button class="btn btn-outline" onclick="loadLogs()">
+            <i class="ph ph-arrows-clockwise"></i> Refresh
+        </button>
+        <button class="btn btn-outline" onclick="exportLogsCsv()">
+            <i class="ph ph-download"></i> Export CSV
+        </button>
     </div>
 </div>
 
 <div class="glass-card">
-    <div style="display: flex; gap: 16px; margin-bottom: 24px;">
-        <input type="text" class="form-control" placeholder="Search events..." style="flex: 1;" data-i18n="search_events">
-        <select class="form-control" style="width: 200px;">
-            <option value="all" data-i18n="all_events">All Events</option>
-            <option value="door" data-i18n="door_access">Door Access</option>
-            <option value="face" data-i18n="face_recognition">Face Recognition</option>
-            <option value="system" data-i18n="system">System</option>
+    <div style="display: grid; grid-template-columns: 1fr 180px 210px 180px; gap: 14px; margin-bottom: 20px;">
+        <input id="logSearch" class="form-control" placeholder="Search events...">
+
+        <select id="dateFilter" class="form-control">
+            <option value="">All Dates</option>
         </select>
-        <select class="form-control" style="width: 200px;">
-            <option value="all" data-i18n="all_severities">All Severities</option>
-            <option value="info" data-i18n="severity_info">Info</option>
-            <option value="warning" data-i18n="severity_warning">Warning</option>
-            <option value="critical" data-i18n="severity_critical">Critical</option>
+
+        <select id="eventFilter" class="form-control">
+            <option value="">All Events</option>
+            <option value="Smart Door Command">Smart Door Command</option>
+            <option value="Smart Door Event">Smart Door Event</option>
+            <option value="Face Recognition">Face Recognition</option>
+            <option value="Energy Monitor Command">Energy Monitor Command</option>
+            <option value="Energy Warning">Energy Warning</option>
+            <option value="Family Management">Family Management</option>
+            <option value="System Security">System Security</option>
+            <option value="System Error">System Error</option>
+        </select>
+
+        <select id="severityFilter" class="form-control">
+            <option value="">All Severities</option>
+            <option value="INFO">INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="ERROR">ERROR</option>
+            <option value="CRITICAL">CRITICAL</option>
         </select>
     </div>
 
-    <div class="table-container">
-        <table>
+    <div class="table-container security-logs-table-wrap"><table class="security-logs-table">
             <thead>
                 <tr>
-                    <th data-i18n="timestamp">Timestamp</th>
-                    <th data-i18n="severity">Severity</th>
-                    <th data-i18n="home">HOME NUMBER</th>
-                    <th data-i18n="event_type">Event Type</th>
-                    <th data-i18n="details">Details</th>
-                    <th data-i18n="action_taken">Action Taken</th>
+                    <th style="width:42px;">#</th>
+                    <th style="white-space:nowrap; min-width:245px; width:245px;">Timestamp</th>
+                    <th>Severity</th>
+                    <th>Actor</th>
+                    <th>Apartment Number</th>
+                    <th>Event Type</th>
+                    <th>Details</th>
+                    <th>Action Taken</th>
                 </tr>
             </thead>
-            <tbody>
-    {% if logs %}
-        {% for log in logs %}
-        <tr>
-            <td>{{ log.timestamp }}</td>
-            <td><span class="badge {{ log.severity_class }}">{{ log.severity_text }}</span></td>
-            <td>{{ log.home }}</td>
-            <td><i class="ph {{ log.event_icon }}" style="margin-right: 4px;"></i> {{ log.event_type }}</td>
-            <td>{{ log.details }}</td>
-            <td>{{ log.action_taken }}</td>
-        </tr>
-        {% endfor %}
-    {% else %}
-        <tr>
-            <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 32px;">
-                No security logs yet.
-            </td>
-        </tr>
-    {% endif %}
-</tbody>
+            <tbody id="logsTableBody">
+                <tr>
+                    <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+                        Loading logs...
+                    </td>
+                </tr>
+            </tbody>
         </table>
     </div>
 </div>
 
-
-
-
-
-
-
-<!-- D7M16_PHASE10_LOGS_UI_FIX_START -->
-<style>
-.phase10-severity-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 56px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-.phase10-severity-info {
-  color: #10b981;
-  background: rgba(16, 185, 129, .15);
-  border: 1px solid rgba(16, 185, 129, .25);
-}
-.phase10-severity-warning {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, .15);
-  border: 1px solid rgba(245, 158, 11, .25);
-}
-.phase10-severity-error {
-  color: #ef4444;
-  background: rgba(239, 68, 68, .15);
-  border: 1px solid rgba(239, 68, 68, .25);
-}
-</style>
-
 <script>
-(function () {
-  function clean(value) {
-    return String(value || "").trim();
-  }
+let allLogs = [];
+let currentLogs = [];
 
-  function lower(value) {
-    return clean(value).toLowerCase();
-  }
+function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
 
-  function titleCase(value) {
-    return clean(value)
-      .replace(/_/g, " ")
-      .replace(/\s+/g, " ")
-      .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
-  }
+function severityBadge(severity) {
+    const value = String(severity || "INFO").toUpperCase();
 
-  function table() {
-    return document.querySelector("table");
-  }
-
-  function headers() {
-    const t = table();
-    return t ? Array.from(t.querySelectorAll("thead th")) : [];
-  }
-
-  function rows() {
-    const t = table();
-    return t ? Array.from(t.querySelectorAll("tbody tr")) : [];
-  }
-
-  function exactHeaderIndex(label) {
-    const target = lower(label);
-    return headers().findIndex((th) => lower(th.textContent) === target);
-  }
-
-  function containsHeaderIndex(label) {
-    const target = lower(label);
-    return headers().findIndex((th) => lower(th.textContent).includes(target));
-  }
-
-  function normalizeHeaders() {
-    const homeIdx = containsHeaderIndex("home");
-    if (homeIdx >= 0) headers()[homeIdx].textContent = "APARTMENT NUMBER";
-  }
-
-  function apartmentOnly(value) {
-    value = clean(value);
-    value = value.replace(/^apartment\s*/i, "");
-    const apt = value.match(/^apt[-\s]*(\d+)/i);
-    if (apt) return String(Number(apt[1]));
-    return value;
-  }
-
-  function deriveEventType(details, original) {
-    const text = lower(details + " " + original);
-
-    if (text.includes("energy") || text.includes("meter")) {
-      return "Energy Monitor Command";
+    if (value === "CRITICAL" || value === "ERROR") {
+        return `<span class="badge badge-danger">${value}</span>`;
     }
 
-    if (text.includes("door") || text.includes("camera") || text.includes("smart door")) {
-      return "Smart Door Command";
+    if (value === "WARNING") {
+        return `<span class="badge badge-warning">WARNING</span>`;
     }
 
-    return titleCase(original || "System Event");
-  }
+    return `<span class="badge badge-success">INFO</span>`;
+}
 
-  function deriveSeverity(action, details, rawSeverity) {
-    const text = lower(action + " " + details + " " + rawSeverity);
+function parseLogDate(value) {
+    if (!value) return 0;
 
-    if (text.includes("disable")) return "warning";
-    if (text.includes("error") || text.includes("failed") || text.includes("critical")) return "error";
-    if (text.includes("warn")) return "warning";
+    const text = String(value).trim();
 
-    return "info";
-  }
+    let date = new Date(text);
+    if (!Number.isNaN(date.getTime())) return date.getTime();
 
-  function normalizeRows() {
-    const severityIdx = exactHeaderIndex("severity");
-    const aptIdx = exactHeaderIndex("apartment number");
-    const eventIdx = exactHeaderIndex("event type");
-    const detailsIdx = exactHeaderIndex("details");
-    const actionIdx = exactHeaderIndex("action taken");
+    const fixed = text.replace("T", " ").replace(/\+\d{2}:\d{2}$/, "");
+    date = new Date(fixed);
+    if (!Number.isNaN(date.getTime())) return date.getTime();
 
-    rows().forEach((row) => {
-      const details = detailsIdx >= 0 && row.children[detailsIdx] ? row.children[detailsIdx].textContent : "";
-      const originalEvent = eventIdx >= 0 && row.children[eventIdx] ? row.children[eventIdx].textContent : "";
-      const action = actionIdx >= 0 && row.children[actionIdx] ? row.children[actionIdx].textContent : "";
-      const rawSeverity = severityIdx >= 0 && row.children[severityIdx] ? row.children[severityIdx].textContent : "";
+    return 0;
+}
 
-      if (aptIdx >= 0 && row.children[aptIdx]) {
-        row.children[aptIdx].textContent = apartmentOnly(row.children[aptIdx].textContent);
-      }
+function formatTimestamp(value) {
+    if (!value) return "-";
 
-      const eventType = deriveEventType(details, originalEvent);
-      const severity = deriveSeverity(action, details, rawSeverity);
+    const time = parseLogDate(value);
+    if (!time) return String(value);
 
-      row.dataset.phase10Event = lower(eventType);
-      row.dataset.phase10Severity = severity;
+    const date = new Date(time);
+    const pad = (n) => String(n).padStart(2, "0");
 
-      if (eventIdx >= 0 && row.children[eventIdx]) {
-        row.children[eventIdx].textContent = eventType;
-      }
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
 
-      if (severityIdx >= 0 && row.children[severityIdx]) {
-        let cls = "phase10-severity-info";
-        if (severity === "warning") cls = "phase10-severity-warning";
-        if (severity === "error") cls = "phase10-severity-error";
+    let hour = date.getHours();
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
 
-        row.children[severityIdx].innerHTML =
-          `<span class="phase10-severity-badge ${cls}">${severity.toUpperCase()}</span>`;
-      }
-    });
-  }
+    return `${year}-${month}-${day}, ${pad(hour)}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${ampm}`;
+}
 
-  function setOptions(select, values, allLabel) {
+function tryParseJson(value) {
+    if (!value) return null;
+
+    const text = String(value).trim();
+    if (!text.startsWith("{") && !text.startsWith("[")) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+}
+
+function textOf(log) {
+    return [
+        log.actor,
+        log.source,
+        log.event_type,
+        log.details,
+        log.action_taken,
+        log.device_type,
+        log.device_name,
+        log.device_id,
+        log.apartment_number,
+        log.home_number,
+        log.home,
+        log.home_id
+    ].join(" ");
+}
+
+function extractApartmentFromText(value) {
+    const text = String(value || "");
+
+    const homeMatch = text.match(/HOME[-_]?0*(\d+)/i);
+    if (homeMatch) return String(Number(homeMatch[1]));
+
+    const aptMatch = text.match(/APT[-_]?0*(\d+)/i);
+    if (aptMatch) return String(Number(aptMatch[1]));
+
+    const apartmentMatch = text.match(/apartment\s*0*(\d+)/i);
+    if (apartmentMatch) return String(Number(apartmentMatch[1]));
+
+    return "";
+}
+
+function formatApartment(log) {
+    const direct = log.apartment_number || log.home_number || log.apartment || log.home || log.home_id || "";
+    const directText = String(direct || "").trim();
+
+    if (directText && directText.toLowerCase() !== "system") {
+        const fromDirect = extractApartmentFromText(directText);
+        if (fromDirect) return fromDirect;
+
+        if (/^\d+$/.test(directText)) return directText;
+    }
+
+    const fromFullText = extractApartmentFromText(textOf(log));
+    if (fromFullText) return fromFullText;
+
+    return "-";
+}
+
+function detectEventType(log) {
+    const raw = textOf(log).toLowerCase();
+    const parsed = tryParseJson(log.details || "");
+    const command = String(parsed?.command || parsed?.action || "").toLowerCase();
+
+    if (
+        raw.includes("login") ||
+        raw.includes("logout") ||
+        raw.includes("failed dashboard") ||
+        raw.includes("failed login") ||
+        raw.includes("system owner logged")
+    ) {
+        return "System Security";
+    }
+
+    if (
+        raw.includes("critical") ||
+        raw.includes("db error") ||
+        raw.includes("api error") ||
+        raw.includes("backend error") ||
+        raw.includes("publish failed") ||
+        raw.includes("mqtt failed") ||
+        raw.includes("connection failed")
+    ) {
+        return "System Error";
+    }
+
+    if (
+        raw.includes("family") ||
+        raw.includes("member added") ||
+        raw.includes("member enabled") ||
+        raw.includes("member disabled")
+    ) {
+        return "Family Management";
+    }
+
+    if (
+        raw.includes("face") ||
+        raw.includes("unknown person") ||
+        raw.includes("unknown_face") ||
+        raw.includes("recognition") ||
+        raw.includes("access denied") ||
+        raw.includes("access granted")
+    ) {
+        return "Face Recognition";
+    }
+
+    if (
+        raw.includes("high energy") ||
+        raw.includes("voltage abnormal") ||
+        raw.includes("current abnormal") ||
+        raw.includes("energy warning") ||
+        raw.includes("sensor offline") ||
+        raw.includes("energy sensor offline")
+    ) {
+        return "Energy Warning";
+    }
+
+    if (
+        raw.includes("energy") ||
+        raw.includes("meter") ||
+        raw.includes("energy_monitor") ||
+        raw.includes("meter-home")
+    ) {
+        return "Energy Monitor Command";
+    }
+
+    if (
+        raw.includes("door opened successfully") ||
+        raw.includes("door locked successfully") ||
+        raw.includes("door status") ||
+        raw.includes("servo") ||
+        raw.includes("esp32")
+    ) {
+        return "Smart Door Event";
+    }
+
+    if (
+        raw.includes("smart door") ||
+        raw.includes("door_open") ||
+        raw.includes("door open") ||
+        raw.includes("mqtt door") ||
+        raw.includes("front door") ||
+        raw.includes("door-home") ||
+        raw.includes("smart_door") ||
+        command === "open" ||
+        command === "lock" ||
+        command === "unlock"
+    ) {
+        return "Smart Door Command";
+    }
+
+    return log.event_type || "System Security";
+}
+
+function detectActor(log, eventType) {
+    const raw = textOf(log).toLowerCase();
+
+    if (
+        raw.includes("failed login") ||
+        raw.includes("invalid username") ||
+        raw.includes("invalid password")
+    ) {
+        return "Unknown";
+    }
+
+    if (raw.includes("system_owner") || raw.includes("system owner") || raw.includes("dashboard")) {
+        return "System Owner";
+    }
+
+    if (
+        raw.includes("flutter") ||
+        raw.includes("admin app") ||
+        raw.includes("flutter_app") ||
+        raw.includes("manual_open_from_flutter") ||
+        eventType === "Family Management"
+    ) {
+        return "Admin App";
+    }
+
+    if (
+        raw.includes("esp32") ||
+        raw.includes("device heartbeat") ||
+        raw.includes("device event") ||
+        raw.includes("servo") ||
+        eventType === "Smart Door Event"
+    ) {
+        return "ESP32 Device";
+    }
+
+    if (
+        eventType === "System Error" ||
+        eventType === "Face Recognition" ||
+        eventType === "Energy Warning" ||
+        eventType === "System Security"
+    ) {
+        return "Server";
+    }
+
+    if (
+        eventType === "Smart Door Command" ||
+        eventType === "Energy Monitor Command"
+    ) {
+        return "System Owner";
+    }
+
+    return "Server";
+}
+
+function cleanDetails(log, eventType) {
+    const raw = log.details || "";
+    const parsed = tryParseJson(raw);
+
+    if (parsed) {
+        const command = String(parsed.command || parsed.action || "").toLowerCase();
+
+        if (eventType === "Smart Door Command") {
+            if (command === "open") return "Open command sent to Smart Door";
+            if (command === "lock") return "Lock command sent to Smart Door";
+            if (command === "unlock") return "Unlock command sent to Smart Door";
+            if (command) return `${command.toUpperCase()} command sent to Smart Door`;
+            return "Smart Door command sent through FastAPI → MQTT.";
+        }
+
+        if (eventType === "Energy Monitor Command") {
+            if (command) return `${command.toUpperCase()} command sent to Energy Monitor`;
+            return "Energy Monitor command sent through FastAPI → MQTT.";
+        }
+
+        return parsed.message || parsed.reason || parsed.status || "System event recorded.";
+    }
+
+    let text = String(raw || "-");
+
+    text = text.replace(/\s*through FastAPI\s*(->|→)\s*MQTT\.?/i, "");
+    text = text.replace(/\s+/g, " ").trim();
+
+    return text || "-";
+}
+
+function normalizeAction(log, eventType) {
+    const action = String(log.action_taken || "").trim();
+
+    if (action) return action;
+
+    const parsed = tryParseJson(log.details || "");
+    const command = String(parsed?.command || parsed?.action || "").toUpperCase();
+
+    if (eventType === "Smart Door Command" && command) return `MQTT DOOR ${command}`;
+    if (eventType === "Energy Monitor Command" && command) return `MQTT ${command}`;
+    if (eventType === "Energy Warning") return "Warning Raised";
+    if (eventType === "System Error") return "Error Logged";
+    if (eventType === "System Security") return "Security Logged";
+
+    return "-";
+}
+
+function normalizeSeverity(log, eventType) {
+    let severity = String(log.severity || "INFO").toUpperCase();
+
+    if (eventType === "System Error") {
+        if (severity === "INFO") return "ERROR";
+    }
+
+    if (
+        eventType === "Energy Warning" ||
+        String(log.action_taken || "").toLowerCase().includes("disable") ||
+        String(log.details || "").toLowerCase().includes("disabled") ||
+        String(log.details || "").toLowerCase().includes("unknown")
+    ) {
+        if (severity === "INFO") return "WARNING";
+    }
+
+    return severity;
+}
+
+function normalizeLog(log) {
+    const eventType = detectEventType(log);
+
+    return {
+        timestamp: log.timestamp || log.created_at || log.time || "",
+        severity: normalizeSeverity(log, eventType),
+        actor: detectActor(log, eventType),
+        apartment: formatApartment(log),
+        event_type: eventType,
+        details: cleanDetails(log, eventType),
+        action_taken: normalizeAction(log, eventType)
+    };
+}
+
+
+function logDateKey(value) {
+    const time = parseLogDate(value);
+    if (!time) return "";
+
+    const date = new Date(time);
+    const pad = (n) => String(n).padStart(2, "0");
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function buildDateFilter() {
+    const select = document.getElementById("dateFilter");
     if (!select) return;
 
-    select.innerHTML = "";
+    const current = select.value;
 
-    const all = document.createElement("option");
-    all.value = "";
-    all.textContent = allLabel;
-    select.appendChild(all);
+    const dates = Array.from(new Set(
+        allLogs
+            .map((log) => logDateKey(log.timestamp))
+            .filter(Boolean)
+    )).sort((a, b) => b.localeCompare(a));
 
-    values.forEach((value) => {
-      const option = document.createElement("option");
-      option.value = lower(value);
-      option.textContent = titleCase(value);
-      select.appendChild(option);
-    });
-  }
+    select.innerHTML = `<option value="">All Dates</option>` + dates.map((date) => {
+        return `<option value="${date}">${date}</option>`;
+    }).join("");
 
-  function setupFilters() {
-    const selects = Array.from(document.querySelectorAll("select"));
-    const eventSelect = selects[0] || null;
-    const severitySelect = selects[1] || null;
-    const searchInput =
-      document.querySelector('input[placeholder*="Search" i]') ||
-      document.querySelector('input[type="search"]') ||
-      document.querySelector("input");
+    if (dates.includes(current)) {
+        select.value = current;
+    }
+}
 
-    const eventValues = Array.from(new Set(rows().map((row) => row.dataset.phase10Event).filter(Boolean))).sort();
-    const severityValues = Array.from(new Set(rows().map((row) => row.dataset.phase10Severity).filter(Boolean))).sort();
+function renderLogs(logs) {
+    const tbody = document.getElementById("logsTableBody");
 
-    setOptions(eventSelect, eventValues, "All Events");
-    setOptions(severitySelect, severityValues, "All Severities");
-
-    function apply() {
-      const query = searchInput ? lower(searchInput.value) : "";
-      const eventValue = eventSelect ? lower(eventSelect.value) : "";
-      const severityValue = severitySelect ? lower(severitySelect.value) : "";
-
-      rows().forEach((row) => {
-        const matchSearch = !query || lower(row.textContent).includes(query);
-        const matchEvent = !eventValue || row.dataset.phase10Event === eventValue;
-        const matchSeverity = !severityValue || row.dataset.phase10Severity === severityValue;
-
-        row.style.display = matchSearch && matchEvent && matchSeverity ? "" : "none";
-      });
+    if (!logs.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+                    No logs found.
+                </td>
+            </tr>
+        `;
+        return;
     }
 
-    if (searchInput) searchInput.addEventListener("input", apply);
-    if (eventSelect) eventSelect.addEventListener("change", apply);
-    if (severitySelect) severitySelect.addEventListener("change", apply);
+    tbody.innerHTML = logs.map((log, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td class="d7m16-log-timestamp" dir="ltr" style="white-space:nowrap; min-width:245px; width:245px; max-width:245px; direction:ltr; unicode-bidi:isolate;">${escapeHtml(formatTimestamp(log.timestamp))}</td>
+            <td>${severityBadge(log.severity)}</td>
+            <td>${escapeHtml(log.actor)}</td>
+            <td>${escapeHtml(log.apartment)}</td>
+            <td>${escapeHtml(log.event_type)}</td>
+            <td>${escapeHtml(log.details)}</td>
+            <td>${escapeHtml(log.action_taken)}</td>
+        </tr>
+    `).join("");
+}
 
-    apply();
+function applyFilters() {
+    const searchInput = document.getElementById("logSearch");
+    const search = searchInput ? searchInput.value.toLowerCase().trim() : "";
+    const isNumberSearch = /^[0-9]+$/.test(search);
+
+    const dateFilter = document.getElementById("dateFilter").value;
+    const eventFilter = document.getElementById("eventFilter").value;
+    const severityFilter = document.getElementById("severityFilter").value;
+
+    currentLogs = allLogs.filter((log) => {
+        const apartment = String(log.apartment || "").trim().toLowerCase();
+        const actor = String(log.actor || "").trim().toLowerCase();
+
+        let matchesSearch = true;
+
+        if (search) {
+            if (isNumberSearch) {
+                matchesSearch = apartment === search;
+            } else {
+                matchesSearch = actor.includes(search);
+            }
+        }
+
+        const matchesDate = !dateFilter || logDateKey(log.timestamp) === dateFilter;
+        const matchesEvent = !eventFilter || log.event_type === eventFilter;
+        const matchesSeverity = !severityFilter || log.severity === severityFilter;
+
+        return matchesSearch && matchesDate && matchesEvent && matchesSeverity;
+    });
+
+    renderLogs(currentLogs);
+}
+
+async function fetchLogs() {
+    const endpoints = [
+        "/api/dashboard/security-logs-data",
+        "/api/logs"
+    ];
+
+    for (const endpoint of endpoints) {
+        try {
+            const response = await fetch(endpoint);
+            if (!response.ok) continue;
+
+            const data = await response.json();
+
+            if (Array.isArray(data)) return data;
+
+            const items = data.items || data.logs || data.data || [];
+            if (Array.isArray(items)) return items;
+        } catch (error) {
+            console.warn("Logs endpoint failed:", endpoint, error);
+        }
+    }
+
+    return [];
+}
+
+async function loadLogs() {
+    const tbody = document.getElementById("logsTableBody");
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+                Loading logs...
+            </td>
+        </tr>
+    `;
+
+    const items = await fetchLogs();
+
+    allLogs = items
+        .map(normalizeLog)
+        .sort((a, b) => parseLogDate(b.timestamp) - parseLogDate(a.timestamp));
+
+    buildDateFilter();
+    applyFilters();
+}
+
+function exportLogsCsv() {
+    const rows = [
+        ["timestamp", "severity", "actor", "apartment_number", "event_type", "details", "action_taken"]
+    ];
+
+    currentLogs.forEach((log) => {
+        rows.push([
+            formatTimestamp(log.timestamp),
+            log.severity || "",
+            log.actor || "",
+            log.apartment || "",
+            log.event_type || "",
+            log.details || "",
+            log.action_taken || ""
+        ]);
+    });
+
+    const csv = rows.map((row) => {
+        return row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",");
+    }).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "security_logs.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadLogs();
+
+    document.getElementById("logSearch").addEventListener("input", applyFilters);
+    document.getElementById("dateFilter").addEventListener("change", applyFilters);
+    document.getElementById("eventFilter").addEventListener("change", applyFilters);
+    document.getElementById("severityFilter").addEventListener("change", applyFilters);
+});
+</script>
+
+<!-- D7M16_FINAL_QA_LOG_ACTOR_DEDUPE_V6_START -->
+<script>
+(function () {
+  function lower(value) {
+    return String(value || "").toLowerCase();
   }
 
-  window.phase10RefreshLogs = function () {
-    window.location.reload();
+  function deviceIdFromLog(log) {
+    const text = [
+      log.details,
+      log.action_taken,
+      log.event_type
+    ].join(" ");
+
+    const match = text.match(/\b(?:DOOR|METER|CAM)-HOME[0-9]+-\d+\b/i);
+    return match ? match[0].toUpperCase() : "";
+  }
+
+  function apartmentFromDeviceId(deviceId) {
+    const match = String(deviceId || "").match(/(?:DOOR|METER|CAM)-HOME0*([0-9]+)-/i);
+    if (!match) return "";
+    return String(parseInt(match[1], 10));
+  }
+
+  function rawSecond(value) {
+    return String(value || "").replace("T", " ").split(".")[0].slice(0, 19);
+  }
+
+  function normalizeDashboardCommandLog(log) {
+    const fixed = Object.assign({}, log);
+    const action = String(fixed.action_taken || "").toUpperCase();
+    const eventType = String(fixed.event_type || "");
+
+    if (lower(fixed.actor) === "server" && eventType.toLowerCase().includes("command") && action.startsWith("MQTT")) {
+      fixed.actor = "System Owner";
+    }
+
+    const deviceId = deviceIdFromLog(fixed);
+    const apt = apartmentFromDeviceId(deviceId);
+
+    if (apt) {
+      fixed.apartment = apt;
+    }
+
+    if (action.includes("REMOVE") && deviceId) {
+      fixed.details = `Remove command sent to ${deviceId}`;
+    }
+
+    return fixed;
+  }
+
+  function logScore(log) {
+    let score = 0;
+    if (String(log.actor || "") === "System Owner") score += 4;
+    if (/^Remove command sent to (DOOR|METER|CAM)-/i.test(String(log.details || ""))) score += 4;
+    if (!String(log.details || "").includes("(")) score += 1;
+    return score;
+  }
+
+  function dedupeCommandLogs(logs) {
+    const map = new Map();
+    const result = [];
+
+    logs.forEach(item => {
+      const log = normalizeDashboardCommandLog(item);
+      const deviceId = deviceIdFromLog(log);
+      const action = String(log.action_taken || "").toUpperCase();
+      const key = deviceId && action
+        ? `${rawSecond(log.timestamp)}|${action}|${deviceId}`
+        : `unique|${Math.random()}|${result.length}`;
+
+      if (!map.has(key)) {
+        map.set(key, log);
+        result.push(log);
+        return;
+      }
+
+      const old = map.get(key);
+      if (logScore(log) > logScore(old)) {
+        map.set(key, log);
+        const index = result.indexOf(old);
+        if (index >= 0) result[index] = log;
+      }
+    });
+
+    return result;
+  }
+
+  window.applyFilters = function () {
+    const searchEl = document.getElementById("logSearch");
+    const dateEl = document.getElementById("dateFilter");
+    const eventEl = document.getElementById("eventFilter");
+    const severityEl = document.getElementById("severityFilter");
+
+    const search = searchEl ? searchEl.value.toLowerCase().trim() : "";
+    const dateFilter = dateEl ? dateEl.value : "";
+    const eventFilter = eventEl ? eventEl.value : "";
+    const severityFilter = severityEl ? severityEl.value : "";
+    const isNumber = /^[0-9]+$/.test(search);
+
+    currentLogs = dedupeCommandLogs(allLogs).filter((log) => {
+      const matchesDate = !dateFilter || logDateKey(log.timestamp) === dateFilter;
+      const matchesEvent = !eventFilter || log.event_type === eventFilter;
+      const matchesSeverity = !severityFilter || log.severity === severityFilter;
+
+      let matchesSearch = true;
+
+      if (search) {
+        if (isNumber) {
+          matchesSearch = String(log.apartment || "").trim() === search;
+        } else {
+          matchesSearch = lower(log.actor).includes(search);
+        }
+      }
+
+      return matchesSearch && matchesDate && matchesEvent && matchesSeverity;
+    });
+
+    renderLogs(currentLogs);
+  };
+
+  window.loadLogs = async function () {
+    const tbody = document.getElementById("logsTableBody");
+
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+            Loading logs...
+          </td>
+        </tr>
+      `;
+    }
+
+    const items = await fetchLogs();
+
+    allLogs = dedupeCommandLogs(
+      items
+        .map(normalizeLog)
+        .map(normalizeDashboardCommandLog)
+    ).sort((a, b) => parseLogDate(b.timestamp) - parseLogDate(a.timestamp));
+
+    buildDateFilter();
+    applyFilters();
   };
 
   document.addEventListener("DOMContentLoaded", function () {
-    normalizeHeaders();
-    normalizeRows();
-    setupFilters();
-
-    document.querySelectorAll("button, a").forEach((item) => {
-      if (lower(item.textContent).includes("refresh") && !item.onclick) {
-        item.addEventListener("click", function (event) {
-          event.preventDefault();
-          window.location.reload();
-        });
-      }
-    });
+    const searchEl = document.getElementById("logSearch");
+    if (searchEl) {
+      searchEl.placeholder = "Number = Apartment only / Text = Actor only";
+    }
   });
 })();
 </script>
-<!-- D7M16_PHASE10_LOGS_UI_FIX_END -->
+<!-- D7M16_FINAL_QA_LOG_ACTOR_DEDUPE_V6_END -->
 
 {% endblock %}
 
-<!-- D7M16_SECURITY_LOGS_FRONTEND_FIX_START -->
-<script>
-document.addEventListener("DOMContentLoaded", async function () {
-  try {
-    const response = await fetch("/api/dashboard/security-logs-data?limit=100", { cache: "no-store" });
-    const data = await response.json();
-    const logs = data.logs || [];
 
-    const tbody = document.querySelector("table tbody");
-    if (!tbody) return;
-
-    if (!logs.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; opacity:.7; padding:24px;">No security logs yet.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = logs.map(log => {
-      const sev = String(log.severity || "INFO").toLowerCase();
-      return `
-        <tr>
-          <td>${log.timestamp || ""}</td>
-          <td><span class="badge ${sev}">${log.severity || "INFO"}</span></td>
-          <td>${log.home || ""}</td>
-          <td>${log.event_type || ""}</td>
-          <td>${log.details || ""}</td>
-          <td>${log.action_taken || ""}</td>
-        </tr>
-      `;
-    }).join("");
-  } catch (error) {
-    console.error("Security logs load error:", error);
-  }
-});
-</script>
-<!-- D7M16_SECURITY_LOGS_FRONTEND_FIX_END -->
 

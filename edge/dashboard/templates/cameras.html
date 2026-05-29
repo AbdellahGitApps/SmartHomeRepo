@@ -4,58 +4,520 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1 data-i18n="camera_monitoring">Camera Monitoring</h1>
-        <p data-i18n="camera_monitoring_desc">Monitor all smart door cameras across the system</p>
+        <h1>Camera Monitoring</h1>
+        <p>Monitor smart door camera streams across registered homes</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-outline" onclick="window.location.reload()">
+            <i class="ph ph-arrows-clockwise"></i>
+            Refresh Status
+        </button>
     </div>
 </div>
 
-<div class="card-grid">
-    <!-- Camera 1 -->
-    <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="stat-icon success" style="margin: 0; width: 40px; height: 40px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1); color: var(--status-success); border-radius: 50%;">
-                    <i class="ph-fill ph-camera"></i>
-                </div>
-                <div>
-                    <h3 style="font-size: 1.1rem; margin-bottom: 2px;">CAM-101-A</h3>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem;">Apt 101 - <span data-i18n="front_door">Front Door</span></p>
-                </div>
-            </div>
-            <span class="badge badge-success" data-i18n="status_online">Online</span>
+<style>
+.camera-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.camera-stat-card {
+    background: rgba(20, 31, 46, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.20);
+    border-radius: 14px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.camera-stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+}
+
+.camera-stat-label {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.camera-stat-value {
+    color: var(--text-primary);
+    font-size: 1.6rem;
+    font-weight: 900;
+    line-height: 1.1;
+    margin-top: 4px;
+}
+
+.camera-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(335px, 1fr));
+    gap: 20px;
+}
+
+.camera-card {
+    background: rgba(20, 31, 46, 0.98);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 16px;
+    padding: 16px;
+    min-height: 355px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+}
+
+.camera-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.camera-title-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.camera-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    background: rgba(59, 130, 246, 0.13);
+    color: #3b82f6;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex: 0 0 auto;
+}
+
+.camera-name {
+    color: var(--text-primary);
+    font-size: 1.03rem;
+    font-weight: 900;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.camera-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    word-break: break-word;
+}
+
+.camera-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.camera-field {
+    background: rgba(9, 16, 29, 0.45);
+    border: 1px solid rgba(148, 163, 184, 0.11);
+    border-radius: 12px;
+    padding: 10px 12px;
+    min-height: 64px;
+}
+
+.camera-field-wide {
+    grid-column: 1 / -1;
+}
+
+.camera-field-label {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+}
+
+.camera-field-value {
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 750;
+    word-break: break-word;
+}
+
+.camera-stream-box {
+    border: 1px dashed rgba(148, 163, 184, 0.28);
+    border-radius: 14px;
+    background: rgba(2, 6, 23, 0.38);
+    min-height: 165px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 16px;
+    margin-top: auto;
+    overflow: hidden;
+}
+
+.camera-stream-placeholder i {
+    font-size: 2.1rem;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.camera-stream-frame {
+    width: 100%;
+    height: 220px;
+    border: 0;
+    border-radius: 12px;
+    background: #020617;
+    display: none;
+}
+
+.stream-title {
+    font-weight: 900;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.stream-desc {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    margin-bottom: 14px;
+}
+
+.stream-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.badge-camera {
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.badge-online,
+.badge-available {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.22);
+}
+
+.badge-offline,
+.badge-unavailable {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.10);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.empty-camera-card {
+    background: rgba(20, 31, 46, 0.98);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 16px;
+    padding: 42px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+@media (max-width: 900px) {
+    .camera-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .camera-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<div class="camera-stats-grid">
+    <div class="camera-stat-card">
+        <div class="camera-stat-icon" style="background: rgba(59,130,246,.12); color:#3b82f6;">
+            <i class="ph ph-video-camera"></i>
+        </div>
+        <div>
+            <div class="camera-stat-label">Total Cameras</div>
+            <div class="camera-stat-value">{{ stats.total_cameras }}</div>
         </div>
     </div>
 
-    <!-- Camera 2 -->
-    <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="stat-icon success" style="margin: 0; width: 40px; height: 40px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1); color: var(--status-success); border-radius: 50%;">
-                    <i class="ph-fill ph-camera"></i>
-                </div>
-                <div>
-                    <h3 style="font-size: 1.1rem; margin-bottom: 2px;">CAM-4B-A</h3>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem;">Apt 4B - <span data-i18n="main_door">Main Door</span></p>
-                </div>
-            </div>
-            <span class="badge badge-success" data-i18n="status_online">Online</span>
+    <div class="camera-stat-card">
+        <div class="camera-stat-icon" style="background: rgba(34,197,94,.12); color:#22c55e;">
+            <i class="ph ph-wifi-high"></i>
+        </div>
+        <div>
+            <div class="camera-stat-label">Online Cameras</div>
+            <div class="camera-stat-value">{{ stats.online_cameras }}</div>
         </div>
     </div>
 
-    <!-- Camera 3 -->
-    <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px; opacity: 0.6;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="stat-icon" style="margin: 0; width: 40px; height: 40px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); border-radius: 50%;">
-                    <i class="ph ph-camera-slash"></i>
-                </div>
-                <div>
-                    <h3 style="font-size: 1.1rem; margin-bottom: 2px;">CAM-205-A</h3>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem;">Apt 205 - <span data-i18n="front_door">Front Door</span></p>
-                </div>
-            </div>
-            <span class="badge badge-offline" data-i18n="status_offline">Offline</span>
+    <div class="camera-stat-card">
+        <div class="camera-stat-icon" style="background: rgba(245,158,11,.12); color:#f59e0b;">
+            <i class="ph ph-broadcast"></i>
+        </div>
+        <div>
+            <div class="camera-stat-label">Streams Available</div>
+            <div class="camera-stat-value">{{ stats.streams_available }}</div>
         </div>
     </div>
 </div>
+
+{% if cameras %}
+<div class="camera-grid">
+    {% for camera in cameras %}
+    <div class="camera-card">
+        <div class="camera-head">
+            <div class="camera-title-left">
+                <div class="camera-icon">
+                    <i class="ph ph-video-camera"></i>
+                </div>
+                <div>
+                    <div class="camera-name">{{ camera.name }}</div>
+                    <div class="camera-subtitle">{{ camera.device_type }}</div>
+                </div>
+            </div>
+
+            {% if camera.online %}
+            <span class="badge-camera badge-online">ONLINE</span>
+            {% else %}
+            <span class="badge-camera badge-offline">OFFLINE</span>
+            {% endif %}
+        </div>
+
+        <div class="camera-details-grid">
+            <div class="camera-field">
+                <div class="camera-field-label">Apartment Number</div>
+                <div class="camera-field-value">{{ camera.apartment_number }}</div>
+            </div>
+
+            <div class="camera-field">
+                <div class="camera-field-label">Last Seen</div>
+                <div class="camera-field-value">{{ camera.last_seen }}</div>
+            </div>
+
+            <div class="camera-field camera-field-wide">
+                <div class="camera-field-label">Camera Stream URL</div>
+                <div class="camera-field-value" style="font-family: monospace;">
+                    {% if camera.stream_url %}
+                    {{ camera.stream_url }}
+                    {% else %}
+                    Not available yet
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="camera-stream-box">
+            {% if camera.stream_available %}
+            <iframe class="camera-stream-frame" id="stream-frame-{{ loop.index }}"></iframe>
+
+            <div class="camera-stream-placeholder" id="stream-placeholder-{{ loop.index }}">
+                <i class="ph ph-play-circle" style="color:#22c55e;"></i>
+                <div class="stream-title">Stream Available</div>
+                <div class="stream-desc">Press View Stream to display the live stream here.</div>
+            </div>
+            {% else %}
+            <div class="camera-stream-placeholder">
+                <i class="ph ph-video-camera-slash" style="color:#94a3b8;"></i>
+                <div class="stream-title">Stream Not Available</div>
+                <div class="stream-desc">No valid stream URL is available, or the camera is offline.</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="stream-footer">
+            <span class="camera-field-label" style="margin:0;">Stream Status</span>
+
+            <div style="display:flex; align-items:center; gap:10px;">
+                {% if camera.stream_available %}
+                <span class="badge-camera badge-available">AVAILABLE</span>
+                <button class="btn btn-primary" id="stream-btn-{{ loop.index }}" onclick="toggleCameraStream('{{ loop.index }}', '{{ camera.stream_url }}')">
+                    <i class="ph ph-eye"></i>
+                    <span>View Stream</span>
+                </button>
+                {% else %}
+                <span class="badge-camera badge-unavailable">NOT AVAILABLE</span>
+                <button class="btn btn-outline" disabled>
+                    <i class="ph ph-eye-slash"></i>
+                    View Stream
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-camera-card">
+    <i class="ph ph-video-camera-slash" style="font-size: 2.8rem; color: var(--text-secondary);"></i>
+    <div style="font-size: 1.05rem; font-weight: 800; margin-top: 12px;">No camera devices found.</div>
+    <div style="margin-top: 6px;">Create a smart door camera device first, then it will appear here.</div>
+</div>
+{% endif %}
+
+<script>
+function toggleCameraStream(index, url) {
+    const frame = document.getElementById(`stream-frame-${index}`);
+    const placeholder = document.getElementById(`stream-placeholder-${index}`);
+    const button = document.getElementById(`stream-btn-${index}`);
+
+    if (!frame || !placeholder || !button) return;
+
+    const isOpen = frame.style.display === "block";
+    const icon = button.querySelector("i");
+    const text = button.querySelector("span");
+
+    if (isOpen) {
+        frame.src = "";
+        frame.style.display = "none";
+        placeholder.style.display = "block";
+        if (icon) icon.className = "ph ph-eye";
+        if (text) text.textContent = "View Stream";
+        return;
+    }
+
+    frame.src = url;
+    frame.style.display = "block";
+    placeholder.style.display = "none";
+    if (icon) icon.className = "ph ph-stop-circle";
+    if (text) text.textContent = "Stop Stream";
+}
+</script>
 {% endblock %}
+
+
+<!-- FINAL_TARGET_DATETIME_FIX_START -->
+<style>
+  .final-datetime-nowrap {
+    white-space: nowrap !important;
+    font-size: 0.88rem !important;
+    letter-spacing: 0 !important;
+  }
+</style>
+
+<script>
+(function () {
+  function pad2(v) {
+    return String(v).padStart(2, "0");
+  }
+
+  function formatDateTime(datePart, hourPart, minutePart, secondPart, suffixPart) {
+    let hour = parseInt(hourPart, 10);
+    const minute = pad2(minutePart || "00");
+    const second = pad2(secondPart || "00");
+
+    let suffix = suffixPart ? suffixPart.toUpperCase() : (hour >= 12 ? "PM" : "AM");
+
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+
+    return `${datePart}, ${pad2(hour)}:${minute}:${second} ${suffix}`;
+  }
+
+  function normalizeText(text) {
+    if (!text) return text;
+
+    let clean = String(text).replace(/\s+/g, " ").trim();
+
+    clean = clean.replace(
+      /(\d{4}-\d{2}-\d{2})\s*,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/gi,
+      function (_, datePart, hourPart, minutePart, secondPart, suffixPart) {
+        return formatDateTime(datePart, hourPart, minutePart, secondPart || "00", suffixPart);
+      }
+    );
+
+    return clean;
+  }
+
+  function isSmallDateTimeOnly(text) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    return /^(\d{4}-\d{2}-\d{2})\s*,?\s+\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/i.test(clean);
+  }
+
+  function fixDateTimeElements() {
+    const selectors = [
+      "td",
+      "span",
+      "small",
+      "strong",
+      ".value",
+      ".info-value",
+      ".meta-value",
+      ".device-value",
+      ".camera-value",
+      ".last-seen",
+      "[data-last-seen]",
+      "[data-created-at]",
+      "[data-registered-at]"
+    ];
+
+    document.querySelectorAll(selectors.join(",")).forEach(function (el) {
+      const text = el.textContent || "";
+      const compact = text.replace(/\s+/g, " ").trim();
+
+      if (!compact.includes("-") || !/\d{4}-\d{2}-\d{2}/.test(compact) || !/\d{1,2}:\d{2}/.test(compact)) {
+        return;
+      }
+
+      if (compact.length <= 80 || isSmallDateTimeOnly(compact)) {
+        const fixed = normalizeText(compact);
+        if (fixed !== compact) {
+          el.textContent = fixed;
+        }
+        el.classList.add("final-datetime-nowrap");
+      }
+    });
+
+    // إصلاح خاص لو التاريخ والوقت داخل نفس الكارد لكن ملتفين بسبب العرض
+    document.querySelectorAll("*").forEach(function (el) {
+      if (["SCRIPT", "STYLE", "INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON", "PRE", "CODE"].includes(el.tagName)) {
+        return;
+      }
+
+      if (el.children.length > 3) return;
+
+      const text = el.textContent || "";
+      const compact = text.replace(/\s+/g, " ").trim();
+
+      if (
+        compact.length <= 70 &&
+        /^(\d{4}-\d{2}-\d{2})\s*,?\s+\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/i.test(compact)
+      ) {
+        el.textContent = normalizeText(compact);
+        el.classList.add("final-datetime-nowrap");
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", fixDateTimeElements);
+  window.addEventListener("load", fixDateTimeElements);
+
+  const observer = new MutationObserver(function () {
+    clearTimeout(window.__finalDateTimeTimer);
+    window.__finalDateTimeTimer = setTimeout(fixDateTimeElements, 80);
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  fixDateTimeElements();
+})();
+</script>
+<!-- FINAL_TARGET_DATETIME_FIX_END -->
+

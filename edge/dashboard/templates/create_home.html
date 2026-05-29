@@ -44,7 +44,7 @@
             <div class="device-entry" style="padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: end;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Device Name</label>
-                    <input type="text" class="form-control" placeholder="e.g. Front Door Camera" value="Front Door Camera" required>
+                    <input type="text" class="form-control" placeholder="e.g. Front Door Camera" placeholder="Front Door Camera" required>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Device Type</label>
@@ -64,7 +64,7 @@
             <div class="device-entry" style="padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: end;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Device Name</label>
-                    <input type="text" class="form-control" placeholder="e.g. Main Energy Meter" value="Main Energy Meter" required>
+                    <input type="text" class="form-control" placeholder="e.g. Main Energy Meter" placeholder="Main Energy Meter" required>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Device Type</label>
@@ -184,4 +184,134 @@
         to { opacity: 1; transform: translateY(0); }
     }
 </style>
+
+<!-- D7M16_CREATE_HOME_VALIDATION_V6_START -->
+
+<script>
+(function () {
+    const allowedDomains = ["gmail.com", "hotmail.com", "outlook.com", "live.com", "yahoo.com", "icloud.com"];
+
+    function scriptOfWord(word) {
+        if (/^[\p{Script=Arabic}\p{Mark}]+$/u.test(word)) return "arabic";
+        if (/^[\p{Script=Latin}\p{Mark}]+$/u.test(word)) return "latin";
+        if (/^[\p{Script=Han}\p{Mark}]+$/u.test(word)) return "han";
+        if (/^[\p{Script=Cyrillic}\p{Mark}]+$/u.test(word)) return "cyrillic";
+        if (/^[\p{Script=Greek}\p{Mark}]+$/u.test(word)) return "greek";
+        if (/^[\p{Letter}\p{Mark}]+$/u.test(word)) return "other";
+        return "";
+    }
+
+    function validOwnerName(value) {
+        const parts = String(value || "").trim().split(/\s+/u).filter(Boolean);
+        if (parts.length !== 4) return false;
+        const scripts = parts.map(scriptOfWord);
+        if (scripts.some(s => !s)) return false;
+        return scripts.every(s => s === scripts[0]);
+    }
+
+    function validEmail(value) {
+        const v = String(value || "").trim().toLowerCase();
+        const match = v.match(/^[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})$/i);
+        return !!match && allowedDomains.includes(match[1]);
+    }
+
+    function bySelectors(selectors) {
+        for (const s of selectors) {
+            const el = document.querySelector(s);
+            if (el) return el;
+        }
+        return null;
+    }
+
+    function fields(scope) {
+        scope = scope || document;
+        return {
+            apartment: scope.querySelector('input[name="apartment_number"], input[id*="apartment" i], input[placeholder*="36"]'),
+            owner: scope.querySelector('input[name="owner_name"], input[id*="owner" i][id*="name" i], input[placeholder*="John Doe" i]'),
+            email: scope.querySelector('input[name="owner_email"], input[type="email"], input[id*="email" i], input[placeholder*="john@example" i]')
+        };
+    }
+
+    function validateScope(scope) {
+        const f = fields(scope);
+        if (f.apartment && !/^\d+$/.test(f.apartment.value.trim())) {
+            alert("Apartment Number must contain digits only.");
+            f.apartment.focus();
+            return false;
+        }
+        if (f.owner && !validOwnerName(f.owner.value)) {
+            alert("Owner Name must be exactly 4 names, letters only, all in one writing system.");
+            f.owner.focus();
+            return false;
+        }
+        if (f.email && !validEmail(f.email.value)) {
+            alert("Owner Email must be a valid email using gmail.com, hotmail.com, outlook.com, live.com, yahoo.com, or icloud.com.");
+            f.email.focus();
+            return false;
+        }
+        return true;
+    }
+
+    function normalizeDefaultDeviceInputs() {
+        document.querySelectorAll("input").forEach(input => {
+            const value = input.value.trim();
+            if (value === "Front Door Camera" || value === "Main Energy Meter") {
+                input.placeholder = value;
+                input.dataset.defaultDeviceName = value;
+                input.value = "";
+            }
+        });
+    }
+
+    function fillDefaultDeviceNames() {
+        document.querySelectorAll("input").forEach(input => {
+            const row = input.closest("div, tr, section, fieldset") || input.parentElement;
+            const select = row ? row.querySelector("select") : null;
+            const type = select ? String(select.value || "").toLowerCase() : "";
+
+            if (!input.value.trim()) {
+                if (input.dataset.defaultDeviceName) {
+                    input.value = input.dataset.defaultDeviceName;
+                } else if (type.includes("smart_door")) {
+                    input.value = "Front Door Camera";
+                } else if (type.includes("energy_monitor") || type.includes("energy")) {
+                    input.value = "Main Energy Meter";
+                }
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        normalizeDefaultDeviceInputs();
+
+        document.querySelectorAll("form").forEach(form => {
+            form.addEventListener("submit", function (e) {
+                if (!validateScope(form)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+                fillDefaultDeviceNames();
+            }, true);
+        });
+
+        document.addEventListener("click", function (e) {
+            const btn = e.target.closest("button, input[type='submit']");
+            if (!btn) return;
+            const text = (btn.textContent || btn.value || "").toLowerCase();
+            if (text.includes("save") || text.includes("register") || text.includes("create")) {
+                const modal = btn.closest(".modal, [role='dialog'], .dialog, .popup") || document;
+                if (!validateScope(modal)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+                fillDefaultDeviceNames();
+            }
+        }, true);
+    });
+})();
+</script>
+
+<!-- D7M16_CREATE_HOME_VALIDATION_V6_END -->
 {% endblock %}

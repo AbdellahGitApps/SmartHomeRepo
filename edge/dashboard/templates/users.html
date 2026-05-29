@@ -3,83 +3,92 @@
 {% block content %}
 <style>
   .users-page {
-    padding: 28px;
+    padding: 38px 48px;
   }
 
-  .users-header {
+  .page-head {
     display: flex;
+    align-items: flex-start;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 22px;
+    gap: 24px;
+    margin-bottom: 24px;
   }
 
-  .users-title h1 {
-    margin: 0;
-    font-size: 28px;
+  .page-title {
+    font-size: 30px;
     font-weight: 800;
+    margin: 0;
     color: #f8fafc;
+    letter-spacing: -0.03em;
   }
 
-  .users-title p {
-    margin: 8px 0 0;
-    color: #94a3b8;
-    font-size: 14px;
+  .page-subtitle {
+    margin-top: 8px;
+    color: #9fb0c8;
+    font-size: 15px;
   }
 
-  .users-card {
+  .primary-btn {
+    background: #3b82f6;
+    color: #fff;
+    border: 0;
+    border-radius: 7px;
+    padding: 12px 18px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .panel {
     background: #172233;
-    border: 1px solid #26364d;
+    border: 1px solid #2a3a52;
     border-radius: 10px;
-    padding: 20px;
+    padding: 22px;
   }
 
-  .users-toolbar {
+  .toolbar {
     display: flex;
     gap: 12px;
     margin-bottom: 22px;
   }
 
-  .users-search,
-  .users-select {
-    background: #111827;
-    border: 1px solid #26364d;
-    color: #cbd5e1;
+  .field,
+  .select {
+    background: #111a29;
+    border: 1px solid #2a3a52;
+    color: #e5edf9;
     border-radius: 6px;
-    height: 38px;
+    height: 39px;
     padding: 0 14px;
     outline: none;
-    font-size: 14px;
   }
 
-  .users-search {
-    width: 260px;
+  .field {
+    min-width: 270px;
   }
 
-  .users-select {
-    width: 140px;
+  .select {
+    min-width: 140px;
   }
 
-  .users-table {
+  table {
     width: 100%;
     border-collapse: collapse;
   }
 
-  .users-table th {
-    color: #94a3b8;
+  th {
+    text-align: left;
+    color: #8fa0b9;
     font-size: 12px;
     letter-spacing: .08em;
-    text-transform: uppercase;
-    font-weight: 700;
-    text-align: left;
-    padding: 14px 12px;
-    border-bottom: 1px solid #26364d;
+    padding: 13px 10px;
+    border-bottom: 1px solid #2a3a52;
   }
 
-  .users-table td {
-    padding: 16px 12px;
-    border-bottom: 1px solid #26364d;
-    color: #e5e7eb;
-    font-size: 14px;
+  td {
+    padding: 15px 10px;
+    border-bottom: 1px solid #24344c;
+    color: #e5edf9;
+    vertical-align: middle;
   }
 
   .user-cell {
@@ -89,9 +98,9 @@
   }
 
   .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 999px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
     background: #3b82f6;
     color: white;
     display: flex;
@@ -99,254 +108,457 @@
     justify-content: center;
     font-size: 12px;
     font-weight: 800;
+    flex: 0 0 auto;
   }
 
-  .user-name {
-    color: #f8fafc;
+  .name {
     font-weight: 800;
-    line-height: 1.1;
+    color: #f8fafc;
   }
 
-  .user-email {
-    color: #94a3b8;
-    font-size: 12px;
+  .email {
+    color: #9fb0c8;
+    font-size: 13px;
     margin-top: 3px;
   }
 
-  .role-badge {
+  .badge {
     display: inline-flex;
     align-items: center;
-    padding: 4px 10px;
+    justify-content: center;
+    height: 22px;
+    padding: 0 11px;
     border-radius: 999px;
-    background: #334155;
-    color: #e2e8f0;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
-    letter-spacing: .04em;
   }
 
   .role-system {
-    background: rgba(59, 130, 246, .18);
+    background: #153a6b;
     color: #60a5fa;
   }
 
   .role-home {
-    background: rgba(148, 163, 184, .18);
-    color: #e2e8f0;
-  }
-
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 800;
+    background: #243044;
+    color: #d7e1ef;
   }
 
   .status-active {
-    background: rgba(16, 185, 129, .18);
+    background: #064e3b;
     color: #34d399;
   }
 
   .status-disabled {
-    background: rgba(100, 116, 139, .18);
-    color: #64748b;
+    background: #4b1720;
+    color: #fb7185;
   }
 
-  .action-group {
+  .actions {
     display: flex;
-    gap: 8px;
     align-items: center;
+    gap: 9px;
   }
 
   .icon-btn {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 7px;
-    border: 1px solid #26364d;
-    background: #111827;
-    color: #94a3b8;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    border: 1px solid #2a3a52;
+    background: #111a29;
+    color: #c7d2e3;
     cursor: pointer;
-    font-size: 13px;
+    font-weight: 900;
   }
 
   .icon-btn:hover {
-    color: #f8fafc;
     border-color: #3b82f6;
+    color: #fff;
   }
 
-  .icon-warning {
+  .toggle-btn {
+    border-color: #b45309;
     color: #f59e0b;
-    border-color: rgba(245, 158, 11, .35);
   }
 
-  .icon-success {
-    color: #10b981;
-    border-color: rgba(16, 185, 129, .35);
+  .toggle-btn.disabled {
+    border-color: #16a34a;
+    color: #22c55e;
   }
 
-  .add-user-btn {
-    background: #3b82f6;
-    color: white;
-    border: none;
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.62);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+
+  .modal {
+    width: min(520px, calc(100vw - 40px));
+    background: #172233;
+    border: 1px solid #2a3a52;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  }
+
+  .modal h3 {
+    margin: 0 0 18px;
+    color: #f8fafc;
+    font-size: 20px;
+  }
+
+  .form-row {
+    margin-bottom: 14px;
+  }
+
+  .form-row label {
+    display: block;
+    color: #c7d2e3;
+    font-weight: 800;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  .form-row input {
+    width: 100%;
+    background: #111a29;
+    border: 1px solid #2a3a52;
+    color: #e5edf9;
     border-radius: 7px;
-    padding: 10px 18px;
+    height: 42px;
+    padding: 0 12px;
+    outline: none;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .secondary-btn {
+    background: #111a29;
+    color: #e5edf9;
+    border: 1px solid #2a3a52;
+    border-radius: 7px;
+    padding: 11px 16px;
     font-weight: 800;
     cursor: pointer;
   }
 
-  .empty-users-row {
-    display: none;
-  }
-
-  .toast-message {
+  .toast {
     position: fixed;
-    right: 28px;
+    right: 30px;
     bottom: 28px;
     background: #111827;
     border: 1px solid #334155;
-    color: #f8fafc;
-    padding: 12px 16px;
-    border-radius: 10px;
-    box-shadow: 0 16px 35px rgba(0, 0, 0, .35);
-    font-size: 14px;
-    z-index: 9999;
-    opacity: 0;
-    transform: translateY(12px);
-    pointer-events: none;
-    transition: .2s ease;
+    color: #e5edf9;
+    padding: 14px 18px;
+    border-radius: 9px;
+    display: none;
+    z-index: 70;
+    min-width: 320px;
   }
 
-  .toast-message.show {
-    opacity: 1;
-    transform: translateY(0);
+  .toast.ok {
+    border-color: #2563eb;
+  }
+
+  .toast.error {
+    border-color: #dc2626;
   }
 </style>
 
 <div class="users-page">
-  <div class="users-header">
-    <div class="users-title">
-      <h1>Users Management</h1>
-      <p>Manage System Owner and registered home owners</p>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Users Management</h1>
+      <div class="page-subtitle">Manage System Owner and registered home owner accounts</div>
     </div>
-    <button class="add-user-btn" onclick="window.location.href='/create-home'">+ Add User</button>
+    <button class="primary-btn" onclick="showDeferred()">+ Add User</button>
   </div>
 
-  <div class="users-card">
-    <div class="users-toolbar">
-      <input id="userSearch" class="users-search" placeholder="Search users by name or email...">
-      <select id="roleFilter" class="users-select">
+  <div class="panel">
+    <div class="toolbar">
+      <input id="searchInput" class="field" type="search" name="d7_users_search_input" value="" autocomplete="new-password" placeholder="Search users by name or email..." oninput="this.dataset.userTyped = '1'; renderUsers()">
+      <select id="roleFilter" class="select" onchange="renderUsers()">
         <option value="all">All Roles</option>
         <option value="SYSTEM OWNER">System Owner</option>
         <option value="HOME OWNER">Home Owner</option>
       </select>
     </div>
 
-    <table class="users-table">
+    <table>
       <thead>
         <tr>
-          <th>User</th>
-          <th>Role</th>
-          <th>Associated Home</th>
-          <th>Status</th>
-          <th>Last Login</th>
-          <th>Actions</th>
+          <th>USER</th>
+          <th>ROLE</th>
+          <th>ASSOCIATED HOME</th>
+          <th>STATUS</th>
+          <th>LAST LOGIN</th>
+          <th>ACTIONS</th>
         </tr>
       </thead>
-      <tbody id="usersTableBody">
-        {% for user in users %}
-        <tr class="user-row" data-role="{{ user.role }}" data-search="{{ user.name | lower }} {{ user.email | lower }} {{ user.home | lower }}">
-          <td>
-            <div class="user-cell">
-              <div class="avatar">{{ user.initials }}</div>
-              <div>
-                <div class="user-name">{{ user.name }}</div>
-                <div class="user-email">{{ user.email }}</div>
-              </div>
-            </div>
-          </td>
-          <td>
-            {% if user.role == "SYSTEM OWNER" %}
-              <span class="role-badge role-system">{{ user.role }}</span>
-            {% else %}
-              <span class="role-badge role-home">{{ user.role }}</span>
-            {% endif %}
-          </td>
-          <td>{{ user.home }}</td>
-          <td>
-            {% if user.status == "ACTIVE" %}
-              <span class="status-badge status-active">{{ user.status }}</span>
-            {% else %}
-              <span class="status-badge status-disabled">{{ user.status }}</span>
-            {% endif %}
-          </td>
-          <td>{{ user.last_login }}</td>
-          <td>
-            <div class="action-group">
-              <button class="icon-btn" title="Edit" onclick="showUserToast('Edit user is deferred to the full Users permissions phase.')">✎</button>
-              {% if user.role != "SYSTEM OWNER" %}
-                {% if user.status == "ACTIVE" %}
-                  <button class="icon-btn icon-warning" title="Disable" onclick="showUserToast('Disable user is deferred until real user permissions are implemented.')">⊘</button>
-                {% else %}
-                  <button class="icon-btn icon-success" title="Enable" onclick="showUserToast('Enable user is deferred until real user permissions are implemented.')">✓</button>
-                {% endif %}
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-        <tr id="emptyUsersRow" class="empty-users-row">
-          <td colspan="6" style="text-align:center; color:#94a3b8; padding:28px;">No users match your search.</td>
+      <tbody id="usersBody">
+        <tr>
+          <td colspan="6">Loading users...</td>
         </tr>
       </tbody>
     </table>
   </div>
 </div>
 
-<div id="usersToast" class="toast-message"></div>
+<div id="ownerModal" class="modal-backdrop">
+  <div class="modal">
+    <h3>Edit System Owner</h3>
+
+    <div class="form-row">
+      <label>Username</label>
+      <input id="ownerUsername" placeholder="system_owner">
+    </div>
+
+    <div class="form-row">
+      <label>Email</label>
+      <input id="ownerEmail" placeholder="admin@edge-system.local">
+    </div>
+
+    <div class="form-row">
+      <label>New Password</label>
+      <input id="ownerPassword" type="password" placeholder="Leave empty to keep current password">
+    </div>
+
+    <div class="form-row">
+      <label>Confirm Password</label>
+      <input id="ownerPasswordConfirm" type="password" placeholder="Confirm new password">
+    </div>
+
+    <div class="modal-actions">
+      <button class="secondary-btn" onclick="closeOwnerModal()">Cancel</button>
+      <button class="primary-btn" onclick="saveSystemOwner()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
-  const userSearch = document.getElementById('userSearch');
-  const roleFilter = document.getElementById('roleFilter');
-  const userRows = Array.from(document.querySelectorAll('.user-row'));
-  const emptyUsersRow = document.getElementById('emptyUsersRow');
-  const usersToast = document.getElementById('usersToast');
+  let users = [];
+  let systemOwner = null;
 
-  function filterUsers() {
-    const query = userSearch.value.trim().toLowerCase();
-    const selectedRole = roleFilter.value;
-    let visibleCount = 0;
+  function initials(name) {
+    if (!name) return "U";
+    if (name === "System Owner") return "SO";
+    return name.trim().slice(0, 1).toUpperCase();
+  }
 
-    userRows.forEach(row => {
-      const rowRole = row.dataset.role;
-      const rowSearch = row.dataset.search || '';
-      const matchesSearch = rowSearch.includes(query);
-      const matchesRole = selectedRole === 'all' || rowRole === selectedRole;
+  function showToast(message, type = "ok") {
+    const el = document.getElementById("toast");
+    el.textContent = message;
+    el.className = `toast ${type}`;
+    el.style.display = "block";
+    setTimeout(() => { el.style.display = "none"; }, 2800);
+  }
 
-      if (matchesSearch && matchesRole) {
-        row.style.display = '';
-        visibleCount++;
-      } else {
-        row.style.display = 'none';
-      }
+  async function loadUsers() {
+    try {
+      const res = await fetch("/api/users-management/list", { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load users");
+      const data = await res.json();
+      users = data.users || [];
+      systemOwner = users.find(u => u.kind === "system_owner");
+      renderUsers();
+    } catch (err) {
+      document.getElementById("usersBody").innerHTML = `
+        <tr><td colspan="6">Failed to load users.</td></tr>
+      `;
+      showToast(err.message || "Failed to load users", "error");
+    }
+  }
+
+  function renderUsers() {
+    const q = (document.getElementById("searchInput").value || "").trim().toLowerCase();
+    const role = document.getElementById("roleFilter").value;
+
+    const filtered = users.filter(u => {
+      const matchSearch =
+        !q ||
+        (u.name || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q);
+
+      const matchRole = role === "all" || u.role === role;
+      return matchSearch && matchRole;
     });
 
-    emptyUsersRow.style.display = visibleCount === 0 ? 'table-row' : 'none';
+    const body = document.getElementById("usersBody");
+
+    if (!filtered.length) {
+      body.innerHTML = `<tr><td colspan="6">No users found.</td></tr>`;
+      return;
+    }
+
+    body.innerHTML = filtered.map(u => {
+      const active = (u.status || "active").toLowerCase() === "active";
+      const statusClass = active ? "status-active" : "status-disabled";
+      const statusText = active ? "ACTIVE" : "DISABLED";
+      const roleClass = u.kind === "system_owner" ? "role-system" : "role-home";
+
+      let actions = "";
+      if (u.kind === "system_owner") {
+        actions = `<button class="icon-btn" title="Edit System Owner" onclick="openOwnerModal()">✎</button>`;
+      } else {
+        actions = `
+          <button
+            class="icon-btn toggle-btn ${active ? "" : "disabled"}"
+            title="${active ? "Disable account" : "Enable account"}"
+            onclick="toggleHomeOwner('${u.id}')"
+          >${active ? "⊘" : "✓"}</button>
+        `;
+      }
+
+      return `
+        <tr>
+          <td>
+            <div class="user-cell">
+              <div class="avatar">${initials(u.name)}</div>
+              <div>
+                <div class="name">${u.name || "User"}</div>
+                <div class="email">${u.email || ""}</div>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge ${roleClass}">${u.role}</span></td>
+          <td>${u.associated_home || "--"}</td>
+          <td><span class="badge ${statusClass}">${statusText}</span></td>
+          <td>${u.last_login || "Not logged in yet"}</td>
+          <td><div class="actions">${actions}</div></td>
+        </tr>
+      `;
+    }).join("");
   }
 
-  function showUserToast(message) {
-    usersToast.textContent = message;
-    usersToast.classList.add('show');
-    setTimeout(() => {
-      usersToast.classList.remove('show');
-    }, 2600);
+  function openOwnerModal() {
+    if (!systemOwner) return;
+    document.getElementById("ownerUsername").value = systemOwner.username || "system_owner";
+    document.getElementById("ownerEmail").value = systemOwner.email || "";
+    document.getElementById("ownerPassword").value = "";
+    document.getElementById("ownerPasswordConfirm").value = "";
+    document.getElementById("ownerModal").style.display = "flex";
   }
 
-  userSearch.addEventListener('input', filterUsers);
-  roleFilter.addEventListener('change', filterUsers);
+  function closeOwnerModal() {
+    document.getElementById("ownerModal").style.display = "none";
+  }
+
+  async function saveSystemOwner() {
+    const username = document.getElementById("ownerUsername").value.trim();
+    const email = document.getElementById("ownerEmail").value.trim();
+    const password = document.getElementById("ownerPassword").value;
+    const confirm = document.getElementById("ownerPasswordConfirm").value;
+
+    if (!username) return showToast("Username is required", "error");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showToast("Enter a valid email", "error");
+    if (password || confirm) {
+      if (password !== confirm) return showToast("Passwords do not match", "error");
+    }
+
+    try {
+      const res = await fetch("/api/users-management/system-owner", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password: password || null })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to update System Owner");
+
+      closeOwnerModal();
+      showToast("System Owner updated");
+      await 
+  // D7M16 clear users search field
+  window.addEventListener("pageshow", function () {
+    const search = document.getElementById("searchInput");
+    if (search) search.value = "";
+  });
+
+  const search = document.getElementById("searchInput");
+  if (search) search.value = "";
+
+  loadUsers();
+
+    } catch (err) {
+      showToast(err.message || "Failed to update System Owner", "error");
+    }
+  }
+
+  async function toggleHomeOwner(homeId) {
+    try {
+      const res = await fetch(`/api/users-management/home-owner/${homeId}/toggle`, {
+        method: "POST"
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to update account status");
+
+      showToast(data.status === "disabled" ? "Home owner account disabled" : "Home owner account enabled");
+      await 
+  // D7M16 clear users search field
+  window.addEventListener("pageshow", function () {
+    const search = document.getElementById("searchInput");
+    if (search) search.value = "";
+  });
+
+  const search = document.getElementById("searchInput");
+  if (search) search.value = "";
+
+  loadUsers();
+
+    } catch (err) {
+      showToast(err.message || "Failed to update account status", "error");
+    }
+  }
+
+  function showDeferred() {
+    window.location.href = "/create-home";
+  }
+
+  
+  // D7M16 clear users search field
+  window.addEventListener("pageshow", function () {
+    const search = document.getElementById("searchInput");
+    if (search) search.value = "";
+  });
+
+  const search = document.getElementById("searchInput");
+  if (search) search.value = "";
+
+  loadUsers();
+
 </script>
 {% endblock %}
+
+
+<script>
+(function () {
+  if (window.__d7UsersSearchClearInstalled) return;
+  window.__d7UsersSearchClearInstalled = true;
+
+  function clearUsersSearch() {
+    const input = document.getElementById("searchInput");
+    if (!input) return;
+    if (input.dataset.userTyped === "1") return;
+    input.value = "";
+    input.setAttribute("value", "");
+    if (typeof renderUsers === "function") renderUsers();
+  }
+
+  window.addEventListener("DOMContentLoaded", clearUsersSearch);
+  window.addEventListener("pageshow", clearUsersSearch);
+  setTimeout(clearUsersSearch, 50);
+  setTimeout(clearUsersSearch, 250);
+  setTimeout(clearUsersSearch, 800);
+})();
+</script>
