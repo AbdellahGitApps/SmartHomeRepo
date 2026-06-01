@@ -1110,6 +1110,170 @@ document.addEventListener("DOMContentLoaded", () => {
 <!-- D7M16_FINAL_QA_LOG_ACTOR_DEDUPE_V6_END -->
 
 
+
+<!-- D7M16_ACTOR_FILTER_WORKING_FINAL_START -->
+<script>
+(function () {
+  if (window.__d7ActorFilterWorkingFinalInstalled) return;
+  window.__d7ActorFilterWorkingFinalInstalled = true;
+
+  function lower(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function actorBucket(value) {
+    const raw = lower(value);
+
+    if (!raw) return "";
+
+    if (
+      raw === "system owner" ||
+      raw === "system_owner" ||
+      raw.includes("system owner") ||
+      raw.includes("system_owner") ||
+      raw.includes("dashboard")
+    ) {
+      return "System Owner";
+    }
+
+    if (
+      raw === "admin app" ||
+      raw.includes("admin app") ||
+      raw.includes("flutter") ||
+      raw.includes("owner app") ||
+      raw.includes("app settings") ||
+      raw.includes("family management")
+    ) {
+      return "Admin App";
+    }
+
+    if (
+      raw === "server" ||
+      raw.includes("server") ||
+      raw.includes("esp32") ||
+      raw.includes("device") ||
+      raw.includes("face recognition") ||
+      raw.includes("energy warning") ||
+      raw.includes("system security") ||
+      raw.includes("system error")
+    ) {
+      return "Server";
+    }
+
+    return value || "";
+  }
+
+  function dateKey(value) {
+    if (typeof logDateKey === "function") {
+      return logDateKey(value);
+    }
+
+    const text = String(value || "").trim();
+    return text.length >= 10 ? text.slice(0, 10) : "";
+  }
+
+  function sourceLogs() {
+    let logs = [];
+
+    try {
+      logs = Array.isArray(window.allLogs) ? window.allLogs : allLogs;
+    } catch (_) {
+      logs = [];
+    }
+
+    if (!Array.isArray(logs)) {
+      logs = [];
+    }
+
+    if (typeof dedupeCommandLogs === "function") {
+      logs = dedupeCommandLogs(logs);
+    }
+
+    return logs;
+  }
+
+  window.applyFilters = function () {
+    const searchEl = document.getElementById("logSearch");
+    const dateEl = document.getElementById("dateFilter");
+    const actorEl = document.getElementById("actorFilter");
+    const eventEl = document.getElementById("eventFilter");
+    const severityEl = document.getElementById("severityFilter");
+
+    const search = lower(searchEl ? searchEl.value : "");
+    const isNumberSearch = /^[0-9]+$/.test(search);
+
+    const selectedDate = dateEl ? dateEl.value : "";
+    const selectedActor = actorBucket(actorEl ? actorEl.value : "");
+    const selectedEvent = eventEl ? eventEl.value : "";
+    const selectedSeverity = severityEl ? severityEl.value : "";
+
+    const filtered = sourceLogs().filter(function (log) {
+      const apartment = lower(log.apartment || log.apartment_number || log.home || log.home_id || "");
+      const actor = actorBucket(log.actor || "");
+      const eventType = log.event_type || "";
+      const severity = log.severity || "";
+
+      let matchesSearch = true;
+
+      if (search) {
+        if (isNumberSearch) {
+          matchesSearch = apartment === search;
+        } else {
+          matchesSearch = lower(actor).includes(search);
+        }
+      }
+
+      const matchesDate = !selectedDate || dateKey(log.timestamp || log.created_at) === selectedDate;
+      const matchesActor = !selectedActor || actor === selectedActor;
+      const matchesEvent = !selectedEvent || eventType === selectedEvent;
+      const matchesSeverity = !selectedSeverity || severity === selectedSeverity;
+
+      return matchesSearch && matchesDate && matchesActor && matchesEvent && matchesSeverity;
+    });
+
+    try {
+      currentLogs = filtered;
+    } catch (_) {}
+
+    window.currentLogs = filtered;
+
+    if (typeof renderLogs === "function") {
+      renderLogs(filtered);
+    }
+  };
+
+  function wireActorFilter() {
+    ["logSearch", "dateFilter", "actorFilter", "eventFilter", "severityFilter"].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (!el || el.dataset.d7ActorFilterWired === "1") return;
+
+      el.dataset.d7ActorFilterWired = "1";
+      el.addEventListener("input", window.applyFilters);
+      el.addEventListener("change", window.applyFilters);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    wireActorFilter();
+
+    setTimeout(function () {
+      wireActorFilter();
+      if (typeof window.applyFilters === "function") {
+        window.applyFilters();
+      }
+    }, 150);
+  });
+
+  window.addEventListener("pageshow", function () {
+    wireActorFilter();
+    if (typeof window.applyFilters === "function") {
+      window.applyFilters();
+    }
+  });
+})();
+</script>
+<!-- D7M16_ACTOR_FILTER_WORKING_FINAL_END -->
+
 <!-- D7M16_DASHBOARD_DELETE_FINAL_OVERRIDE_START -->
 <script>
 (function () {
@@ -1188,7 +1352,6 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 <!-- D7M16_DASHBOARD_DELETE_FINAL_OVERRIDE_END -->
-
 {% endblock %}
 
 
