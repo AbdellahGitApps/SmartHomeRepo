@@ -397,15 +397,14 @@ window.getTranslation = function(key) {
 
 
 window.SMART_HOME_I18N_PATCH = window.SMART_HOME_I18N_PATCH || {};
-window.SMART_HOME_I18N_PATCH.Last Seen = "Last Seen";
-window.SMART_HOME_I18N_PATCH.Advanced Info = "Advanced Info";
-window.SMART_HOME_I18N_PATCH.Advanced Info = "Advanced Info";
+window.SMART_HOME_I18N_PATCH["Last Seen"] = "Last Seen";
+window.SMART_HOME_I18N_PATCH["Advanced Info"] = "Advanced Info";
 
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll("*").forEach(function (el) {
     var t = (el.textContent || "").trim();
     if (t === "Last Seen") el.textContent = "Last Seen";
-    if (t === "Advanced Info" || t === "Advanced Info") el.textContent = "Advanced Info";
+    if (t === "Advanced Info") el.textContent = "Advanced Info";
   });
 });
 
