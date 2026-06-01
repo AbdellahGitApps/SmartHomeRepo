@@ -48,7 +48,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusActive => 'Active';
 
   @override
-  String get statusLocked => 'Fully Locked';
+  String get statusLocked => 'Locked';
 
   @override
   String get statusUnlocked => 'Unlocked';
@@ -204,7 +204,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextMonth => 'Next Month';
 
   @override
-  String get basedOnHistory => 'Based on historical data';
+  String get basedOnHistory => 'Based on previous readings';
 
   @override
   String get voltage => 'Voltage';

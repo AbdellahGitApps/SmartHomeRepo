@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -23,6 +24,42 @@ class _FamilyScreenState extends State<FamilyScreen> {
     });
   }
 
+  Future<void> _confirmDeleteAllFamilyMembers(
+    BuildContext context,
+    AppStateProvider appState,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete All Family Members'),
+        content: const Text('Delete all family members for this apartment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete All',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    await appState.clearFamilyMembers();
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('All family members deleted.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -36,9 +73,36 @@ class _FamilyScreenState extends State<FamilyScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
+          if (canManage && appState.familyMembers.isNotEmpty)
+            TextButton.icon(
+              onPressed: appState.familyLoading
+                  ? null
+                  : () => _confirmDeleteAllFamilyMembers(context, appState),
+              icon: const Icon(
+                LucideIcons.trash2,
+                color: Colors.red,
+                size: 18,
+              ),
+              label: const Text(
+                'Delete All',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           IconButton(
-            onPressed: appState.loadFamilyMembers,
-            icon: const Icon(LucideIcons.refreshCcw),
+            tooltip: 'Refresh',
+            onPressed: appState.familyLoading
+                ? null
+                : appState.loadFamilyMembers,
+            icon: appState.familyLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh, size: 20),
           ),
         ],
       ),
@@ -58,7 +122,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Family backend error:\\n${appState.familyError}',
+                    'Family backend error:\n${appState.familyError}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.red),
                   ),
@@ -95,6 +159,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                 l10n: l10n,
                 appState: appState,
                 isDark: isDark,
+                fixedRole: 'Family',
               ),
               backgroundColor: Theme.of(context).primaryColor,
               icon: const Icon(LucideIcons.plus, color: Colors.white),
@@ -144,9 +209,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  member.role == 'Admin'
-                      ? LucideIcons.shieldCheck
-                      : LucideIcons.user,
+                  LucideIcons.user,
                   color: Theme.of(context).primaryColor,
                   size: 24,
                 ),
@@ -168,45 +231,38 @@ class _FamilyScreenState extends State<FamilyScreen> {
                       ),
                     ),
                     Text(
-                      member.role,
+                      'Family',
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Icon(
-                          member.faceEnrolled
+                        _statusText(
+                          icon: member.faceEnrolled
                               ? LucideIcons.checkCircle2
                               : LucideIcons.alertCircle,
-                          size: 14,
+                          text: member.faceEnrolled
+                              ? l10n.faceEnrolled
+                              : l10n.noFace,
                           color: member.faceEnrolled
                               ? Colors.green
                               : Colors.orange,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          member.faceEnrolled ? l10n.faceEnrolled : l10n.noFace,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: member.faceEnrolled
-                                ? Colors.green
-                                : Colors.orange,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
                         if (!member.isEnabled)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                              horizontal: 7,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               l10n.disable,
@@ -218,6 +274,33 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             ),
                           ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 210),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Added',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      member.addedAtLabel,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -245,6 +328,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                       ),
                       isDark: isDark,
                       memberToEdit: member,
+                      fixedRole: 'Family',
                     );
                   },
                   icon: Icon(
@@ -291,12 +375,12 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             child: Text(l10n.cancel),
                           ),
                           TextButton(
-                            onPressed: () {
-                              Provider.of<AppStateProvider>(
+                            onPressed: () async {
+                              await Provider.of<AppStateProvider>(
                                 context,
                                 listen: false,
                               ).deleteFamilyMember(member.id);
-                              Navigator.pop(ctx);
+                              if (ctx.mounted) Navigator.pop(ctx);
                             },
                             child: Text(
                               l10n.delete,
@@ -322,6 +406,28 @@ class _FamilyScreenState extends State<FamilyScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _statusText({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

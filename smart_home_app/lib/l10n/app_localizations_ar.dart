@@ -204,7 +204,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get nextMonth => 'الشهر التالي';
 
   @override
-  String get basedOnHistory => 'بناءً على البيانات التاريخية';
+  String get basedOnHistory => 'Based on previous readings';
 
   @override
   String get voltage => 'الجهد';

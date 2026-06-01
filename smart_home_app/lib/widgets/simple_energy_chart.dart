@@ -110,7 +110,7 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    values[index].toStringAsFixed(1),
+                    '${values[index].toStringAsFixed(1)} kWh',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 6),

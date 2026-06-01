@@ -179,7 +179,7 @@ abstract class AppLocalizations {
   /// No description provided for @statusLocked.
   ///
   /// In en, this message translates to:
-  /// **'Fully Locked'**
+  /// **'Locked'**
   String get statusLocked;
 
   /// No description provided for @statusUnlocked.
@@ -491,7 +491,7 @@ abstract class AppLocalizations {
   /// No description provided for @basedOnHistory.
   ///
   /// In en, this message translates to:
-  /// **'Based on historical data'**
+  /// **'Based on previous readings'**
   String get basedOnHistory;
 
   /// No description provided for @voltage.

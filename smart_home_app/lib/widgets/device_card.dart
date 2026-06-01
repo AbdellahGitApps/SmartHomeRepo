@@ -5,14 +5,14 @@ class DeviceCard extends StatefulWidget {
   final DeviceModel device;
   final String localizedTitle;
   final String localizedStatus;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const DeviceCard({
     super.key,
     required this.device,
     required this.localizedTitle,
     required this.localizedStatus,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
@@ -29,7 +29,7 @@ class _DeviceCardState extends State<DeviceCard>
 
   void _onTapUp(TapUpDetails details) {
     setState(() => _scale = 1.0);
-    widget.onTap();
+    widget.onTap?.call();
   }
 
   void _onTapCancel() {
@@ -41,9 +41,9 @@ class _DeviceCardState extends State<DeviceCard>
     bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
+      onTapDown: widget.onTap == null ? null : _onTapDown,
+      onTapUp: widget.onTap == null ? null : _onTapUp,
+      onTapCancel: widget.onTap == null ? null : _onTapCancel,
       child: AnimatedScale(
         scale: _scale,
         duration: const Duration(milliseconds: 150),

@@ -1291,6 +1291,152 @@
 </script>
 <!-- D7M16_GLOBAL_DATETIME_FINAL_FIX_END -->
 
+
+
+<!-- D7M16_BELL_IMPORTANT_EVENTS_FINAL_START -->
+<style>
+.d7m16-notification-holder {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    overflow: visible !important;
+}
+
+.d7m16-notification-badge,
+.d7m16-final-red-badge {
+    position: absolute !important;
+    top: -8px !important;
+    right: -9px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    padding: 0 5px !important;
+    border-radius: 999px !important;
+    background: #ef4444 !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    line-height: 18px !important;
+    text-align: center !important;
+    border: 2px solid #0f172a !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, .18) !important;
+    z-index: 99999 !important;
+}
+</style>
+
+<script>
+(function () {
+  if (window.__d7m16FinalImportantBellInstalled) return;
+  window.__d7m16FinalImportantBellInstalled = true;
+
+  const importantActions = new Set([
+    "MQTT DISABLE",
+    "MQTT ENABLE",
+    "MQTT RESTART",
+    "APP RECOVERY OTP GENERATED",
+    "APP PASSWORD RESET",
+    "APP ADMIN REGISTERED",
+    "APP SETTINGS UPDATED"
+  ]);
+
+  function findBellElement() {
+    const icon = document.querySelector(".ph-bell, .ph-fill.ph-bell, .ph-bell-simple");
+    if (!icon) return null;
+    return icon.closest("a,button,div,span") || icon;
+  }
+
+  function getLogTime(log) {
+    const raw = log.timestamp || log.created_at || log.time || "";
+    const parsed = raw ? Date.parse(raw) : NaN;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  function isImportant(log) {
+    const action = String(log.action_taken || "").toUpperCase().trim();
+    const eventType = String(log.event_type || "").toUpperCase().trim();
+
+    if (importantActions.has(action)) return true;
+
+    if (
+      eventType.includes("APP PASSWORD RECOVERY") ||
+      eventType.includes("APP ACCOUNT") ||
+      eventType.includes("SMART DOOR COMMAND") ||
+      eventType.includes("ENERGY MONITOR COMMAND")
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  async function updateImportantBellBadge() {
+    const bell = findBellElement();
+    if (!bell) return;
+
+    bell.classList.add("d7m16-notification-holder");
+    bell.onclick = function (event) {
+      event.preventDefault();
+      localStorage.setItem("d7m16_dashboard_logs_seen_at", String(Date.now()));
+      window.location.href = "/logs";
+    };
+
+    let badge =
+      bell.querySelector(".d7m16-final-red-badge") ||
+      bell.querySelector(".d7m16-notification-badge");
+
+    if (!badge) {
+      badge = document.createElement("span");
+      bell.appendChild(badge);
+    }
+
+    badge.className = "d7m16-notification-badge d7m16-final-red-badge";
+
+    if (window.location.pathname === "/logs") {
+      localStorage.setItem("d7m16_dashboard_logs_seen_at", String(Date.now()));
+      badge.style.setProperty("display", "none", "important");
+      return;
+    }
+
+    try {
+      const seenAt = Number(localStorage.getItem("d7m16_dashboard_logs_seen_at") || "0");
+      const res = await fetch("/api/dashboard/security-logs-data?limit=200", { cache: "no-store" });
+      const data = await res.json();
+      const logs = data.logs || data.items || [];
+
+      const count = logs.filter(function (log) {
+        if (!isImportant(log)) return false;
+
+        const logTime = getLogTime(log);
+        if (!seenAt) return true;
+        if (!logTime) return true;
+
+        return logTime > seenAt;
+      }).length;
+
+      if (count > 0) {
+        badge.textContent = count > 99 ? "99+" : String(count);
+        badge.style.setProperty("display", "inline-block", "important");
+      } else {
+        badge.style.setProperty("display", "none", "important");
+      }
+    } catch (error) {
+      badge.style.setProperty("display", "none", "important");
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    updateImportantBellBadge();
+    setTimeout(updateImportantBellBadge, 300);
+    setTimeout(updateImportantBellBadge, 1200);
+    setInterval(updateImportantBellBadge, 5000);
+  });
+
+  window.addEventListener("pageshow", updateImportantBellBadge);
+})();
+</script>
+<!-- D7M16_BELL_IMPORTANT_EVENTS_FINAL_END -->
+
 </body>
 </html>
 

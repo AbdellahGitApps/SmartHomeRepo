@@ -1,58 +1,72 @@
 
-from __future__ import annotations
-
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-import sqlite3
 from typing import Optional
+import sqlite3
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 router = APIRouter(tags=["Family Management"])
 
 
 class FamilyMemberCreate(BaseModel):
-    name: str = Field(..., min_length=1)
+    home_id: Optional[int] = None
+    name: str
     role: str = "Family"
-    home_id: int = 1
     face_enrolled: bool = False
     enabled: bool = True
-    person_id: Optional[int] = None
     notes: Optional[str] = None
 
 
 class FamilyMemberUpdate(BaseModel):
-    name: Optional[str] = None
-    role: Optional[str] = None
     home_id: Optional[int] = None
+    name: Optional[str] = None
+    role: Optional[str] = "Family"
     face_enrolled: Optional[bool] = None
     enabled: Optional[bool] = None
-    person_id: Optional[int] = None
     notes: Optional[str] = None
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _db_path() -> Path:
-    edge_dir = Path(__file__).resolve().parents[1]
-    return edge_dir / "database" / "smart_home_edge.db"
+    base = Path(__file__).resolve().parents[1]
+    candidates = [
+        base / "database" / "smart_home_edge.db",
+        base / "database" / "smart_home.db",
+        base.parent / "data" / "smart_home.db",
+        base / "data" / "smart_home.db",
+    ]
+
+    for path in candidates:
+        if path.exists():
+            return path
+
+    return base / "database" / "smart_home_edge.db"
 
 
-def _connect() -> sqlite3.Connection:
+def _conn():
     path = _db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def _ensure_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+def _now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _tables(conn):
+    return {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+
+
+def _cols(conn, table):
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _ensure_family_table(conn):
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS family_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             home_id INTEGER DEFAULT 1,
@@ -65,10 +79,8 @@ def _ensure_table(conn: sqlite3.Connection) -> None:
             created_at TEXT,
             updated_at TEXT
         )
-        """
-    )
+    """)
 
-    existing = {row[1] for row in conn.execute("PRAGMA table_info(family_members)").fetchall()}
     needed = {
         "home_id": "INTEGER DEFAULT 1",
         "name": "TEXT",
@@ -81,50 +93,117 @@ def _ensure_table(conn: sqlite3.Connection) -> None:
         "updated_at": "TEXT",
     }
 
+    cols = _cols(conn, "family_members")
     for col, col_type in needed.items():
-        if col not in existing:
+        if col not in cols:
             conn.execute(f"ALTER TABLE family_members ADD COLUMN {col} {col_type}")
 
     conn.commit()
 
 
-def _normalize_role(role: str | None) -> str:
-    value = (role or "Family").strip().lower()
+def _ensure_logs_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            created_at TEXT,
+            severity TEXT,
+            actor TEXT,
+            source TEXT,
+            home TEXT,
+            home_id TEXT,
+            apartment_number TEXT,
+            event_type TEXT,
+            details TEXT,
+            action_taken TEXT,
+            device_id TEXT,
+            device_name TEXT
+        )
+    """)
 
-    if value in {"admin", "administrator"}:
-        return "Admin"
+    needed = {
+        "timestamp": "TEXT",
+        "created_at": "TEXT",
+        "severity": "TEXT",
+        "actor": "TEXT",
+        "source": "TEXT",
+        "home": "TEXT",
+        "home_id": "TEXT",
+        "apartment_number": "TEXT",
+        "event_type": "TEXT",
+        "details": "TEXT",
+        "action_taken": "TEXT",
+        "device_id": "TEXT",
+        "device_name": "TEXT",
+    }
 
-    if value in {"guest", "visitor"}:
-        return "Guest"
+    cols = _cols(conn, "system_logs")
+    for col, col_type in needed.items():
+        if col not in cols:
+            conn.execute(f"ALTER TABLE system_logs ADD COLUMN {col} {col_type}")
 
+    conn.commit()
+
+
+def _home_apartment(conn, home_id):
+    if not home_id:
+        return ""
+
+    if "homes" not in _tables(conn):
+        return ""
+
+    row = conn.execute(
+        "SELECT apartment_number FROM homes WHERE CAST(id AS TEXT) = CAST(? AS TEXT) LIMIT 1",
+        (str(home_id),),
+    ).fetchone()
+
+    return str(row["apartment_number"] or "") if row else ""
+
+
+def _family_role(value):
     return "Family"
 
 
-def _member_to_dict(row: sqlite3.Row) -> dict:
-    enabled = bool(row["enabled"])
-    face_enrolled = bool(row["face_enrolled"])
+def _bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
 
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "enabled", "on"}:
+        return True
+    if text in {"0", "false", "no", "disabled", "off"}:
+        return False
+
+    return default
+
+
+def _member_dict(row):
+    data = dict(row)
     return {
-        "id": str(row["id"]),
-        "raw_id": row["id"],
-        "home_id": row["home_id"],
-        "name": row["name"],
-        "role": row["role"],
-        "face_enrolled": face_enrolled,
-        "faceEnrolled": face_enrolled,
-        "enabled": enabled,
-        "isEnabled": enabled,
-        "person_id": row["person_id"],
-        "notes": row["notes"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
+        **data,
+        "id": str(data.get("id") or ""),
+        "raw_id": data.get("id"),
+        "name": str(data.get("name") or "Unknown"),
+        "role": "Family",
+        "face_enrolled": _bool(data.get("face_enrolled")),
+        "faceEnrolled": _bool(data.get("face_enrolled")),
+        "enabled": _bool(data.get("enabled"), True),
+        "isEnabled": _bool(data.get("enabled"), True),
+        "created_at": data.get("created_at") or "",
+        "createdAt": data.get("created_at") or "",
+        "updated_at": data.get("updated_at") or "",
+        "updatedAt": data.get("updated_at") or "",
     }
 
 
-def _get_member(conn: sqlite3.Connection, member_id: int) -> sqlite3.Row:
+def _get_member(conn, member_id):
     row = conn.execute(
-        "SELECT * FROM family_members WHERE id = ?",
-        (member_id,),
+        "SELECT * FROM family_members WHERE CAST(id AS TEXT) = CAST(? AS TEXT) LIMIT 1",
+        (str(member_id),),
     ).fetchone()
 
     if not row:
@@ -133,164 +212,142 @@ def _get_member(conn: sqlite3.Connection, member_id: int) -> sqlite3.Row:
     return row
 
 
-def _ensure_logs_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS system_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TEXT,
-            timestamp TEXT,
-            severity TEXT,
-            home TEXT,
-            event_type TEXT,
-            details TEXT,
-            action_taken TEXT
-        )
-        """
-    )
-    conn.commit()
-
-
-def _log_family_action(
-    conn: sqlite3.Connection,
-    *,
-    home_id: int,
-    severity: str,
-    details: str,
-    action_taken: str,
-) -> None:
+def _log_family_action(conn, *, home_id, member_name, severity, details, action_taken):
     _ensure_logs_table(conn)
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = _now()
+    apartment = _home_apartment(conn, home_id)
 
-    conn.execute(
-        """
+    conn.execute("""
         INSERT INTO system_logs (
-            created_at,
             timestamp,
+            created_at,
             severity,
+            actor,
+            source,
             home,
+            home_id,
+            apartment_number,
             event_type,
             details,
-            action_taken
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            now,
-            now,
-            severity,
-            f"Apartment {home_id}",
-            "Family Management",
-            details,
             action_taken,
-        ),
-    )
+            device_id,
+            device_name
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        now,
+        now,
+        severity.upper(),
+        "Admin App",
+        "Admin App",
+        apartment,
+        str(home_id or ""),
+        apartment,
+        "Family Management",
+        details,
+        action_taken,
+        "family_members",
+        member_name,
+    ))
 
 
 @router.get("/api/family/status")
 def family_status():
-    with _connect() as conn:
-        _ensure_table(conn)
-
-        count = conn.execute("SELECT COUNT(*) AS c FROM family_members").fetchone()["c"]
-        active = conn.execute(
-            "SELECT COUNT(*) AS c FROM family_members WHERE enabled = 1"
-        ).fetchone()["c"]
-        disabled = conn.execute(
-            "SELECT COUNT(*) AS c FROM family_members WHERE enabled = 0"
-        ).fetchone()["c"]
+    with _conn() as conn:
+        _ensure_family_table(conn)
+        total = conn.execute("SELECT COUNT(*) AS c FROM family_members").fetchone()["c"]
+        enabled = conn.execute("SELECT COUNT(*) AS c FROM family_members WHERE enabled = 1").fetchone()["c"]
+        disabled = conn.execute("SELECT COUNT(*) AS c FROM family_members WHERE enabled = 0").fetchone()["c"]
 
         return {
             "success": True,
-            "database": str(_db_path()),
-            "family_members": count,
-            "active_members": active,
-            "disabled_members": disabled,
+            "family_members": total,
+            "enabled": enabled,
+            "disabled": disabled,
         }
 
 
 @router.get("/api/family/members")
 def list_family_members(home_id: Optional[int] = None, include_disabled: bool = True):
-    with _connect() as conn:
-        _ensure_table(conn)
+    with _conn() as conn:
+        _ensure_family_table(conn)
 
-        query = "SELECT * FROM family_members"
         params = []
-
-        conditions = []
+        query = "SELECT * FROM family_members WHERE 1=1"
 
         if home_id is not None:
-            conditions.append("home_id = ?")
-            params.append(home_id)
+            query += " AND CAST(home_id AS TEXT) = CAST(? AS TEXT)"
+            params.append(str(home_id))
 
         if not include_disabled:
-            conditions.append("enabled = 1")
+            query += " AND enabled = 1"
 
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-
-        query += " ORDER BY id DESC"
+        query += " ORDER BY COALESCE(created_at, updated_at, '') DESC, id DESC"
 
         rows = conn.execute(query, params).fetchall()
 
         return {
             "success": True,
-            "count": len(rows),
-            "members": [_member_to_dict(row) for row in rows],
+            "members": [_member_dict(row) for row in rows],
         }
 
 
 @router.post("/api/family/members")
 def create_family_member(payload: FamilyMemberCreate, request: Request):
-    name = payload.name.strip()
-
+    name = (payload.name or "").strip()
     if not name:
-        raise HTTPException(status_code=400, detail="Member name is required")
+        raise HTTPException(status_code=400, detail="Member name is required.")
 
+    role = _family_role(payload.role)
     now = _now()
-    role = _normalize_role(payload.role)
+    home_id = payload.home_id or 1
+    face_enrolled = 1 if payload.face_enrolled else 0
+    enabled = 1 if payload.enabled else 0
 
-    with _connect() as conn:
-        _ensure_table(conn)
+    with _conn() as conn:
+        _ensure_family_table(conn)
 
-        cursor = conn.execute(
-            """
+        conn.execute("""
             INSERT INTO family_members (
                 home_id,
                 name,
                 role,
                 face_enrolled,
                 enabled,
-                person_id,
                 notes,
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                payload.home_id,
-                name,
-                role,
-                1 if payload.face_enrolled else 0,
-                1 if payload.enabled else 0,
-                payload.person_id,
-                payload.notes,
-                now,
-                now,
-            ),
-        )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            home_id,
+            name,
+            role,
+            face_enrolled,
+            enabled,
+            payload.notes or "",
+            now,
+            now,
+        ))
 
-        member_id = cursor.lastrowid
+        member_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
         row = _get_member(conn, member_id)
+
+        if face_enrolled:
+            details = f"Family member {name} added with role Family / Face enrolled."
+            action = "FAMILY MEMBER ADDED / FACE ENROLLED"
+        else:
+            details = f"Family member {name} added with role Family."
+            action = "FAMILY MEMBER ADDED"
 
         _log_family_action(
             conn,
-            home_id=payload.home_id,
-            severity="info",
-            details=f"Family member {name} added with role {role}.",
-            action_taken="Family Member Added",
+            home_id=home_id,
+            member_name=name,
+            severity="INFO",
+            details=details,
+            action_taken=action,
         )
 
         conn.commit()
@@ -298,60 +355,56 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
         return {
             "success": True,
             "message": "Family member created successfully",
-            "member": _member_to_dict(row),
+            "member": _member_dict(row),
         }
 
 
 @router.patch("/api/family/members/{member_id}")
 def update_family_member(member_id: int, payload: FamilyMemberUpdate):
-    with _connect() as conn:
-        _ensure_table(conn)
+    with _conn() as conn:
+        _ensure_family_table(conn)
         old = _get_member(conn, member_id)
 
-        updates = {}
-        if payload.name is not None:
-            name = payload.name.strip()
-            if not name:
-                raise HTTPException(status_code=400, detail="Member name cannot be empty")
-            updates["name"] = name
+        name = (payload.name if payload.name is not None else old["name"]).strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Member name is required.")
 
-        if payload.role is not None:
-            updates["role"] = _normalize_role(payload.role)
+        role = "Family"
+        face_enrolled = old["face_enrolled"] if payload.face_enrolled is None else (1 if payload.face_enrolled else 0)
+        enabled = old["enabled"] if payload.enabled is None else (1 if payload.enabled else 0)
+        home_id = payload.home_id if payload.home_id is not None else old["home_id"]
+        notes = payload.notes if payload.notes is not None else old["notes"]
 
-        if payload.home_id is not None:
-            updates["home_id"] = payload.home_id
-
-        if payload.face_enrolled is not None:
-            updates["face_enrolled"] = 1 if payload.face_enrolled else 0
-
-        if payload.enabled is not None:
-            updates["enabled"] = 1 if payload.enabled else 0
-
-        if payload.person_id is not None:
-            updates["person_id"] = payload.person_id
-
-        if payload.notes is not None:
-            updates["notes"] = payload.notes
-
-        updates["updated_at"] = _now()
-
-        set_sql = ", ".join([f"{key} = ?" for key in updates])
-        values = list(updates.values())
-        values.append(member_id)
-
-        conn.execute(
-            f"UPDATE family_members SET {set_sql} WHERE id = ?",
-            values,
-        )
+        conn.execute("""
+            UPDATE family_members
+            SET home_id = ?,
+                name = ?,
+                role = ?,
+                face_enrolled = ?,
+                enabled = ?,
+                notes = ?,
+                updated_at = ?
+            WHERE id = ?
+        """, (
+            home_id,
+            name,
+            role,
+            face_enrolled,
+            enabled,
+            notes or "",
+            _now(),
+            member_id,
+        ))
 
         row = _get_member(conn, member_id)
 
         _log_family_action(
             conn,
-            home_id=row["home_id"],
-            severity="info",
-            details=f"Family member {row['name']} updated.",
-            action_taken="Family Member Updated",
+            home_id=home_id,
+            member_name=name,
+            severity="INFO",
+            details=f"Family member {name} updated.",
+            action_taken="FAMILY MEMBER UPDATED",
         )
 
         conn.commit()
@@ -359,15 +412,15 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
         return {
             "success": True,
             "message": "Family member updated successfully",
-            "member": _member_to_dict(row),
+            "member": _member_dict(row),
         }
 
 
 @router.patch("/api/family/members/{member_id}/enable")
 def enable_family_member(member_id: int):
-    with _connect() as conn:
-        _ensure_table(conn)
-        old = _get_member(conn, member_id)
+    with _conn() as conn:
+        _ensure_family_table(conn)
+        row = _get_member(conn, member_id)
 
         conn.execute(
             "UPDATE family_members SET enabled = 1, updated_at = ? WHERE id = ?",
@@ -379,9 +432,10 @@ def enable_family_member(member_id: int):
         _log_family_action(
             conn,
             home_id=row["home_id"],
-            severity="info",
+            member_name=row["name"],
+            severity="INFO",
             details=f"Family member {row['name']} enabled.",
-            action_taken="Family Member Enabled",
+            action_taken="FAMILY MEMBER ENABLED",
         )
 
         conn.commit()
@@ -389,15 +443,15 @@ def enable_family_member(member_id: int):
         return {
             "success": True,
             "message": "Family member enabled successfully",
-            "member": _member_to_dict(row),
+            "member": _member_dict(row),
         }
 
 
 @router.patch("/api/family/members/{member_id}/disable")
 def disable_family_member(member_id: int):
-    with _connect() as conn:
-        _ensure_table(conn)
-        old = _get_member(conn, member_id)
+    with _conn() as conn:
+        _ensure_family_table(conn)
+        row = _get_member(conn, member_id)
 
         conn.execute(
             "UPDATE family_members SET enabled = 0, updated_at = ? WHERE id = ?",
@@ -409,9 +463,10 @@ def disable_family_member(member_id: int):
         _log_family_action(
             conn,
             home_id=row["home_id"],
-            severity="warning",
+            member_name=row["name"],
+            severity="WARNING",
             details=f"Family member {row['name']} disabled.",
-            action_taken="Family Member Disabled",
+            action_taken="FAMILY MEMBER DISABLED",
         )
 
         conn.commit()
@@ -419,14 +474,54 @@ def disable_family_member(member_id: int):
         return {
             "success": True,
             "message": "Family member disabled successfully",
-            "member": _member_to_dict(row),
+            "member": _member_dict(row),
+        }
+
+
+
+
+@router.delete("/api/family/members")
+def clear_family_members(home_id: Optional[int] = None):
+    if home_id is None:
+        raise HTTPException(status_code=400, detail="home_id is required.")
+
+    with _conn() as conn:
+        _ensure_family_table(conn)
+
+        rows = conn.execute(
+            "SELECT * FROM family_members WHERE CAST(home_id AS TEXT) = CAST(? AS TEXT)",
+            (str(home_id),),
+        ).fetchall()
+
+        count = len(rows)
+
+        conn.execute(
+            "DELETE FROM family_members WHERE CAST(home_id AS TEXT) = CAST(? AS TEXT)",
+            (str(home_id),),
+        )
+
+        _log_family_action(
+            conn,
+            home_id=home_id,
+            member_name="All Family Members",
+            severity="WARNING",
+            details=f"All family members cleared for Apartment {_home_apartment(conn, home_id)}.",
+            action_taken="FAMILY MEMBERS CLEARED",
+        )
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "message": "All family members deleted successfully",
+            "deleted_count": count,
         }
 
 
 @router.delete("/api/family/members/{member_id}")
 def delete_family_member(member_id: int):
-    with _connect() as conn:
-        _ensure_table(conn)
+    with _conn() as conn:
+        _ensure_family_table(conn)
         row = _get_member(conn, member_id)
 
         conn.execute("DELETE FROM family_members WHERE id = ?", (member_id,))
@@ -434,9 +529,10 @@ def delete_family_member(member_id: int):
         _log_family_action(
             conn,
             home_id=row["home_id"],
-            severity="warning",
+            member_name=row["name"],
+            severity="WARNING",
             details=f"Family member {row['name']} deleted.",
-            action_taken="Family Member Deleted",
+            action_taken="FAMILY MEMBER DELETED",
         )
 
         conn.commit()
@@ -444,5 +540,5 @@ def delete_family_member(member_id: int):
         return {
             "success": True,
             "message": "Family member deleted successfully",
-            "deleted_id": member_id,
+            "deleted_id": str(member_id),
         }

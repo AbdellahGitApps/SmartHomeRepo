@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../l10n/app_localizations.dart';
-import '../services/backend_api_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_state_provider.dart';
+import 'package:smart_home_app/l10n/app_localizations.dart';
+import 'package:smart_home_app/providers/app_state_provider.dart';
+import 'package:smart_home_app/services/backend_api_service.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -14,400 +16,562 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _listController;
   final BackendApiService _api = BackendApiService();
 
-  bool _isLoadingFaceEvents = true;
+  late final TabController _tabController;
+
+  Timer? _fakePreviewTimer;
+  int _previewTick = 0;
+
+  bool _loadingCameras = false;
+  bool _loadingFaceEvents = false;
+  String? _cameraError;
   String? _faceEventsError;
+
+  List<Map<String, dynamic>> _cameras = [];
   List<Map<String, dynamic>> _faceEvents = [];
 
   @override
   void initState() {
     super.initState();
-    _listController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _listController.forward();
-    _loadFaceEvents();
+
+    _tabController = TabController(length: 2, vsync: this);
+
+    _fakePreviewTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _previewTick++;
+      });
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCameraPage();
+    });
   }
 
   @override
   void dispose() {
+    _fakePreviewTimer?.cancel();
+    _tabController.dispose();
     _api.close();
-    _listController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadFaceEvents() async {
+  Future<void> _loadCameraPage() async {
+    await Future.wait([
+      _loadCameras(),
+      _loadFaceEvents(),
+    ]);
+  }
+
+  Future<void> _loadCameras() async {
+    if (!mounted) return;
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
     setState(() {
-      _isLoadingFaceEvents = true;
-      _faceEventsError = null;
+      _loadingCameras = true;
+      _cameraError = null;
     });
 
     try {
-      final response = await _api.getFaceEvents(limit: 30);
-      final events = response['events'];
+      final response = await _api.getAppCameras(
+        homeId: appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId,
+        homeCode: appState.homeCode,
+        apartmentNumber: appState.apartmentNumber,
+        adminLogin: appState.adminName,
+      );
+
+      final raw = response['cameras'];
+
+      final items = raw is List
+          ? raw
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
 
       if (!mounted) return;
 
       setState(() {
-        _faceEvents = events is List
-            ? events
-                  .whereType<Map>()
-                  .map((item) => Map<String, dynamic>.from(item))
-                  .toList()
-            : [];
-        _isLoadingFaceEvents = false;
+        _cameras = items;
       });
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
-        _faceEventsError = error.toString();
-        _isLoadingFaceEvents = false;
+        _cameraError = e.toString();
+      });
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingCameras = false;
       });
     }
   }
 
-  String _formatTime(dynamic value) {
-    if (value == null) return 'No time';
-    final raw = value.toString();
+  Future<void> _loadFaceEvents() async {
+    if (!mounted) return;
 
-    final parsed = DateTime.tryParse(raw);
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    setState(() {
+      _loadingFaceEvents = true;
+      _faceEventsError = null;
+    });
+
+    try {
+      final response = await _api.getAppCameraFaceEvents(
+        homeId: appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId,
+        homeCode: appState.homeCode,
+        apartmentNumber: appState.apartmentNumber,
+        adminLogin: appState.adminName,
+        limit: 80,
+      );
+
+      final raw = response['events'];
+
+      final items = raw is List
+          ? raw
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
+
+      if (!mounted) return;
+
+      setState(() {
+        _faceEvents = items;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _faceEventsError = e.toString();
+      });
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingFaceEvents = false;
+      });
+    }
+  }
+
+  bool _readBool(Map<String, dynamic> data, List<String> keys,
+      {bool fallback = false}) {
+    for (final key in keys) {
+      final value = data[key];
+
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+
+      final text = value?.toString().toLowerCase().trim();
+
+      if (text == 'true' || text == '1' || text == 'yes' || text == 'online') {
+        return true;
+      }
+
+      if (text == 'false' ||
+          text == '0' ||
+          text == 'no' ||
+          text == 'offline' ||
+          text == 'disabled') {
+        return false;
+      }
+    }
+
+    return fallback;
+  }
+
+  String _text(dynamic value, {String fallback = ''}) {
+    final raw = value?.toString().trim() ?? '';
+    return raw.isEmpty ? fallback : raw;
+  }
+
+  String _formatTime(dynamic value) {
+    final raw = _text(value);
+
+    if (raw.isEmpty) return 'Not available';
+
+    DateTime? parsed = DateTime.tryParse(raw.replaceFirst(' ', 'T'));
+
+    if (parsed == null) {
+      final match = RegExp(
+        r'^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$',
+      ).firstMatch(raw);
+
+      if (match != null) {
+        final date = match.group(1)!;
+        final hour = match.group(2)!.padLeft(2, '0');
+        final minute = match.group(3)!;
+        final second = match.group(4) ?? '00';
+        parsed = DateTime.tryParse('${date}T$hour:$minute:$second');
+      }
+    }
+
     if (parsed == null) return raw;
 
-    return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')} '
-        '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+    final hour12 = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
+    final suffix = parsed.hour >= 12 ? 'PM' : 'AM';
+
+    return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}, '
+        '$hour12:${parsed.minute.toString().padLeft(2, '0')}:${parsed.second.toString().padLeft(2, '0')} $suffix';
+  }
+
+  String _imageUrl(String rawUrl, bool isFake) {
+    if (rawUrl.isEmpty) return '';
+
+    String url = rawUrl;
+
+    if (url.startsWith('/')) {
+      url = '${_api.baseUrl}$url';
+    }
+
+    if (!isFake) return url;
+
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}t=$_previewTick';
+  }
+
+  BoxDecoration _cardDecoration(BuildContext context, bool isDark) {
+    return BoxDecoration(
+      color: isDark ? Theme.of(context).colorScheme.surface : Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      border: isDark ? Border.all(color: const Color(0xFF334155)) : null,
+      boxShadow: isDark
+          ? []
+          : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+    );
+  }
+
+  Color _eventColor(String severity, String status) {
+    final s = '${severity.toLowerCase()} ${status.toLowerCase()}';
+
+    if (s.contains('denied') || s.contains('critical')) return Colors.red;
+    if (s.contains('pending') || s.contains('warning')) return Colors.orange;
+
+    return Colors.green;
+  }
+
+  IconData _eventIcon(String title, bool known) {
+    final lower = title.toLowerCase();
+
+    if (lower.contains('unknown')) return LucideIcons.userX;
+    if (known || lower.contains('family')) return LucideIcons.userCheck;
+
+    return LucideIcons.scanFace;
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.cameraEvents),
-          actions: [
-            IconButton(
-              onPressed: _loadFaceEvents,
-              icon: const Icon(LucideIcons.refreshCcw),
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: AppBar(
+        title: Text(l10n.cameraEvents),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw),
+            onPressed: _loadCameraPage,
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Theme.of(context).primaryColor,
+          labelColor: Theme.of(context).primaryColor,
+          tabs: [
+            Tab(
+              text: l10n.camera,
+              icon: const Icon(LucideIcons.camera, size: 18),
+            ),
+            Tab(
+              text: l10n.faceEvents,
+              icon: const Icon(LucideIcons.scanFace, size: 18),
             ),
           ],
-          bottom: TabBar(
-            indicatorColor: Theme.of(context).primaryColor,
-            labelColor: Theme.of(context).primaryColor,
-            tabs: [
-              Tab(
-                text: l10n.camera,
-                icon: const Icon(LucideIcons.camera, size: 18),
-              ),
-              Tab(
-                text: l10n.faceEvents,
-                icon: const Icon(LucideIcons.scanFace, size: 18),
-              ),
-            ],
-          ),
         ),
-        body: TabBarView(
-          children: [
-            _buildCamerasTab(context, l10n),
-            _buildFaceEventsTab(context, l10n),
-          ],
-        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildCamerasTab(context),
+          _buildFaceEventsTab(context),
+        ],
       ),
     );
   }
 
-  Widget _buildCamerasTab(BuildContext context, AppLocalizations l10n) {
-    final appState = Provider.of<AppStateProvider>(context);
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildCamerasTab(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final List<Map<String, dynamic>> cameras = [
-      {
-        'name': l10n.frontDoorCamera,
-        'status': l10n.motionDetected,
-        'icon': LucideIcons.camera,
-        'isLive': true,
-        'color': Colors.red,
-      },
-      {
-        'name': l10n.garageCamera,
-        'status': l10n.noMotion,
-        'icon': LucideIcons.camera,
-        'isLive': false,
-        'color': Colors.green,
-      },
-      {
-        'name': l10n.backyardCamera,
-        'status': l10n.personDetected,
-        'icon': LucideIcons.camera,
-        'isLive': true,
-        'color': Colors.orange,
-      },
-    ];
+    if (_loadingCameras) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(24.0),
-      itemCount: cameras.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final cam = cameras[index];
+    if (_cameraError != null) {
+      return _errorBox('Backend camera error: $_cameraError');
+    }
 
-        final itemAnimation = Tween<double>(begin: 0, end: 1).animate(
-          CurvedAnimation(
-            parent: _listController,
-            curve: Interval(
-              (index / cameras.length).clamp(0.0, 1.0),
-              ((index + 1) / cameras.length).clamp(0.0, 1.0),
-              curve: Curves.easeOutCubic,
-            ),
-          ),
-        );
+    if (_cameras.isEmpty) {
+      return const Center(child: Text('No cameras registered for this apartment.'));
+    }
 
-        return AnimatedBuilder(
-          animation: itemAnimation,
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(0, 40 * (1 - itemAnimation.value)),
-              child: Opacity(opacity: itemAnimation.value, child: child),
-            );
-          },
-          child: Container(
+    return RefreshIndicator(
+      onRefresh: _loadCameras,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        itemCount: _cameras.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 18),
+        itemBuilder: (context, index) {
+          final camera = _cameras[index];
+
+          final name = _text(
+            camera['name'] ?? camera['device_name'],
+            fallback: 'Smart Door Camera',
+          );
+
+          final online = _readBool(camera, ['online'], fallback: false);
+          final enabled = _readBool(camera, ['enabled'], fallback: true);
+          final live = _readBool(camera, ['live'], fallback: online && enabled);
+          final isFake = _readBool(camera, ['is_fake_stream'], fallback: false);
+          final streamUrl = _text(camera['stream_url']);
+          final imageUrl = _imageUrl(streamUrl, isFake);
+          final lastSeen = _formatTime(camera['last_seen']);
+          final apartment = _text(camera['apartment_number'], fallback: '--');
+
+          final previewHeight =
+              (MediaQuery.of(context).size.height * 0.48).clamp(340.0, 560.0).toDouble();
+
+          return Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Theme.of(context).colorScheme.surface
-                  : Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(24),
-              border: isDark
-                  ? Border.all(color: const Color(0xFF334155), width: 1)
-                  : null,
-              boxShadow: isDark
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-            ),
+            decoration: _cardDecoration(context, isDark),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: 1.0),
-                          duration: Duration(milliseconds: 600 + (index * 150)),
-                          curve: Curves.elasticOut,
-                          builder: (context, value, child) {
-                            return Transform.scale(scale: value, child: child);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: (cam['color'] as Color).withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(cam['icon'], color: cam['color']),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              cam['name'],
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              cam['status'],
-                              style: Theme.of(context).textTheme.bodyMedium!
-                                  .copyWith(color: cam['color']),
-                            ),
-                          ],
-                        ),
-                      ],
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: live
+                            ? Colors.green.withOpacity(0.12)
+                            : Colors.red.withOpacity(0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        LucideIcons.camera,
+                        color: live ? Colors.green : Colors.red,
+                      ),
                     ),
-                    if (cam['isLive'] == true)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.red.withOpacity(0.3),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.red.withOpacity(0.5),
-                                    blurRadius: 6,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(height: 4),
+                          Text(
+                            online ? 'Online' : 'Offline',
+                            style: TextStyle(
+                              color: online ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              l10n.live,
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: live
+                            ? Colors.green.withOpacity(0.12)
+                            : Colors.red.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        live ? 'Live' : 'Offline',
+                        style: TextStyle(
+                          color: live ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  height: 160,
                   width: double.infinity,
+                  height: previewHeight,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          LucideIcons.video,
-                          size: 40,
-                          color: isDark ? Colors.white24 : Colors.grey,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          cam['isLive'] == true
-                              ? (index == 0 ? appState.cameraUrl : l10n.live)
-                              : l10n.recording,
-                          style: Theme.of(context).textTheme.bodyMedium!
-                              .copyWith(
-                                color: isDark ? Colors.white30 : Colors.grey,
-                                fontSize: index == 0 ? 10 : 12,
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                    color: isDark
+                        ? const Color(0xFF0F172A)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : const Color(0xFFE5E7EB),
                     ),
                   ),
+                  clipBehavior: Clip.antiAlias,
+                  child: live && imageUrl.isNotEmpty
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              errorBuilder: (_, __, ___) {
+                                return _streamFallback(isDark, 'Stream Not Available');
+                              },
+                            ),
+                            if (isFake)
+                              Positioned(
+                                left: 16,
+                                top: 16,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.45),
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: const Text(
+                                    'Fake Preview',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        )
+                      : _streamFallback(isDark, 'Stream Not Available'),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _infoChip(
+                      icon: LucideIcons.home,
+                      label: 'Apartment $apartment',
+                      color: Colors.blue,
+                    ),
+                    _infoChip(
+                      icon: LucideIcons.clock,
+                      label: 'Last seen: $lastSeen',
+                      color: Colors.orange,
+                    ),
+                    _infoChip(
+                      icon: enabled ? LucideIcons.checkCircle : LucideIcons.xCircle,
+                      label: enabled ? 'Enabled' : 'Disabled',
+                      color: enabled ? Colors.green : Colors.red,
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildFaceEventsTab(BuildContext context, AppLocalizations l10n) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _streamFallback(bool isDark, String text) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          LucideIcons.videoOff,
+          size: 42,
+          color: isDark ? Colors.white54 : Colors.black38,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isDark ? Colors.white54 : Colors.black54,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
 
-    if (_isLoadingFaceEvents) {
+  Widget _buildFaceEventsTab(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (_loadingFaceEvents) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (_faceEventsError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Backend face events error: $_faceEventsError',
-            style: const TextStyle(color: Colors.red),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
+      return _errorBox('Backend face events error: $_faceEventsError');
     }
 
     if (_faceEvents.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _loadFaceEvents,
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: const [
-            SizedBox(height: 120),
-            Center(child: Text('No face events from backend yet')),
-          ],
-        ),
-      );
+      return const Center(child: Text('No face events from backend yet.'));
     }
 
     return RefreshIndicator(
       onRefresh: _loadFaceEvents,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         itemCount: _faceEvents.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
           final event = _faceEvents[index];
-          final eventType = event['event_type']?.toString().toLowerCase() ?? '';
-          final isKnown = eventType == 'known';
-          final isUnknown = !isKnown;
-          final name = event['name']?.toString();
-          final displayName = name != null && name.isNotEmpty
-              ? name
-              : (isUnknown ? l10n.unknownPerson : l10n.greeting);
 
-          final color = isKnown ? Colors.green : Colors.red;
-          final icon = isKnown ? LucideIcons.userCheck : LucideIcons.userX;
-          final source = event['source']?.toString() ?? l10n.frontDoorCamera;
-          final score = event['score'];
+          final title = _text(event['title'], fallback: 'Face Event');
+          final status = _text(event['status'], fallback: 'Event');
+          final severity = _text(event['severity'], fallback: 'info');
+          final camera = _text(event['camera'], fallback: 'Smart Door');
+          final details = _text(event['details']);
+          final memberName = _text(event['member_name']);
+          final known = _readBool(event, ['known'], fallback: false);
+          final color = _eventColor(severity, status);
 
           return Container(
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Theme.of(context).colorScheme.surface
-                  : Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(20),
-              border: isDark
-                  ? Border.all(color: const Color(0xFF334155), width: 1)
-                  : isUnknown
-                  ? Border.all(color: Colors.red.withOpacity(0.2), width: 1)
-                  : null,
-              boxShadow: isDark
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-            ),
+            decoration: _cardDecoration(context, isDark),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: color, size: 22),
+                  child: Icon(_eventIcon(title, known), color: color),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -418,82 +582,68 @@ class _CameraScreenState extends State<CameraScreen>
                         children: [
                           Expanded(
                             child: Text(
-                              displayName,
-                              style: Theme.of(context).textTheme.titleMedium,
+                              title,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
-                          if (isUnknown)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    LucideIcons.alertTriangle,
-                                    size: 12,
-                                    color: Colors.red,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    l10n.unknownFaceDetected,
-                                    style: const TextStyle(
-                                      color: Colors.red,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                l10n.registeredFace,
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
+                      if (memberName.isNotEmpty) ...[
+                        Text(
+                          'Name: $memberName',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      if (details.isNotEmpty) ...[
+                        Text(
+                          details,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       Row(
                         children: [
                           Icon(
                             LucideIcons.camera,
-                            size: 13,
-                            color: isDark ? Colors.white38 : Colors.grey,
+                            size: 14,
+                            color: isDark ? Colors.white38 : Colors.black45,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              source,
-                              style: Theme.of(context).textTheme.bodySmall,
+                              camera,
                               overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Icon(
                             LucideIcons.clock,
-                            size: 13,
-                            color: isDark ? Colors.white38 : Colors.grey,
+                            size: 14,
+                            color: isDark ? Colors.white38 : Colors.black45,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -502,13 +652,6 @@ class _CameraScreenState extends State<CameraScreen>
                           ),
                         ],
                       ),
-                      if (score != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Score: $score',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -516,6 +659,48 @@ class _CameraScreenState extends State<CameraScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _infoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorBox(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.red),
+        ),
       ),
     );
   }

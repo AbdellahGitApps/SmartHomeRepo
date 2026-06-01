@@ -66,6 +66,10 @@
                         <span style="color: var(--text-secondary);" data-i18n="registered_label">Registered:</span>
                         <span id="registeredAt" dir="ltr">-</span>
                     </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);">Owner Phone:</span>
+                        <span id="ownerPhoneDisplay" dir="ltr">--</span>
+                    </div>
 
                     <div style="display: flex; justify-content: space-between;">
                         <span style="color: var(--text-secondary);" data-i18n="devices_label">Devices:</span>
@@ -285,6 +289,10 @@ function renderHomeInfo(home) {
     document.getElementById('ownerName').textContent = safe(home.owner_name);
     document.getElementById('ownerEmail').textContent = safe(home.owner_email);
     document.getElementById('registeredAt').textContent = formatTimestamp(home.registered_at);
+    const ownerPhoneDisplay = document.getElementById('ownerPhoneDisplay');
+    if (ownerPhoneDisplay) {
+        ownerPhoneDisplay.textContent = home.owner_phone || '--';
+    }
     document.getElementById('devicesCount').textContent = safe(home.devices_count, 0);
     document.getElementById('membersCount').textContent = safe(home.members_count, 0);
 }
@@ -838,4 +846,6 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 <!-- FINAL_TARGET_DATETIME_FIX_END -->
+
+
 

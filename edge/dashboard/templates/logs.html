@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Security Logs
 <!-- D7M16_FINAL_APARTMENT_FILTER_START -->
 <script>
@@ -314,6 +314,9 @@ document.addEventListener("DOMContentLoaded", function () {
         <button class="btn btn-outline" onclick="loadLogs()">
             <i class="ph ph-arrows-clockwise"></i> Refresh
         </button>
+        <button class="btn btn-outline" style="color:#ef4444;border-color:#ef4444;" onclick="deleteFilteredLogsFinal()">
+            <i class="ph ph-trash"></i> Delete Filtered
+        </button>
         <button class="btn btn-outline" onclick="exportLogsCsv()">
             <i class="ph ph-download"></i> Export CSV
         </button>
@@ -321,11 +324,18 @@ document.addEventListener("DOMContentLoaded", function () {
 </div>
 
 <div class="glass-card">
-    <div style="display: grid; grid-template-columns: 1fr 180px 210px 180px; gap: 14px; margin-bottom: 20px;">
+    <div style="display: grid; grid-template-columns: 1fr 180px 180px 210px 180px; gap: 14px; margin-bottom: 20px;">
         <input id="logSearch" class="form-control" placeholder="Search events...">
 
         <select id="dateFilter" class="form-control">
             <option value="">All Dates</option>
+        </select>
+
+        <select id="actorFilter" class="form-control">
+            <option value="">All Actors</option>
+            <option value="System Owner">System Owner</option>
+            <option value="Admin App">Admin App</option>
+            <option value="Server">Server</option>
         </select>
 
         <select id="eventFilter" class="form-control">
@@ -360,11 +370,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     <th>Event Type</th>
                     <th>Details</th>
                     <th>Action Taken</th>
+                    <th>Delete</th>
                 </tr>
             </thead>
             <tbody id="logsTableBody">
                 <tr>
-                    <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+                    <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:24px;">
                         Loading logs...
                     </td>
                 </tr>
@@ -595,6 +606,11 @@ function detectEventType(log) {
 }
 
 function detectActor(log, eventType) {
+    const actionTaken = String(log.action_taken || "").toUpperCase();
+    if (["APP SETTINGS UPDATED", "APP ADMIN REGISTERED", "APP PASSWORD RESET"].includes(actionTaken)) {
+        return "Admin App";
+    }
+
     const raw = textOf(log).toLowerCase();
 
     if (
@@ -698,6 +714,23 @@ function normalizeAction(log, eventType) {
 
 function normalizeSeverity(log, eventType) {
     let severity = String(log.severity || "INFO").toUpperCase();
+    const action = String(log.action_taken || "").toUpperCase();
+    const details = String(log.details || "").toLowerCase();
+
+    if (
+        action === "UNKNOWN OPEN ONCE" ||
+        action === "DOOR OPENED AFTER FAMILY ADD" ||
+        action === "FAMILY MEMBER ADDED"
+    ) {
+        return "INFO";
+    }
+
+    if (
+        action === "UNKNOWN DENIED" ||
+        action === "UNKNOWN FACE DETECTED"
+    ) {
+        return "WARNING";
+    }
 
     if (eventType === "System Error") {
         if (severity === "INFO") return "ERROR";
@@ -705,9 +738,8 @@ function normalizeSeverity(log, eventType) {
 
     if (
         eventType === "Energy Warning" ||
-        String(log.action_taken || "").toLowerCase().includes("disable") ||
-        String(log.details || "").toLowerCase().includes("disabled") ||
-        String(log.details || "").toLowerCase().includes("unknown")
+        action.includes("DISABLE") ||
+        details.includes("disabled")
     ) {
         if (severity === "INFO") return "WARNING";
     }
@@ -719,6 +751,7 @@ function normalizeLog(log) {
     const eventType = detectEventType(log);
 
     return {
+        id: log.id || log.source_id || log.log_id || "",
         timestamp: log.timestamp || log.created_at || log.time || "",
         severity: normalizeSeverity(log, eventType),
         actor: detectActor(log, eventType),
@@ -767,7 +800,7 @@ function renderLogs(logs) {
     if (!logs.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+                <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:24px;">
                     No logs found.
                 </td>
             </tr>
@@ -785,6 +818,11 @@ function renderLogs(logs) {
             <td>${escapeHtml(log.event_type)}</td>
             <td>${escapeHtml(log.details)}</td>
             <td>${escapeHtml(log.action_taken)}</td>
+            <td style="text-align:right;">
+                <button class="btn btn-outline" style="color:#ef4444;border-color:#ef4444;padding:6px 9px;" onclick="deleteSingleLogFinal('${log.id}')">
+                    <i class="ph ph-trash"></i>
+                </button>
+            </td>
         </tr>
     `).join("");
 }
@@ -795,6 +833,7 @@ function applyFilters() {
     const isNumberSearch = /^[0-9]+$/.test(search);
 
     const dateFilter = document.getElementById("dateFilter").value;
+    const actorFilter = document.getElementById("actorFilter") ? document.getElementById("actorFilter").value : "";
     const eventFilter = document.getElementById("eventFilter").value;
     const severityFilter = document.getElementById("severityFilter").value;
 
@@ -813,10 +852,11 @@ function applyFilters() {
         }
 
         const matchesDate = !dateFilter || logDateKey(log.timestamp) === dateFilter;
+        const matchesActor = !actorFilter || log.actor === actorFilter;
         const matchesEvent = !eventFilter || log.event_type === eventFilter;
         const matchesSeverity = !severityFilter || log.severity === severityFilter;
 
-        return matchesSearch && matchesDate && matchesEvent && matchesSeverity;
+        return matchesSearch && matchesDate && matchesActor && matchesEvent && matchesSeverity;
     });
 
     renderLogs(currentLogs);
@@ -852,7 +892,7 @@ async function loadLogs() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+            <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:24px;">
                 Loading logs...
             </td>
         </tr>
@@ -905,6 +945,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("logSearch").addEventListener("input", applyFilters);
     document.getElementById("dateFilter").addEventListener("change", applyFilters);
+    if (document.getElementById("actorFilter")) {
+        document.getElementById("actorFilter").addEventListener("change", applyFilters);
+    }
     document.getElementById("eventFilter").addEventListener("change", applyFilters);
     document.getElementById("severityFilter").addEventListener("change", applyFilters);
 });
@@ -1037,7 +1080,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (tbody) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">
+          <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:24px;">
             Loading logs...
           </td>
         </tr>
@@ -1066,7 +1109,456 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <!-- D7M16_FINAL_QA_LOG_ACTOR_DEDUPE_V6_END -->
 
+
+<!-- D7M16_DASHBOARD_DELETE_FINAL_OVERRIDE_START -->
+<script>
+(function () {
+  async function readJson(response) {
+    try { return await response.json(); } catch (_) { return {}; }
+  }
+
+  window.deleteSingleLogFinal = async function (id) {
+    if (!id) {
+      alert("Log id is missing.");
+      return;
+    }
+
+    if (!confirm("Delete this log event?")) return;
+
+    const response = await fetch(`/api/dashboard/security-logs/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: {
+        "X-Actor-Role": "system_owner",
+        "X-System-Owner-Token": "dev-system-owner-token"
+      }
+    });
+
+    const data = await readJson(response);
+
+    if (!response.ok || data.success === false) {
+      alert(data.detail || data.message || "Delete failed.");
+      return;
+    }
+
+    if (typeof loadLogs === "function") {
+      await loadLogs();
+    } else {
+      window.location.reload();
+    }
+  };
+
+  window.deleteFilteredLogsFinal = async function () {
+    const payload = {
+      search: document.getElementById("logSearch")?.value || "",
+      date: document.getElementById("dateFilter")?.value || "",
+      actor: document.getElementById("actorFilter")?.value || "",
+      event_type: document.getElementById("eventFilter")?.value || "",
+      severity: document.getElementById("severityFilter")?.value || ""
+    };
+
+    const msg = `Delete logs matching current filters?\nDate: ${payload.date || "All"}\nEvent: ${payload.event_type || "All"}\nSeverity: ${payload.severity || "All"}`;
+    if (!confirm(msg)) return;
+
+    const response = await fetch("/api/dashboard/security-logs/delete-filtered", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Actor-Role": "system_owner",
+        "X-System-Owner-Token": "dev-system-owner-token"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await readJson(response);
+
+    if (!response.ok || data.success === false) {
+      alert(data.detail || data.message || "Bulk delete failed.");
+      return;
+    }
+
+    if (typeof loadLogs === "function") {
+      await loadLogs();
+    } else {
+      window.location.reload();
+    }
+  };
+
+  window.d7DeleteLog = window.deleteSingleLogFinal;
+  window.d7DeleteFilteredLogs = window.deleteFilteredLogsFinal;
+})();
+</script>
+<!-- D7M16_DASHBOARD_DELETE_FINAL_OVERRIDE_END -->
+
 {% endblock %}
 
 
 
+
+
+<!-- D7M16_FORCE_APP_SETTINGS_ACTOR_START -->
+<script>
+(function () {
+  function fixAppAccountActors() {
+    if (!window.location.pathname.includes("/logs")) return;
+
+    document.querySelectorAll("tr").forEach(function (row) {
+      const text = row.innerText || "";
+      const isAppAction =
+        text.includes("APP SETTINGS UPDATED") ||
+        text.includes("APP ADMIN REGISTERED") ||
+        text.includes("APP PASSWORD RESET");
+
+      if (!isAppAction) return;
+
+      row.querySelectorAll("td, span, div").forEach(function (cell) {
+        const value = (cell.textContent || "").trim();
+        if (value === "Server" || value === "App Admin") {
+          cell.textContent = "Admin App";
+        }
+      });
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", fixAppAccountActors);
+  window.addEventListener("pageshow", fixAppAccountActors);
+  setInterval(fixAppAccountActors, 500);
+})();
+</script>
+<!-- D7M16_FORCE_APP_SETTINGS_ACTOR_END -->
+
+
+<!-- D7M16_DASHBOARD_LOG_DELETE_UI_TERMINAL_START -->
+<style>
+.d7-log-delete-btn,
+.d7-log-delete-filtered-btn {
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+    border-radius: 10px;
+    padding: 7px 10px;
+    cursor: pointer;
+    font-weight: 700;
+}
+.d7-log-delete-btn:hover,
+.d7-log-delete-filtered-btn:hover {
+    background: rgba(239, 68, 68, 0.18);
+}
+.d7-log-delete-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+</style>
+<script>
+(function () {
+    if (window.__d7LogDeleteInstalled) return;
+    window.__d7LogDeleteInstalled = true;
+
+    function valueOf(id) {
+        const el = document.getElementById(id);
+        return el ? String(el.value || "all") : "all";
+    }
+
+    async function apiDelete(url, body) {
+        const options = { method: "DELETE", headers: { "Content-Type": "application/json" } };
+        if (body) options.body = JSON.stringify(body);
+        const res = await fetch(url, options);
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || "Delete failed");
+        }
+        return await res.json();
+    }
+
+    function getVisibleLogs() {
+        if (Array.isArray(window.currentLogs)) return window.currentLogs;
+        if (Array.isArray(window.filteredLogs)) return window.filteredLogs;
+        return [];
+    }
+
+    function refreshLogs() {
+        if (typeof window.loadLogs === "function") {
+            window.loadLogs();
+        } else {
+            window.location.reload();
+        }
+    }
+
+    function installBulkButton() {
+        if (document.getElementById("d7DeleteFilteredLogsBtn")) return;
+
+        const refreshBtn =
+            document.querySelector("button[onclick*='loadLogs']") ||
+            Array.from(document.querySelectorAll("button")).find(function (btn) {
+                return String(btn.textContent || "").toLowerCase().includes("refresh");
+            });
+
+        if (!refreshBtn || !refreshBtn.parentElement) return;
+
+        const btn = document.createElement("button");
+        btn.id = "d7DeleteFilteredLogsBtn";
+        btn.className = "d7-log-delete-filtered-btn";
+        btn.innerHTML = '<i class="ph ph-trash"></i> Delete Filtered';
+        btn.addEventListener("click", async function () {
+            const payload = {
+                date: valueOf("dateFilter"),
+                event_type: valueOf("eventFilter"),
+                severity: valueOf("severityFilter")
+            };
+
+            if (!confirm("Delete all logs matching the selected filters? This is for testing cleanup only.")) return;
+
+            try {
+                const data = await apiDelete("/api/dashboard/logs/bulk", payload);
+                alert("Deleted logs: " + (data.deleted ?? 0));
+                refreshLogs();
+            } catch (err) {
+                alert("Delete failed: " + err.message);
+            }
+        });
+
+        refreshBtn.parentElement.insertBefore(btn, refreshBtn.nextSibling);
+    }
+
+    function installRowDeleteButtons() {
+        const logs = getVisibleLogs();
+        const table = document.querySelector("table");
+        const tbody = document.querySelector("tbody");
+
+        if (!table || !tbody) return;
+
+        const headerRow = table.querySelector("thead tr");
+        if (headerRow && !headerRow.querySelector(".d7-delete-header")) {
+            const th = document.createElement("th");
+            th.className = "d7-delete-header";
+            th.textContent = "Delete";
+            headerRow.appendChild(th);
+        }
+
+        Array.from(tbody.querySelectorAll("tr")).forEach(function (tr, index) {
+            if (tr.querySelector(".d7-log-delete-btn")) return;
+
+            const log = logs[index];
+            if (!log || !log.id) return;
+
+            const td = document.createElement("td");
+            td.className = "d7-log-delete-cell";
+
+            const btn = document.createElement("button");
+            btn.className = "d7-log-delete-btn";
+            btn.innerHTML = '<i class="ph ph-trash"></i>';
+            btn.title = "Delete this log";
+
+            btn.addEventListener("click", async function () {
+                if (!confirm("Delete this log event?")) return;
+
+                try {
+                    await apiDelete("/api/dashboard/logs/" + encodeURIComponent(log.id));
+                    refreshLogs();
+                } catch (err) {
+                    alert("Delete failed: " + err.message);
+                }
+            });
+
+            td.appendChild(btn);
+            tr.appendChild(td);
+        });
+    }
+
+    function run() {
+        installBulkButton();
+        installRowDeleteButtons();
+    }
+
+    document.addEventListener("DOMContentLoaded", run);
+    window.addEventListener("load", run);
+    setInterval(run, 900);
+
+    const oldApply = window.applyFilters;
+    if (typeof oldApply === "function") {
+        window.applyFilters = function () {
+            const result = oldApply.apply(this, arguments);
+            setTimeout(run, 80);
+            return result;
+        };
+    }
+
+    const oldLoad = window.loadLogs;
+    if (typeof oldLoad === "function") {
+        window.loadLogs = async function () {
+            const result = await oldLoad.apply(this, arguments);
+            setTimeout(run, 120);
+            return result;
+        };
+    }
+})();
+</script>
+<!-- D7M16_DASHBOARD_LOG_DELETE_UI_TERMINAL_END -->
+
+
+
+<script>
+async function deleteSingleLogFinal(id) {
+    if (!id) return;
+    if (!confirm("Delete this log event?")) return;
+
+    const res = await fetch(`/api/dashboard/logs-final/${encodeURIComponent(id)}`, {
+        method: "DELETE"
+    });
+
+    if (!res.ok) {
+        alert("Delete failed.");
+        return;
+    }
+
+    await loadLogs();
+}
+
+async function deleteFilteredLogsFinal() {
+    const dateEl = document.getElementById("dateFilter");
+    const eventEl = document.getElementById("eventFilter");
+    const severityEl = document.getElementById("severityFilter");
+
+    const payload = {
+        date: dateEl ? dateEl.value : "",
+        actor: document.getElementById("actorFilter") ? document.getElementById("actorFilter").value : "",
+        event_type: eventEl ? eventEl.value : "",
+        severity: severityEl ? severityEl.value : ""
+    };
+
+    const msg = `Delete logs matching current filters?\nDate: ${payload.date || "All"}\nEvent: ${payload.event_type || "All"}\nSeverity: ${payload.severity || "All"}`;
+
+    if (!confirm(msg)) return;
+
+    const res = await fetch("/api/dashboard/logs-final/bulk", {
+        method: "DELETE",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        alert("Bulk delete failed.");
+        return;
+    }
+
+    const data = await res.json();
+    alert(`Deleted logs: ${data.deleted || 0}`);
+    await loadLogs();
+}
+</script>
+
+<!-- D7M16_FINAL_LOG_DELETE_WIRE_START -->
+<script>
+(function () {
+  if (window.__d7FinalLogDeleteWireInstalled) return;
+  window.__d7FinalLogDeleteWireInstalled = true;
+
+  async function readJson(response) {
+    try {
+      return await response.json();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  window.d7DeleteLog = async function (logId) {
+    if (!logId) {
+      alert("Log id is missing.");
+      return;
+    }
+
+    if (!confirm("Delete this security log?")) return;
+
+    const response = await fetch(`/api/dashboard/security-logs/${encodeURIComponent(logId)}`, {
+      method: "DELETE",
+      headers: {
+        "X-Actor-Role": "system_owner",
+        "X-System-Owner-Token": "dev-system-owner-token"
+      }
+    });
+
+    const data = await readJson(response);
+
+    if (!response.ok || data.success === false) {
+      alert(data.detail || data.message || "Failed to delete log.");
+      return;
+    }
+
+    if (typeof loadLogs === "function") {
+      await loadLogs();
+    } else {
+      window.location.reload();
+    }
+  };
+
+  window.d7DeleteFilteredLogs = async function () {
+    if (!confirm("Delete security logs matching current filters?")) return;
+
+    const payload = {
+      search: document.getElementById("logSearch")?.value || "",
+      date: document.getElementById("dateFilter")?.value || "",
+      event_type: document.getElementById("eventFilter")?.value || "",
+      severity: document.getElementById("severityFilter")?.value || ""
+    };
+
+    const response = await fetch("/api/dashboard/security-logs/delete-filtered", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Actor-Role": "system_owner",
+        "X-System-Owner-Token": "dev-system-owner-token"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await readJson(response);
+
+    if (!response.ok || data.success === false) {
+      alert(data.detail || data.message || "Failed to delete filtered logs.");
+      return;
+    }
+
+    if (typeof loadLogs === "function") {
+      await loadLogs();
+    } else {
+      window.location.reload();
+    }
+  };
+
+  document.addEventListener("click", function (event) {
+    const filteredBtn = event.target.closest("#d7DeleteFilteredBtn, [data-d7-delete-filtered]");
+    if (filteredBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.d7DeleteFilteredLogs();
+      return;
+    }
+
+    const singleBtn = event.target.closest("[data-log-id], [data-d7-log-id]");
+    if (singleBtn) {
+      const id = singleBtn.dataset.logId || singleBtn.dataset.d7LogId;
+      if (id) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.d7DeleteLog(id);
+      }
+    }
+  }, true);
+
+  function wireDeleteButtons() {
+    document.querySelectorAll("button").forEach(function (btn) {
+      const text = (btn.textContent || "").toLowerCase();
+
+      if (text.includes("delete filtered")) {
+        btn.id = "d7DeleteFilteredBtn";
+        btn.setAttribute("data-d7-delete-filtered", "1");
+        btn.onclick = null;
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", wireDeleteButtons);
+  window.addEventListener("pageshow", wireDeleteButtons);
+  setInterval(wireDeleteButtons, 600);
+})();
+</script>
+<!-- D7M16_FINAL_LOG_DELETE_WIRE_END -->

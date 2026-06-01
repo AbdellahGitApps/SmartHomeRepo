@@ -1,3 +1,13 @@
+
+def _home_id_code_for_device(home) -> str:
+    apartment_number = getattr(home, "apartment_number", None)
+    digits = "".join(ch for ch in str(apartment_number or "") if ch.isdigit())
+
+    if digits:
+        return f"HOME-{int(digits):03d}"
+
+    return f"HOME-{int(getattr(home, 'id', 0) or 0):03d}"
+
 import secrets
 import random
 import string
@@ -71,10 +81,10 @@ def create_device(
     if not home:
         raise ValueError(f"Home with id {home_id} not found")
 
-    device_id = generate_device_id(db, home_id, home.home_code, device_type)
+    device_id = generate_device_id(db, home_id, _home_id_code_for_device(home), device_type)
     device_token = generate_device_token()
-    claim_code = generate_claim_code(home.home_code)
-    mqtt_topic = generate_mqtt_topic(home.home_code, device_type, device_id)
+    claim_code = generate_claim_code(_home_id_code_for_device(home))
+    mqtt_topic = generate_mqtt_topic(_home_id_code_for_device(home), device_type, device_id)
 
     db_device = Device(
         home_id=home_id,

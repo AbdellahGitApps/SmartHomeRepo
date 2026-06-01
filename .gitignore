@@ -71,3 +71,19 @@ Thumbs.db
 *.tmp
 *.temp
 edge/database/*.db
+
+# Local ChatGPT scan/backup/temp files
+*_SCAN.txt
+*_scan.txt
+*_bundle.txt
+*_debug*.txt
+*_fix*.txt
+FULL_PROJECT_SCAN_FOR_CHATGPT_*/
+FULL_PROJECT_SCAN_FOR_CHATGPT_*.zip
+_FULL_PROJECT_SCAN_*/
+_backup_*/
+_final_*.py
+_scan_*.ps1
+*.before_*
+*.broken_now_backup
+edge/ai/*.db

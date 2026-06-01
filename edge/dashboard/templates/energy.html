@@ -164,7 +164,7 @@
         <div>
             <div class="label">Monthly Forecast</div>
             <div class="value" id="monthlyForecastValue">-- kWh</div>
-            <div class="sub" id="monthlyForecastSub">Based on latest reading</div>
+            <div class="sub" id="monthlyForecastSub">Based on previous readings</div>
         </div>
     </div>
 
@@ -232,7 +232,7 @@ function renderEnergyCards() {
     setText("dailyUsageSub", `${device.device_id || ""}`);
 
     setText("monthlyForecastValue", `${energyNumber(device.monthly_forecast_kwh)} kWh`);
-    setText("monthlyForecastSub", device.has_readings ? "Forecast for selected device" : "No readings yet");
+    setText("monthlyForecastSub", device.has_readings ? "Based on previous readings" : "No readings yet");
 
     setText("currentPowerValue", `${energyNumber(device.current_power_w, 0)} W`);
     setText("currentPowerSub", device.latest_timestamp_label || "No reading available");

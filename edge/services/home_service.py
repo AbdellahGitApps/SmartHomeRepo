@@ -6,15 +6,18 @@ from database.models.home import Home
 
 def generate_home_code(apartment_number: str) -> str:
     """
-    Generate home_code automatically in the format HOME-XXX (e.g., HOME-036).
-    Pads the apartment number to at least 3 digits.
+    Generate a private pairing code for app first login.
+    Home ID stays as HOME-XXX and is derived from apartment number.
+    Home Code is intentionally different: HME-XXXX-XXXX.
     """
-    try:
-        num = int(apartment_number)
-        padded = f"{num:03d}"
-    except ValueError:
-        padded = apartment_number.zfill(3)
-    return f"HOME-{padded}"
+    import secrets
+
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+    def part(length: int) -> str:
+        return "".join(secrets.choice(alphabet) for _ in range(length))
+
+    return f"HME-{part(4)}-{part(4)}"
 
 
 def create_home(
@@ -23,6 +26,7 @@ def create_home(
     owner_name: str,
     owner_email: str,
     apartment_number: str,
+    owner_phone: str = "",
 ) -> Home:
     """
     Create a new Home in the database, automatically generating a unique home_code.
@@ -39,6 +43,7 @@ def create_home(
         name=name,
         owner_name=owner_name,
         owner_email=owner_email,
+        owner_phone=owner_phone,
         apartment_number=apartment_number,
         home_code=home_code,
     )

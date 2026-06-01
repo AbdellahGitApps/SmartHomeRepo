@@ -64,7 +64,7 @@
   "nextDay": "اليوم التالي",
   "nextWeek": "الأسبوع التالي",
   "nextMonth": "الشهر التالي",
-  "basedOnHistory": "بناءً على البيانات التاريخية",
+  "basedOnHistory": "Based on previous readings",
   "voltage": "الجهد",
   "current": "التيار",
   "power": "القدرة",

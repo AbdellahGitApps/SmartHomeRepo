@@ -9,4 +9,5 @@ class Home(Base):
     home_code = Column(String, unique=True, index=True, nullable=False)
     owner_name = Column(String, nullable=True)
     owner_email = Column(String, nullable=True)
+    owner_phone = Column(String, nullable=True)
     apartment_number = Column(String, nullable=True)

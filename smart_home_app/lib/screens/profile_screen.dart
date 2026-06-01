@@ -18,8 +18,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _adminPasswordController = TextEditingController();
   final _doorPinController = TextEditingController();
   final _userAccountController = TextEditingController();
-  final _aptController = TextEditingController(text: 'Apt 4B - Building 2');
-  final _homeIdController = TextEditingController(text: 'HOME-APT4B');
+  final _aptController = TextEditingController(text: '');
+  final _homeIdController = TextEditingController(text: '');
   final _homeCodeController = TextEditingController();
 
   bool _obscureAdminPassword = true;
@@ -41,11 +41,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _initializeControllers(AppStateProvider appState) {
     _adminNameController.text = appState.adminName;
+    _aptController.text = appState.apartmentNumber;
+    _homeIdController.text = appState.homeId;
+    _actualHomeCode = appState.homeCode;
+    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode ? _actualHomeCode : '********';
     _adminPasswordController.text = appState.password;
     _doorPinController.text = appState.doorPin;
     _userAccountController.text = appState.userAccountPassword;
+    _aptController.text = appState.apartmentNumber;
+    _homeIdController.text = appState.homeId;
     _actualHomeCode = appState.homeCode;
-    _homeCodeController.text = _obscureHomeCode ? '********' : _actualHomeCode;
+    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode ? _actualHomeCode : '********';
   }
 
   @override
@@ -203,6 +209,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isAdmin = appState.isAdmin;
 
     _adminNameController.text = appState.adminName;
+    _aptController.text = appState.apartmentNumber;
+    _homeIdController.text = appState.homeId;
+    _actualHomeCode = appState.homeCode;
+    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode ? _actualHomeCode : '********';
 
     return Scaffold(
       appBar: AppBar(
@@ -243,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   isDark: isDark,
                   enabled: true,
                   readOnly: true,
-                  suffix: Row(
+                  suffix: (Provider.of<AppStateProvider>(context, listen: false).userRole.toLowerCase() == 'user') ? null : (appState.isAdmin ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
@@ -264,7 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: const Icon(LucideIcons.copy, size: 18),
                         onPressed: () {
                           Clipboard.setData(
-                            ClipboardData(text: _actualHomeCode),
+                            ClipboardData(text: appState.isAdmin ? _actualHomeCode : '********'),
                           );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -275,7 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                     ],
-                  ),
+                  ) : null),
                 ),
               ],
             ),
@@ -662,7 +672,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           readOnly: readOnly,
           decoration: InputDecoration(
             prefixIcon: icon != null ? Icon(icon, size: 20) : null,
-            suffixIcon: suffix,
+            suffixIcon: (label == 'Home Code' && (Provider.of<AppStateProvider>(context, listen: false).userRole.toLowerCase() == 'user')) ? null : suffix,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),

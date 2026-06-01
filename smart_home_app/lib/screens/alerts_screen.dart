@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../l10n/app_localizations.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+
+import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
+import '../services/backend_api_service.dart';
 import '../widgets/add_member_bottom_sheet.dart';
 
 class AlertsScreen extends StatefulWidget {
@@ -12,12 +14,92 @@ class AlertsScreen extends StatefulWidget {
   State<AlertsScreen> createState() => _AlertsScreenState();
 }
 
-class _AlertsScreenState extends State<AlertsScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _listController;
+class _AlertsScreenState extends State<AlertsScreen> {
+  final BackendApiService _api = BackendApiService();
 
-  // Filter: 0 = All, 1 = Security, 2 = System
   int _filterIndex = 0;
+  bool _loading = false;
+  List<Map<String, dynamic>> _alerts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _loadAlerts(markSeen: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _api.close();
+    super.dispose();
+  }
+
+  Future<void> _loadAlerts({bool markSeen = false}) async {
+    if (_loading) return;
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    setState(() {
+      _loading = true;
+    });
+
+    try {
+      final response = await _api.fetchAppAlerts(
+        homeId: appState.homeDbId,
+        homeCode: appState.homeCode,
+        adminLogin: appState.adminName,
+        viewerRole: appState.userRole,
+      );
+
+      final rawAlerts = response['alerts'];
+      final items = rawAlerts is List
+          ? rawAlerts
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      item.map((key, value) => MapEntry(key.toString(), value)),
+                )
+                .toList()
+          : <Map<String, dynamic>>[];
+      items.sort((a, b) => _d7AlertSortMillis(b).compareTo(_d7AlertSortMillis(a)));
+
+      if (!mounted) return;
+
+      setState(() {
+        _alerts = items;
+      });
+
+      final activeCount = items
+          .where((item) => item['isResolved'] != true)
+          .length;
+      appState.setActiveAlertCount(markSeen ? 0 : activeCount);
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _alerts = [];
+      });
+
+      appState.setActiveAlertCount(0);
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredAlerts {
+    if (_filterIndex == 0) return _alerts;
+
+    if (_filterIndex == 1) {
+      return _alerts.where((alert) => alert['category'] == 'security').toList();
+    }
+
+    return _alerts.where((alert) => alert['category'] == 'system').toList();
+  }
 
   bool _canManageAlerts(BuildContext context) {
     return Provider.of<AppStateProvider>(
@@ -26,270 +108,303 @@ class _AlertsScreenState extends State<AlertsScreen>
     ).canManageAlerts;
   }
 
-  // Mock Alerts with types and resolve status
-  late List<Map<String, dynamic>> mockAlerts;
 
-  @override
-  void initState() {
-    super.initState();
-    _listController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _listController.forward();
+  String _d7AlertTwo(int value) => value.toString().padLeft(2, '0');
 
-    mockAlerts = [
-      {
-        'titleKey': 'unknownFaceDetected',
-        'timeKey': 'justNow',
-        'type': 'unknownFace',
-        'category': 'security',
-        'icon': LucideIcons.userX,
-        'color': Colors.red,
-        'isResolved': false,
-        'cameraKey': 'frontDoor',
-        'statusKey': 'pendingDecision',
-        'comparison': null,
-      },
-      {
-        'titleKey': 'alertTypeHighEnergy',
-        'timeKey': 'minsAgo',
-        'type': 'highEnergy',
-        'category': 'system',
-        'icon': LucideIcons.zap,
-        'color': Colors.orange,
-        'isResolved': false,
-        'camera': null,
-        'status': null,
-        'comparison': '+18%',
-      },
-      {
-        'titleKey': 'deviceOffline',
-        'timeKey': 'minsAgo',
-        'type': 'deviceOffline',
-        'category': 'system',
-        'icon': LucideIcons.wifiOff,
-        'color': const Color(0xFFEF4444),
-        'isResolved': false,
-        'camera': null,
-        'status': null,
-        'comparison': null,
-        'deviceNameKey': 'livingRoomSensor',
-      },
-      {
-        'titleKey': 'alertTypeHighEnergy',
-        'timeKey': 'hoursAgo',
-        'type': 'highEnergy',
-        'category': 'system',
-        'icon': LucideIcons.zap,
-        'color': Colors.orange,
-        'isResolved': true,
-        'camera': null,
-        'status': null,
-        'comparison': '+12%',
-      },
-      {
-        'titleKey': 'systemUpdateCompleted',
-        'timeKey': 'hoursAgo',
-        'type': 'system',
-        'category': 'system',
-        'icon': LucideIcons.checkCircle,
-        'color': Colors.green,
-        'isResolved': true,
-        'camera': null,
-        'status': null,
-        'comparison': null,
-      },
-    ];
+  DateTime? _d7ParseAlertDateTime(String rawValue) {
+    var value = rawValue.trim();
+
+    if (value.isEmpty || value.toLowerCase() == 'just now') {
+      return null;
+    }
+
+    value = value.replaceAll(RegExp(r'\s+'), ' ');
+
+    final hasExplicitTimezone =
+        RegExp(r'(Z|[+-]\d{2}:?\d{2})$').hasMatch(value);
+
+    try {
+      final parsed = DateTime.parse(value);
+      return parsed.isUtc || hasExplicitTimezone ? parsed.toLocal() : parsed;
+    } catch (_) {
+      // Try manual formats below.
+    }
+
+    final normalized = value.replaceFirst(', ', ' ');
+
+    final match12 = RegExp(
+      r'^(\d{4})-(\d{1,2})-(\d{1,2}) (\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$',
+      caseSensitive: false,
+    ).firstMatch(normalized);
+
+    if (match12 != null) {
+      final year = int.parse(match12.group(1)!);
+      final month = int.parse(match12.group(2)!);
+      final day = int.parse(match12.group(3)!);
+      var hour = int.parse(match12.group(4)!);
+      final minute = int.parse(match12.group(5)!);
+      final second = int.tryParse(match12.group(6) ?? '0') ?? 0;
+      final period = match12.group(7)!.toUpperCase();
+
+      if (period == 'PM' && hour != 12) hour += 12;
+      if (period == 'AM' && hour == 12) hour = 0;
+
+      return DateTime(year, month, day, hour, minute, second);
+    }
+
+    final match24 = RegExp(
+      r'^(\d{4})-(\d{1,2})-(\d{1,2}) (\d{1,2}):(\d{2})(?::(\d{2}))?$',
+    ).firstMatch(normalized);
+
+    if (match24 != null) {
+      return DateTime(
+        int.parse(match24.group(1)!),
+        int.parse(match24.group(2)!),
+        int.parse(match24.group(3)!),
+        int.parse(match24.group(4)!),
+        int.parse(match24.group(5)!),
+        int.tryParse(match24.group(6) ?? '0') ?? 0,
+      );
+    }
+
+    return null;
   }
 
-  void _syncActiveAlertCount() {
-    final count = mockAlerts
-        .where((alert) => alert['isResolved'] == false)
-        .length;
-    Provider.of<AppStateProvider>(
-      context,
-      listen: false,
-    ).setActiveAlertCount(count);
+  int _d7AlertSortMillis(Map<String, dynamic> alert) {
+    final raw = (alert['timestamp'] ?? alert['created_at'] ?? alert['time'] ?? '')
+        .toString();
+
+    final parsed = _d7ParseAlertDateTime(raw);
+
+    return parsed?.millisecondsSinceEpoch ?? 0;
   }
 
-  @override
-  void dispose() {
-    _listController.dispose();
-    super.dispose();
+  String _d7FormatAlertDateTime(DateTime value) {
+    final hour12 = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final period = value.hour >= 12 ? 'PM' : 'AM';
+
+    return '${value.year}-${_d7AlertTwo(value.month)}-${_d7AlertTwo(value.day)}, '
+        '${_d7AlertTwo(hour12)}:${_d7AlertTwo(value.minute)}:${_d7AlertTwo(value.second)} $period';
   }
 
-  String _getAlertTitle(AppLocalizations l10n, String key) {
-    switch (key) {
-      case 'alertTypeHighEnergy':
-        return l10n.alertTypeHighEnergy;
-      case 'alertTypeUnknownFace':
-        return l10n.alertTypeUnknownFace;
-      case 'unknownFaceDetected':
-        return l10n.unknownFaceDetected;
-      case 'systemUpdateCompleted':
-        return l10n.systemUpdateCompleted;
+  String _d7AlertDisplayTime(Map<String, dynamic> alert) {
+    final timestamp =
+        (alert['timestamp'] ?? alert['created_at'] ?? '').toString();
+
+    final parsedTimestamp = _d7ParseAlertDateTime(timestamp);
+    if (parsedTimestamp != null) {
+      return _d7FormatAlertDateTime(parsedTimestamp);
+    }
+
+    final fallback = (alert['time'] ?? '').toString();
+    final parsedFallback = _d7ParseAlertDateTime(fallback);
+
+    if (parsedFallback != null) {
+      return _d7FormatAlertDateTime(parsedFallback);
+    }
+
+    return fallback.trim().isEmpty ? 'Just now' : fallback;
+  }
+
+
+  IconData _iconFor(Map<String, dynamic> alert) {
+    final type = (alert['type'] ?? '').toString();
+
+    switch (type) {
+      case 'unknownFace':
+        return LucideIcons.userX;
+      case 'highEnergy':
+        return LucideIcons.zap;
       case 'deviceOffline':
-        return l10n.deviceOffline;
+        return LucideIcons.wifiOff;
+      case 'energyMonitor':
+        return LucideIcons.gauge;
+      case 'passwordRecovery':
+        return LucideIcons.keyRound;
+      case 'doorEvent':
+        return LucideIcons.lock;
       default:
-        return key;
+        return LucideIcons.bell;
     }
   }
 
-  String _getAlertTime(AppLocalizations l10n, String key) {
-    switch (key) {
-      case 'justNow':
-        return l10n.justNow;
-      case 'minsAgo':
-        return l10n.minsAgo;
-      case 'hoursAgo':
-        return l10n.hoursAgo;
-      default:
-        return key;
-    }
+  Color _mainColor(Map<String, dynamic> alert) {
+    final severity = (alert['severity'] ?? '').toString().toLowerCase();
+
+    if (severity == 'error' || severity == 'critical') return Colors.red;
+    if (severity == 'warning') return Colors.orange;
+
+    return Colors.green;
   }
 
-  List<Map<String, dynamic>> get _filteredAlerts {
-    if (_filterIndex == 0) return mockAlerts;
-    if (_filterIndex == 1) {
-      return mockAlerts.where((a) => a['category'] == 'security').toList();
-    }
-    return mockAlerts.where((a) => a['category'] == 'system').toList();
+  Future<void> _resolveAlert(Map<String, dynamic> alert) async {
+    final id = (alert['id'] ?? '').toString();
+
+    if (id.isEmpty) return;
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    await _api.resolveAppAlert(
+      id,
+      homeId: appState.homeDbId,
+      homeCode: appState.homeCode,
+      adminLogin: appState.adminName,
+      viewerRole: appState.userRole,
+    );
+    await _loadAlerts();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Future<void> _deleteAlert(Map<String, dynamic> alert) async {
+    final id = (alert['id'] ?? '').toString();
+
+    if (id.isEmpty) return;
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    await _api.hideAppAlert(
+      id,
+      homeId: appState.homeDbId,
+      homeCode: appState.homeCode,
+      adminLogin: appState.adminName,
+      viewerRole: appState.userRole,
+    );
+    await _loadAlerts();
+  }
+
+  Future<void> _handleUnknownDecision(
+    Map<String, dynamic> alert,
+    String action, {
+    String? memberName,
+    bool faceEnrolled = false,
+  }) async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final id = (alert['id'] ?? '').toString();
+
+    if (id.isEmpty) return;
+
+    await _api.decideAppAlert(
+      alertId: id,
+      action: action,
+      homeId: appState.homeDbId,
+      homeCode: appState.homeCode,
+      adminLogin: appState.adminName,
+      memberName: memberName,
+      faceEnrolled: faceEnrolled,
+    );
+
+    await _loadAlerts();
+  }
+
+  void _addUnknownToFamily(Map<String, dynamic> alert, bool isDark) {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
     final l10n = AppLocalizations.of(context)!;
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final appState = Provider.of<AppStateProvider>(context);
-    final filtered = _filteredAlerts;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.alerts),
+    AddMemberBottomSheet.show(
+      context,
+      l10n: l10n,
+      appState: appState,
+      isDark: isDark,
+      fixedRole: 'Family',
+      onSaveOverride: (name, role, faceEnrolled) async {
+        await _handleUnknownDecision(
+          alert,
+          'add_family',
+          memberName: name,
+          faceEnrolled: faceEnrolled,
+        );
+      },
+    );
+  }
+
+
+  Future<void> _markAllAlertsResolved() async {
+    final activeAlerts = _alerts.where((alert) {
+      final status = (alert['status'] ?? '').toString().toLowerCase();
+
+      return alert['isResolved'] != true &&
+          alert['is_resolved'] != true &&
+          alert['resolved'] != true &&
+          status != 'resolved' &&
+          status != 'hidden' &&
+          status != 'deleted';
+    }).toList();
+
+    for (final alert in activeAlerts) {
+      final id = (alert['id'] ?? '').toString();
+
+      if (id.isNotEmpty) {
+        await _api.resolveAppAlert(
+          id,
+          homeId: Provider.of<AppStateProvider>(context, listen: false).homeDbId,
+          homeCode: Provider.of<AppStateProvider>(context, listen: false).homeCode,
+          adminLogin: Provider.of<AppStateProvider>(context, listen: false).adminName,
+          viewerRole: Provider.of<AppStateProvider>(context, listen: false).userRole,
+        );
+      }
+    }
+
+    if (!mounted) return;
+
+    Provider.of<AppStateProvider>(context, listen: false).setActiveAlertCount(0);
+    await _loadAlerts(markSeen: true);
+  }
+
+  Future<void> _clearAlerts() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear alerts'),
+        content: const Text('Hide all current alerts for this home?'),
         actions: [
           TextButton(
-            onPressed: () {
-              setState(() {
-                for (var alert in mockAlerts) {
-                  alert['isResolved'] = true;
-                }
-              });
-              _syncActiveAlertCount();
-            },
-            child: Text(
-              l10n.clear,
-              style: TextStyle(color: Theme.of(context).primaryColor),
-            ),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear'),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Filter tabs ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF0F172A)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  children: [
-                    _buildFilterTab(l10n.allAlerts, 0, isDark),
-                    _buildFilterTab(l10n.securityAlerts, 1, isDark),
-                    _buildFilterTab(l10n.systemAlerts, 2, isDark),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Alert list ──
-            Expanded(
-              child: filtered.isEmpty
-                  ? Center(child: Text(l10n.noAlerts))
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        final alert = filtered[index];
-                        bool isResolved = alert['isResolved'] as bool;
-
-                        final itemAnimation = Tween<double>(begin: 0, end: 1)
-                            .animate(
-                              CurvedAnimation(
-                                parent: _listController,
-                                curve: Interval(
-                                  (index / filtered.length).clamp(0.0, 1.0),
-                                  ((index + 1) / filtered.length).clamp(
-                                    0.0,
-                                    1.0,
-                                  ),
-                                  curve: Curves.easeOutCubic,
-                                ),
-                              ),
-                            );
-
-                        return AnimatedBuilder(
-                          animation: itemAnimation,
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: Offset(50 * (1 - itemAnimation.value), 0),
-                              child: Opacity(
-                                opacity: itemAnimation.value,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: _buildAlertCard(
-                            alert,
-                            isResolved,
-                            isDark,
-                            l10n,
-                            index,
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
     );
+
+    if (ok != true) return;
+
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    await _api.clearAppAlerts(
+      homeId: appState.homeDbId,
+      homeCode: appState.homeCode,
+      adminLogin: appState.adminName,
+      viewerRole: appState.userRole,
+    );
+
+    await _loadAlerts();
   }
 
-  // ── Filter tab button ──
   Widget _buildFilterTab(String label, int index, bool isDark) {
-    bool isSelected = _filterIndex == index;
+    final selected = _filterIndex == index;
+
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _filterIndex = index),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected
+            color: selected
                 ? Theme.of(context).primaryColor
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
+          alignment: Alignment.center,
           child: Text(
             label,
-            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isSelected
+              color: selected
                   ? Colors.white
-                  : (isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF757575)),
+                  : (isDark ? Colors.white70 : Colors.black87),
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -297,102 +412,81 @@ class _AlertsScreenState extends State<AlertsScreen>
     );
   }
 
-  // ── Alert card builder ──
-  Widget _buildAlertCard(
-    Map<String, dynamic> alert,
-    bool isResolved,
-    bool isDark,
-    AppLocalizations l10n,
-    int index,
-  ) {
-    final alertColor = alert['color'] as Color;
+  Widget _buildAlertCard(Map<String, dynamic> alert, bool isDark) {
+    final color = _mainColor(alert);
+    final resolved =
+        alert['isResolved'] == true || alert['is_resolved'] == true;
+    final title = (alert['title'] ?? 'Alert').toString();
+    final message = (alert['message'] ?? '').toString();
+    final time = _d7AlertDisplayTime(alert);
+    final status = resolved ? 'Resolved' : 'Active';
+    final type = (alert['type'] ?? '').toString();
 
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 400),
-      opacity: isResolved ? 0.55 : 1.0,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isDark
-              ? Theme.of(context).colorScheme.surface
-              : Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(22),
-          border: isDark
-              ? Border.all(color: const Color(0xFF334155), width: 1)
-              : isResolved
-              ? null
-              : Border.all(color: alertColor.withOpacity(0.25), width: 1),
-          boxShadow: isDark
-              ? []
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withOpacity(resolved ? 0.15 : 0.35)),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+      ),
+      child: Opacity(
+        opacity: resolved ? 0.55 : 1,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header row ──
             Row(
               children: [
-                // Animated icon
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: Duration(milliseconds: 600 + (index * 150)),
-                  curve: Curves.elasticOut,
-                  builder: (context, value, child) {
-                    return Transform.scale(scale: value, child: child);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: alertColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(alert['icon'], color: alertColor, size: 22),
+                Container(
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(_iconFor(alert), color: color),
                 ),
                 const SizedBox(width: 14),
-                // Title + time + badge
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _getAlertTitle(l10n, alert['titleKey']),
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleLarge?.copyWith(fontSize: 16),
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
+                      Row(
                         children: [
-                          Text(
-                            _getAlertTime(l10n, alert['timeKey']),
-                            style: Theme.of(context).textTheme.bodyMedium,
+                          Expanded(
+                            child: Text(time.isEmpty ? 'Just now' : time),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: isResolved
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.red.withOpacity(0.1),
+                              color: resolved
+                                  ? Colors.green.withOpacity(0.12)
+                                  : Colors.red.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              isResolved ? l10n.resolved : l10n.activeAlert,
+                              status,
                               style: TextStyle(
-                                color: isResolved ? Colors.green : Colors.red,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                                color: resolved ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -401,227 +495,77 @@ class _AlertsScreenState extends State<AlertsScreen>
                     ],
                   ),
                 ),
+                if (true)
+                  IconButton(
+                    tooltip: 'Delete alert',
+                    onPressed: () => _deleteAlert(alert),
+                    icon: const Icon(LucideIcons.trash2, color: Colors.red),
+                  ),
               ],
             ),
-
-            // ── Unknown Face details ──
-            if (alert['type'] == 'unknownFace') ...[
+            if (message.isNotEmpty) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF0F172A)
-                      : const Color(0xFFF8FAFC),
+                  color: color.withOpacity(0.07),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF334155)
-                        : const Color(0xFFE2E8F0),
-                  ),
                 ),
-                child: Column(
-                  children: [
-                    _buildDetailRow(
-                      LucideIcons.clock,
-                      l10n.detectionTime,
-                      '2026-05-16  00:47',
-                      isDark,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildDetailRow(
-                      LucideIcons.video,
-                      l10n.cameraLabel,
-                      alert['cameraKey'] == 'frontDoor'
-                          ? l10n.frontDoor
-                          : (alert['camera'] ?? l10n.frontDoor),
-                      isDark,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildDetailRow(
-                      LucideIcons.alertTriangle,
-                      l10n.statusLabel,
-                      l10n.pendingDecision,
-                      isDark,
-                      valueColor: Colors.orange,
-                    ),
-                  ],
-                ),
+                child: Text(message),
               ),
-              // Action buttons
-              if (!isResolved && _canManageAlerts(context)) ...[
-                const SizedBox(height: 14),
+            ],
+            if (!resolved && _canManageAlerts(context)) ...[
+              const SizedBox(height: 14),
+              if (type == 'unknownFace')
                 Row(
                   children: [
-                    _buildActionButton(
-                      label: l10n.openAction,
-                      icon: LucideIcons.eye,
-                      color: const Color(0xFF3B82F6),
-                      isDark: isDark,
-                      onTap: () async {
-                        final appState = Provider.of<AppStateProvider>(
-                          context,
-                          listen: false,
-                        );
-
-                        final opened = await appState.openDoorFromAlert();
-
-                        if (!context.mounted) return;
-
-                        if (opened) {
-                          setState(() => alert['isResolved'] = true);
-                          _syncActiveAlertCount();
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Door open command sent'),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to send door open command'),
-                              backgroundColor: Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _buildActionButton(
-                      label: l10n.denyAction,
-                      icon: LucideIcons.xCircle,
-                      color: Colors.red,
-                      isDark: isDark,
-                      onTap: () {
-                        setState(() => alert['isResolved'] = true);
-                        _syncActiveAlertCount();
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _buildActionButton(
-                      label: l10n.addToFamily,
-                      icon: LucideIcons.userPlus,
-                      color: Colors.green,
-                      isDark: isDark,
-                      onTap: () {
-                        AddMemberBottomSheet.show(
-                          context,
-                          l10n: l10n,
-                          appState: Provider.of<AppStateProvider>(
-                            context,
-                            listen: false,
-                          ),
-                          isDark: isDark,
-                          onAdded: () {
-                            setState(() => alert['isResolved'] = true);
-                            _syncActiveAlertCount();
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ],
-
-            // ── Device Offline details ──
-            if (alert['type'] == 'deviceOffline' && !isResolved) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(LucideIcons.router, size: 16, color: Colors.red),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        alert['deviceNameKey'] == 'livingRoomSensor'
-                            ? l10n.livingRoomSensor
-                            : (alert['deviceName'] ?? 'Unknown Device'),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.red,
-                          fontWeight: FontWeight.w500,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _handleUnknownDecision(alert, 'open'),
+                        icon: const Icon(LucideIcons.unlock, size: 16),
+                        label: const Text('Open'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-
-            // ── High energy comparison ──
-            if (alert['comparison'] != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      LucideIcons.trendingUp,
-                      size: 16,
-                      color: Colors.orange,
-                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        '${alert['comparison']} ${l10n.higherThanAverage} — ${l10n.comparedToPrevious}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _handleUnknownDecision(alert, 'deny'),
+                        icon: const Icon(LucideIcons.xCircle, size: 16),
+                        label: const Text('Deny'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-
-            // ── Resolve button (for non-unknownFace alerts) ──
-            if (!isResolved &&
-                _canManageAlerts(context) &&
-                alert['type'] != 'unknownFace') ...[
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() => alert['isResolved'] = true);
-                    _syncActiveAlertCount();
-                  },
-                  icon: const Icon(LucideIcons.checkCircle, size: 18),
-                  label: Text(l10n.resolve),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.green,
-                    side: BorderSide(color: Colors.green.withOpacity(0.3)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _addUnknownToFamily(alert, isDark),
+                        icon: const Icon(LucideIcons.userPlus, size: 16),
+                        label: const Text('Add'),
+                      ),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ],
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _resolveAlert(alert),
+                    icon: const Icon(LucideIcons.checkCircle),
+                    label: const Text('Resolve'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.green,
+                      side: const BorderSide(color: Colors.green),
+                    ),
                   ),
                 ),
-              ),
             ],
           ],
         ),
@@ -629,82 +573,81 @@ class _AlertsScreenState extends State<AlertsScreen>
     );
   }
 
-  // ── Detail row for unknown face card ──
-  Widget _buildDetailRow(
-    IconData icon,
-    String label,
-    String value,
-    bool isDark, {
-    Color? valueColor,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 15,
-          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF757575),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF757575),
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final filtered = _filteredAlerts;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.alerts),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: () => _loadAlerts(),
+            icon: const Icon(Icons.refresh, size: 20),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color:
-                  valueColor ??
-                  (isDark ? const Color(0xFFF8FAFC) : const Color(0xFF1A1A1A)),
+          TextButton(
+            onPressed: _alerts.isEmpty ? null : _markAllAlertsResolved,
+            child: const Text(
+              'Mark All Resolved',
+              style: TextStyle(color: Colors.green),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  // ── Compact action button ──
-  Widget _buildActionButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool isDark,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: color.withOpacity(isDark ? 0.15 : 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.2)),
+          TextButton(
+            onPressed: _alerts.isEmpty ? null : _clearAlerts,
+            child: Text(
+              l10n.clear,
+              style: TextStyle(color: Theme.of(context).primaryColor),
+            ),
           ),
-          child: Column(
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => _loadAlerts(),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.fromLTRB(24, 10, 24, 20),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF0F172A)
+                    : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  _buildFilterTab(l10n.allAlerts, 0, isDark),
+                  _buildFilterTab(l10n.securityAlerts, 1, isDark),
+                  _buildFilterTab(l10n.systemAlerts, 2, isDark),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filtered.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 160),
+                        Center(child: Text(l10n.noAlerts)),
+                      ],
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        return _buildAlertCard(filtered[index], isDark);
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );

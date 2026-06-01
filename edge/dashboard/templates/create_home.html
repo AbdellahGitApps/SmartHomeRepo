@@ -2,6 +2,34 @@
 {% block title %}Create Home{% endblock %}
 
 {% block content %}
+
+<style>
+.d7-owner-stack {
+    width: 50%;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 38px;
+}
+
+.d7-owner-stack .form-group {
+    margin-bottom: 0 !important;
+}
+
+.d7-owner-stack label {
+    display: block;
+    margin-bottom: 7px;
+}
+
+@media (max-width: 900px) {
+    .d7-owner-stack {
+        width: 100%;
+        min-width: 0;
+    }
+}
+</style>
+
 <div class="page-header">
     <div class="page-title">
         <h1 data-i18n="register_new_home">Register New Home</h1>
@@ -21,14 +49,29 @@
         
         <h3 style="margin-bottom: 20px; margin-top: 30px; color: var(--accent-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;" data-i18n="owner_info">Owner Information</h3>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="d7-owner-stack">
             <div class="form-group">
                 <label for="ownerName" data-i18n="owner_name">Owner Name</label>
                 <input type="text" id="ownerName" class="form-control" placeholder="e.g. John Doe" required>
             </div>
+
             <div class="form-group">
                 <label for="ownerEmail" data-i18n="owner_email">Owner Email</label>
                 <input type="email" id="ownerEmail" class="form-control" placeholder="e.g. john@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="ownerPhone">Owner Phone</label>
+                <input
+                    type="text"
+                    id="ownerPhone"
+                    class="form-control"
+                    placeholder="e.g. 781294263"
+                    inputmode="numeric"
+                    maxlength="9"
+                    pattern="[0-9]{9}"
+                    required
+                >
             </div>
         </div>
 
@@ -152,6 +195,7 @@
             apartment_number: apartmentNumber,
             owner_name: document.getElementById('ownerName').value,
             owner_email: document.getElementById('ownerEmail').value,
+            owner_phone: document.getElementById('ownerPhone').value,
             devices: devices
         };
         
@@ -315,3 +359,34 @@
 
 <!-- D7M16_CREATE_HOME_VALIDATION_V6_END -->
 {% endblock %}
+
+
+
+
+<!-- D7_OWNER_PHONE_9_DIGITS_VALIDATION_START -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const phoneInput = document.getElementById("ownerPhone");
+    if (!phoneInput) return;
+
+    phoneInput.addEventListener("input", function () {
+        this.value = this.value.replace(/[^0-9]/g, "").slice(0, 9);
+    });
+
+    const form = document.getElementById("createHomeForm");
+    if (!form) return;
+
+    form.addEventListener("submit", function (event) {
+        const phone = phoneInput.value.trim();
+
+        if (!/^[0-9]{9}$/.test(phone)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            alert("Owner Phone must be exactly 9 English digits.");
+            phoneInput.focus();
+            return false;
+        }
+    }, true);
+});
+</script>
+<!-- D7_OWNER_PHONE_9_DIGITS_VALIDATION_END -->
