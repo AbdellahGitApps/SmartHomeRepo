@@ -2005,7 +2005,7 @@ async def _d7m16_dashboard_add_device(home_id: int, request: _D7Request):
             "camera_stream_url": None,
             "camera_capture_url": None,
             "firmware_version": None,
-            "updated_at": _d7_now(),
+            "updated_at": _d7_v6_now(),
             "last_seen_at": _d7_v6_now(),
             "enabled": 1,
         }
