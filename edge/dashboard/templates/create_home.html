@@ -210,8 +210,10 @@
             
             if (response.ok) {
                 const result = await response.json();
-                alert('Home & Devices Registered Successfully!');
-                window.location.href = '/';
+                showToast('Home & Devices Registered Successfully!');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1500);
             } else {
                 const err = await response.json();
                 alert('Error: ' + (err.detail || 'Failed to register home'));

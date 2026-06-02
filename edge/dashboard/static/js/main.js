@@ -136,9 +136,9 @@ window.mockRestartDevice = function(btnElement) {
     }
 };
 
-window.mockRemoveDevice = function(btnElement) {
+window.mockRemoveDevice = async function(btnElement) {
     let confirmMsg = window.getTranslation ? window.getTranslation('confirm_remove') : 'Are you sure you want to remove this device?';
-    if (confirm(confirmMsg)) {
+    if (await DashboardConfirm.show(confirmMsg, { variant: "danger", confirmText: "Delete Device" })) {
         const row = btnElement.closest('.device-row') || btnElement.closest('tr');
         if (row) {
             row.style.transition = 'opacity 0.3s ease';

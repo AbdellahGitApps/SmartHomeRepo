@@ -1,0 +1,99 @@
+/* dashboard_confirm_modal.css */
+.dashboard-confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.dashboard-confirm-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.dashboard-confirm-modal {
+    background: var(--bg-panel, #1E293B); /* EdgeAdmin dashboard navy/dark-blue theme */
+    border: 1px solid var(--glass-border, #333);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 440px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    transform: translateY(20px);
+    transition: transform 0.2s ease;
+    color: #fff;
+    font-family: inherit;
+}
+
+.dashboard-confirm-overlay.show .dashboard-confirm-modal {
+    transform: translateY(0);
+}
+
+.dashboard-confirm-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #fff;
+}
+
+.dashboard-confirm-message {
+    font-size: 0.95rem;
+    color: #aaa;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.dashboard-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.dashboard-confirm-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.dashboard-confirm-btn:hover {
+    opacity: 0.9;
+}
+
+.dashboard-confirm-cancel {
+    background: #333;
+    color: #fff;
+    border: 1px solid #444;
+}
+
+.dashboard-confirm-cancel:hover {
+    background: #444;
+}
+
+.dashboard-confirm-confirm.danger {
+    background: #ef4444;
+    color: #fff;
+}
+
+.dashboard-confirm-confirm.warning {
+    background: #f59e0b;
+    color: #fff;
+}
+
+.dashboard-confirm-confirm.primary {
+    background: #3b82f6;
+    color: #fff;
+}

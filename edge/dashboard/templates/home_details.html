@@ -12,8 +12,8 @@
             <p id="ownerLine">Loading home details...</p>
         </div>
         <div class="header-actions">
-            <button class="btn btn-outline" onclick="openEditHomeModal()"><i class="ph ph-pencil"></i> <span data-i18n="edit_home">Edit Home</span></button>
-            <button class="btn btn-outline" onclick="deleteCurrentHome()" style="color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);">
+            <button id="editHomeBtn" class="btn btn-outline" onclick="openEditHomeModal()" disabled><i class="ph ph-pencil"></i> <span data-i18n="edit_home">Edit Home</span></button>
+            <button id="deleteHomeBtn" class="btn btn-outline" onclick="deleteCurrentHome()" style="color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);" disabled>
                 <i class="ph ph-trash"></i> <span data-i18n="delete">Delete</span>
             </button>
         </div>
@@ -271,12 +271,12 @@ function toggleHomeCode() {
 function copyHomeCode() {
     const realCode = document.getElementById('homeCodeDisplay').getAttribute('data-code') || '';
     if (!realCode) return alert('No Home Code found');
-    navigator.clipboard.writeText(realCode).then(() => alert('Home Code copied to clipboard!'));
+    navigator.clipboard.writeText(realCode).then(() => showToast('Home Code copied to clipboard!'));
 }
 
 function copyDeviceToken(token) {
     if (!token) return alert('No Device Token found');
-    navigator.clipboard.writeText(token).then(() => alert('Device Token copied to clipboard!'));
+    navigator.clipboard.writeText(token).then(() => showToast('Device Token copied to clipboard!'));
 }
 
 function renderHomeInfo(home) {
@@ -440,10 +440,18 @@ async function loadHomeDetails() {
     renderDoorStatus(data);
     renderEnergy(data);
     renderRecentLogs(data.recent_logs || []);
+
+    const editBtn = document.getElementById('editHomeBtn');
+    const delBtn = document.getElementById('deleteHomeBtn');
+    if (editBtn) editBtn.disabled = false;
+    if (delBtn) delBtn.disabled = false;
 }
 
 function openEditHomeModal() {
-    if (!d7HomeDetails) return;
+    if (!d7HomeDetails) {
+        showToast('Home data is still loading. Please wait.');
+        return;
+    }
 
     const home = d7HomeDetails.home;
     document.getElementById('editHomeRawId').value = home.raw_id;
@@ -499,7 +507,7 @@ async function saveHomeEdit() {
     pendingDevicesToAdd = [];
     closeEditHomeModal();
     await loadHomeDetails();
-    alert('Home updated successfully');
+    showToast('Home updated successfully');
 }
 
 let pendingDevicesToAdd = [];
@@ -554,14 +562,14 @@ function addDeviceToHome() {
 
 async function deleteCurrentHome() {
     if (!d7HomeDetails || !d7HomeDetails.home) {
-        alert('Home data is not loaded yet.');
+        showToast('Home data is still loading. Please wait.');
         return;
     }
 
     const home = d7HomeDetails.home;
     const label = home.apartment_number || home.home_id || home.raw_id;
 
-    if (!confirm(`Delete Apartment ${label}? This will remove the home and its devices from the database.`)) {
+    if (!(await DashboardConfirm.show(`Delete Apartment ${label}? This will remove the home and its devices from the database.`, { variant: "danger", confirmText: "Delete" }))) {
         return;
     }
 
@@ -580,7 +588,7 @@ async function deleteCurrentHome() {
         return;
     }
 
-    alert('Home deleted successfully');
+    showToast('Home deleted successfully');
     window.location.href = '/';
 }
 

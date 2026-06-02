@@ -10780,3 +10780,365 @@ def d7m16_app_camera_face_events_real_v2(
         conn.close()
 # D7M16_CAMERA_FINAL_CLEAN_BINDING_END
 
+# D7M16_LOG_DELETE_ISOLATION_FINAL_START
+# Final behavior:
+# - Dashboard log delete hides logs from Dashboard only.
+# - App door log delete hides logs from App only.
+# - Original system_logs rows stay intact so other surfaces keep their events.
+
+try:
+    from fastapi.responses import JSONResponse as _D7M16JSONResponse
+except Exception:
+    _D7M16JSONResponse = None
+
+import re as _d7m16_log_iso_re
+import sqlite3 as _d7m16_log_iso_sqlite3
+from datetime import datetime as _d7m16_log_iso_datetime
+
+
+def _d7m16_log_iso_now():
+    try:
+        return _d7final_now()
+    except Exception:
+        return _d7m16_log_iso_datetime.now().isoformat(timespec="seconds")
+
+
+def _d7m16_log_iso_conn():
+    try:
+        conn = _d7final_conn()
+    except Exception:
+        conn = _d7m16_log_iso_sqlite3.connect(_security_db_path())
+    conn.row_factory = _d7m16_log_iso_sqlite3.Row
+    return conn
+
+
+def _d7m16_log_iso_json(payload, status_code=200):
+    if _D7M16JSONResponse:
+        return _D7M16JSONResponse(payload, status_code=status_code)
+    return payload
+
+
+def _d7m16_ensure_dashboard_log_states(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS dashboard_log_states (
+            log_key TEXT PRIMARY KEY,
+            source_table TEXT,
+            source_id TEXT,
+            hidden INTEGER DEFAULT 0,
+            updated_at TEXT
+        )
+        """
+    )
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_dashboard_log_states_source ON dashboard_log_states(source_table, source_id)")
+    except Exception:
+        pass
+
+
+def _d7m16_dashboard_log_key(source_table, source_id):
+    return "dashboard::{}::{}".format(str(source_table or ""), str(source_id or ""))
+
+
+def _d7m16_hide_dashboard_log(conn, source_table, source_id):
+    _d7m16_ensure_dashboard_log_states(conn)
+    conn.execute(
+        """
+        INSERT INTO dashboard_log_states(log_key, source_table, source_id, hidden, updated_at)
+        VALUES (?, ?, ?, 1, ?)
+        ON CONFLICT(log_key) DO UPDATE SET
+            hidden = 1,
+            updated_at = excluded.updated_at
+        """,
+        (
+            _d7m16_dashboard_log_key(source_table, source_id),
+            str(source_table or ""),
+            str(source_id or ""),
+            _d7m16_log_iso_now(),
+        ),
+    )
+
+
+def _d7m16_dashboard_log_hidden(conn, source_table, source_id):
+    try:
+        _d7m16_ensure_dashboard_log_states(conn)
+        row = conn.execute(
+            """
+            SELECT hidden
+            FROM dashboard_log_states
+            WHERE log_key = ?
+            LIMIT 1
+            """,
+            (_d7m16_dashboard_log_key(source_table, source_id),),
+        ).fetchone()
+        return bool(row and int(row["hidden"] or 0) == 1)
+    except Exception:
+        return False
+
+
+def _d7m16_soft_hide_dashboard_single(log_id):
+    conn = _d7m16_log_iso_conn()
+    try:
+        try:
+            _d7final_ensure_system_logs(conn)
+        except Exception:
+            pass
+
+        row = conn.execute("SELECT id FROM system_logs WHERE id = ? LIMIT 1", (str(log_id),)).fetchone()
+        if not row:
+            return {"success": True, "deleted": 0, "hidden": 0}
+
+        _d7m16_hide_dashboard_log(conn, "system_logs", str(log_id))
+        conn.commit()
+        return {"success": True, "deleted": 1, "hidden": 1, "mode": "dashboard_only"}
+    finally:
+        conn.close()
+
+
+def _d7m16_row_value(row, *names):
+    for name in names:
+        try:
+            if name in row.keys():
+                value = row[name]
+                if value is not None:
+                    return value
+        except Exception:
+            pass
+    return ""
+
+
+def _d7m16_matches_dashboard_filters(row, payload):
+    payload = payload or {}
+
+    search = str(payload.get("search") or "").strip().lower()
+    date_value = str(payload.get("date") or "").strip()
+    event_type = str(payload.get("event_type") or payload.get("event") or "").strip().lower()
+    severity = str(payload.get("severity") or "").strip().lower()
+    actor = str(payload.get("actor") or "").strip().lower()
+
+    row_time = str(_d7m16_row_value(row, "timestamp", "created_at", "time") or "")
+    row_date = row_time[:10] if len(row_time) >= 10 else ""
+
+    if date_value and row_date != date_value:
+        return False
+
+    row_event = str(_d7m16_row_value(row, "event_type", "category") or "").strip().lower()
+    if event_type and row_event != event_type:
+        return False
+
+    row_severity = str(_d7m16_row_value(row, "severity") or "").strip().lower()
+    if severity and row_severity != severity:
+        return False
+
+    row_actor = str(_d7m16_row_value(row, "actor", "source") or "").strip().lower()
+    if actor and actor != "all" and row_actor != actor:
+        return False
+
+    if search:
+        searchable = " ".join([
+            str(_d7m16_row_value(row, "home", "apartment", "apartment_number", "home_id") or ""),
+            str(_d7m16_row_value(row, "actor", "source") or ""),
+            str(_d7m16_row_value(row, "event_type", "category") or ""),
+            str(_d7m16_row_value(row, "details", "message") or ""),
+            str(_d7m16_row_value(row, "action_taken") or ""),
+        ]).lower()
+
+        if search not in searchable:
+            return False
+
+    return True
+
+
+def _d7m16_soft_hide_dashboard_filtered(payload):
+    conn = _d7m16_log_iso_conn()
+    try:
+        try:
+            _d7final_ensure_system_logs(conn)
+        except Exception:
+            pass
+
+        if "system_logs" not in [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]:
+            return {"success": True, "deleted": 0, "hidden": 0}
+
+        rows = conn.execute("SELECT * FROM system_logs ORDER BY id DESC").fetchall()
+        hidden_count = 0
+
+        for row in rows:
+            if not _d7m16_matches_dashboard_filters(row, payload):
+                continue
+
+            row_id = str(_d7m16_row_value(row, "id") or "")
+            if not row_id:
+                continue
+
+            _d7m16_hide_dashboard_log(conn, "system_logs", row_id)
+            hidden_count += 1
+
+        conn.commit()
+        return {"success": True, "deleted": hidden_count, "hidden": hidden_count, "mode": "dashboard_only"}
+    finally:
+        conn.close()
+
+
+def _d7m16_make_fallback_viewer_scope(home_id, viewer_role, admin_login):
+    return "app::{}::{}::{}".format(str(home_id or ""), str(viewer_role or "admin"), str(admin_login or ""))
+
+
+def _d7m16_soft_hide_app_door_log(source_table, source_id, query_params=None):
+    query_params = query_params or {}
+    conn = _d7m16_log_iso_conn()
+    try:
+        try:
+            _d7final_ensure_system_logs(conn)
+        except Exception:
+            pass
+
+        if str(source_table) != "system_logs":
+            return {"success": False, "detail": "Unsupported log source."}
+
+        row = conn.execute("SELECT * FROM system_logs WHERE id = ? LIMIT 1", (str(source_id),)).fetchone()
+        if not row:
+            return {"success": True, "deleted": 0, "hidden": 0}
+
+        home_id = ""
+        viewer_scope = ""
+
+        try:
+            home = _d7final_find_home(
+                conn,
+                str(query_params.get("home_id") or ""),
+                str(query_params.get("home_code") or ""),
+                str(query_params.get("admin_login") or ""),
+            )
+            values = _d7final_home_values(home)
+            home_id = str(values.get("home_id") or values.get("id") or "")
+            viewer_scope = _d7m16_viewer_scope(
+                home,
+                str(query_params.get("viewer_role") or "admin"),
+                str(query_params.get("admin_login") or ""),
+            )
+        except Exception:
+            home_id = str(_d7m16_row_value(row, "home_id", "home", "apartment_number") or "")
+            viewer_scope = _d7m16_make_fallback_viewer_scope(
+                home_id,
+                str(query_params.get("viewer_role") or "admin"),
+                str(query_params.get("admin_login") or ""),
+            )
+
+        try:
+            _d7m16_hide_door_log_for_viewer(conn, "system_logs", str(source_id), home_id, viewer_scope)
+        except Exception:
+            _d7m16_ensure_door_log_states(conn)
+            state_key = _d7m16_door_state_key("system_logs", str(source_id), viewer_scope)
+            conn.execute(
+                """
+                INSERT INTO app_door_log_states(
+                    state_key, source_table, source_id, home_id, viewer_scope, hidden, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, 1, ?)
+                ON CONFLICT(state_key) DO UPDATE SET
+                    hidden = 1,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    state_key,
+                    "system_logs",
+                    str(source_id),
+                    home_id,
+                    viewer_scope,
+                    _d7m16_log_iso_now(),
+                ),
+            )
+
+        conn.commit()
+        return {"success": True, "deleted": 1, "hidden": 1, "mode": "app_only"}
+    finally:
+        conn.close()
+
+
+def _d7m16_filter_dashboard_logs_list(logs, limit=200):
+    conn = _d7m16_log_iso_conn()
+    try:
+        filtered = []
+        for item in logs or []:
+            try:
+                log_id = str(item.get("id") or item.get("log_id") or "")
+            except Exception:
+                log_id = ""
+
+            if log_id and _d7m16_dashboard_log_hidden(conn, "system_logs", log_id):
+                continue
+
+            filtered.append(item)
+            if len(filtered) >= int(limit):
+                break
+
+        return filtered
+    finally:
+        conn.close()
+
+
+if "_get_security_logs" in globals() and not globals().get("__D7M16_LOG_DELETE_ISOLATION_GET_LOGS_WRAPPED"):
+    __D7M16_LOG_DELETE_ISOLATION_GET_LOGS_WRAPPED = True
+    _d7m16_original_get_security_logs = _get_security_logs
+
+    def _get_security_logs(limit=200):
+        try:
+            safe_limit = int(limit)
+        except Exception:
+            safe_limit = 200
+
+        source_limit = max(safe_limit * 5, 200)
+        logs = _d7m16_original_get_security_logs(source_limit)
+        return _d7m16_filter_dashboard_logs_list(logs, safe_limit)
+
+
+@app.middleware("http")
+async def d7m16_log_delete_isolation_middleware(request, call_next):
+    path = request.url.path
+    method = request.method.upper()
+
+    try:
+        if method == "DELETE":
+            match = _d7m16_log_iso_re.fullmatch(r"/api/dashboard/logs-final/([^/]+)", path)
+            if match:
+                return _d7m16_log_iso_json(_d7m16_soft_hide_dashboard_single(match.group(1)))
+
+            match = _d7m16_log_iso_re.fullmatch(r"/api/dashboard/security-logs/([^/]+)", path)
+            if match:
+                return _d7m16_log_iso_json(_d7m16_soft_hide_dashboard_single(match.group(1)))
+
+            match = _d7m16_log_iso_re.fullmatch(r"/api/app/door-access-logs/([^/]+)/([^/]+)", path)
+            if match:
+                return _d7m16_log_iso_json(
+                    _d7m16_soft_hide_app_door_log(match.group(1), match.group(2), dict(request.query_params))
+                )
+
+            match = _d7m16_log_iso_re.fullmatch(r"/api/app/door-access-logs-final/([^/]+)/([^/]+)", path)
+            if match:
+                return _d7m16_log_iso_json(
+                    _d7m16_soft_hide_app_door_log(match.group(1), match.group(2), dict(request.query_params))
+                )
+
+            if path == "/api/dashboard/logs-final/bulk":
+                try:
+                    payload = await request.json()
+                except Exception:
+                    payload = {}
+                return _d7m16_log_iso_json(_d7m16_soft_hide_dashboard_filtered(payload))
+
+        if method == "POST" and path == "/api/dashboard/security-logs/delete-filtered":
+            try:
+                payload = await request.json()
+            except Exception:
+                payload = {}
+            return _d7m16_log_iso_json(_d7m16_soft_hide_dashboard_filtered(payload))
+
+    except Exception as exc:
+        return _d7m16_log_iso_json(
+            {"success": False, "detail": "Log isolation patch error: {}".format(str(exc))},
+            status_code=500,
+        )
+
+    return await call_next(request)
+# D7M16_LOG_DELETE_ISOLATION_FINAL_END

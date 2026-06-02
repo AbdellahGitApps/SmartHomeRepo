@@ -1287,7 +1287,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (!confirm("Delete this log event?")) return;
+    if (!(await DashboardConfirm.show("Delete this log event?", { variant: "danger", confirmText: "Delete" }))) return;
 
     const response = await fetch(`/api/dashboard/security-logs/${encodeURIComponent(id)}`, {
       method: "DELETE",
@@ -1321,7 +1321,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const msg = `Delete logs matching current filters?\nDate: ${payload.date || "All"}\nEvent: ${payload.event_type || "All"}\nSeverity: ${payload.severity || "All"}`;
-    if (!confirm(msg)) return;
+    if (!(await DashboardConfirm.show(msg, { variant: "danger", confirmText: "Delete" }))) return;
 
     const response = await fetch("/api/dashboard/security-logs/delete-filtered", {
       method: "POST",
@@ -1468,7 +1468,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 severity: valueOf("severityFilter")
             };
 
-            if (!confirm("Delete all logs matching the selected filters? This is for testing cleanup only.")) return;
+            if (!(await DashboardConfirm.show("Delete all logs matching the selected filters? This is for testing cleanup only.", { variant: "danger", confirmText: "Delete" }))) return;
 
             try {
                 const data = await apiDelete("/api/dashboard/logs/bulk", payload);
@@ -1512,7 +1512,7 @@ document.addEventListener("DOMContentLoaded", () => {
             btn.title = "Delete this log";
 
             btn.addEventListener("click", async function () {
-                if (!confirm("Delete this log event?")) return;
+                if (!(await DashboardConfirm.show("Delete this log event?", { variant: "danger", confirmText: "Delete" }))) return;
 
                 try {
                     await apiDelete("/api/dashboard/logs/" + encodeURIComponent(log.id));
@@ -1562,7 +1562,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <script>
 async function deleteSingleLogFinal(id) {
     if (!id) return;
-    if (!confirm("Delete this log event?")) return;
+    if (!(await DashboardConfirm.show("Delete this log event?", { variant: "danger", confirmText: "Delete" }))) return;
 
     const res = await fetch(`/api/dashboard/logs-final/${encodeURIComponent(id)}`, {
         method: "DELETE"
@@ -1590,7 +1590,7 @@ async function deleteFilteredLogsFinal() {
 
     const msg = `Delete logs matching current filters?\nDate: ${payload.date || "All"}\nEvent: ${payload.event_type || "All"}\nSeverity: ${payload.severity || "All"}`;
 
-    if (!confirm(msg)) return;
+    if (!(await DashboardConfirm.show(msg, { variant: "danger", confirmText: "Delete" }))) return;
 
     const res = await fetch("/api/dashboard/logs-final/bulk", {
         method: "DELETE",
@@ -1629,7 +1629,7 @@ async function deleteFilteredLogsFinal() {
       return;
     }
 
-    if (!confirm("Delete this security log?")) return;
+    if (!(await DashboardConfirm.show("Delete this security log?", { variant: "danger", confirmText: "Delete" }))) return;
 
     const response = await fetch(`/api/dashboard/security-logs/${encodeURIComponent(logId)}`, {
       method: "DELETE",
@@ -1654,7 +1654,7 @@ async function deleteFilteredLogsFinal() {
   };
 
   window.d7DeleteFilteredLogs = async function () {
-    if (!confirm("Delete security logs matching current filters?")) return;
+    if (!(await DashboardConfirm.show("Delete security logs matching current filters?", { variant: "danger", confirmText: "Delete" }))) return;
 
     const payload = {
       search: document.getElementById("logSearch")?.value || "",

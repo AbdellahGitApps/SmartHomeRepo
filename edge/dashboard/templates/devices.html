@@ -839,7 +839,7 @@ window.d7m16SendRestartCommand = async function(input) {
       return;
     }
 
-    if (action === "disable" && !confirm(`Disable device ${deviceId}?`)) {
+    if (action === "disable" && !(await DashboardConfirm.show(`Disable device ${deviceId}?`, { variant: "warning", confirmText: "Disable" }))) {
       return;
     }
 
@@ -1442,7 +1442,7 @@ window.d7m16SendRestartCommand = async function(input) {
       return;
     }
 
-    if (action === "remove" && !confirm("Are you sure you want to remove this device?")) {
+    if (action === "remove" && !(await DashboardConfirm.show("Are you sure you want to remove this device?", { variant: "danger", confirmText: "Delete Device" }))) {
       return;
     }
 
@@ -1621,7 +1621,7 @@ window.d7m16SendRestartCommand = async function(input) {
       return;
     }
 
-    if (action === "remove" && !confirm("Are you sure you want to remove this device?")) {
+    if (action === "remove" && !(await DashboardConfirm.show("Are you sure you want to remove this device?", { variant: "danger", confirmText: "Delete Device" }))) {
       return;
     }
 
@@ -1757,7 +1757,7 @@ window.d7m16SendRestartCommand = async function(input) {
             return;
         }
 
-        if ((act === "remove" || act === "delete") && !confirm("Are you sure you want to remove this device?")) {
+        if ((act === "remove" || act === "delete") && !(await DashboardConfirm.show("Are you sure you want to remove this device?", { variant: "danger", confirmText: "Delete Device" }))) {
             return;
         }
 
@@ -1992,7 +1992,7 @@ window.d7m16SendRestartCommand = async function(input) {
         }
 
         if (action === "remove") {
-            const ok = confirm(`Remove device ${deviceId}?`);
+            const ok = await DashboardConfirm.show(`Remove device ${deviceId}?`, { variant: "danger", confirmText: "Delete Device" });
             if (!ok) return;
         }
 
