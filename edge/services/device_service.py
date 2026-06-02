@@ -219,3 +219,20 @@ def apply_device_network_fields(
         device.firmware_version = firmware_version
 
     return device
+
+
+def validate_device_token(db: Session, token: str) -> bool:
+    """
+    Validate if a device exists with the given token and is enabled.
+    """
+    from database.repositories.device_repository import DeviceRepository
+    device = DeviceRepository.get_device_by_token(db, token)
+    return device is not None and getattr(device, "enabled", True)
+
+
+def get_device_from_token(db: Session, token: str) -> Device:
+    """
+    Retrieve the Device object associated with the given token.
+    """
+    from database.repositories.device_repository import DeviceRepository
+    return DeviceRepository.get_device_by_token(db, token)

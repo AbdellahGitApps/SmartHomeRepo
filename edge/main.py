@@ -30,7 +30,7 @@ import services.device_service as device_service
 
 from pathlib import Path
 import sys
-
+from fastapi import Body
 # =========================
 # PATH SETUP
 # =========================
@@ -188,6 +188,9 @@ class FaceVerifyRequest(BaseModel):
     source: str = "flutter_face_engine"
     threshold: float = 0.75
 
+
+
+
 # =========================
 # FRONTEND ROUTES (DO NOT TOUCH)
 # =========================
@@ -215,6 +218,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 @app.get("/create-home")
 def create_home_page(request: Request):
     return templates.TemplateResponse(request=request, name="create_home.html")
+
 
 
 
@@ -966,6 +970,13 @@ try:
     app.include_router(energy_prediction_flow_router)
 except Exception as exc:
     print(f"Phase 16 energy prediction router failed to load: {exc}")
+
+try:
+    from api.devices import router as devices_router
+    app.include_router(devices_router)
+except Exception as exc:
+    print(f"Devices router failed to load: {exc}")
+
 
 
 # D7M16_PHASE10_DEVICE_ACTIONS_START

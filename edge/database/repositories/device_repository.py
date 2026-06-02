@@ -31,3 +31,20 @@ class DeviceRepository:
             .filter(Device.home_id == home_id)
             .all()
         )
+
+    @staticmethod
+    def get_device_by_token(db: Session, token: str):
+        return (
+            db.query(Device)
+            .filter(Device.device_token == token)
+            .first()
+        )
+
+    @staticmethod
+    def get_device_by_device_id(db: Session, device_id: str):
+        return (
+            db.query(Device)
+            .filter(Device.device_id == device_id)
+            .first()
+        )
+
