@@ -283,7 +283,7 @@ class _HomeDashboardState extends State<HomeDashboard>
   String _summaryGreeting(AppStateProvider appState) {
     final name = appState.userName.trim().isNotEmpty
         ? appState.userName.trim()
-        : appState.adminName.trim();
+        : appState.userName.trim();
 
     if (name.isEmpty) return 'Hello';
 
@@ -667,61 +667,56 @@ class _HomeDashboardState extends State<HomeDashboard>
                 position: _gridSlide,
                 child: FadeTransition(
                   opacity: _gridFade,
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.1,
-                        ),
-                    itemCount: _devices.length,
-                    itemBuilder: (context, index) {
-                      final device = _devices[index];
-                      String translatedTitle = '';
-                      String translatedStatus = '';
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final spacing = 16.0;
+                      final cardWidth = (constraints.maxWidth - spacing) / 2;
 
-                      final energyOnline = _summaryEnergyOnline();
-                      final doorOnline = _summaryDoorOnline(appState);
+                      Widget buildDeviceCard(int index) {
+                        final device = _devices[index];
+                        String translatedTitle = '';
+                        String translatedStatus = '';
 
-                      if (device.type == DeviceType.electricity) {
-                        device.isActive = energyOnline;
-                        translatedTitle = l10n.electricity;
-                        translatedStatus = energyOnline
-                            ? '${l10n.statusActive} • ${_summaryEnergyUsageLevel()}'
-                            : 'Inactive • ${_summaryEnergyUsageLevel()}';
-                      } else if (device.type == DeviceType.door) {
-                        device.isActive = doorOnline;
-                        translatedTitle = l10n.doors;
-                        translatedStatus = doorOnline
-                            ? _summaryDoorStatusText(l10n, appState)
-                            : 'Offline';
-                      } else if (device.type == DeviceType.energy) {
-                        device.isActive = energyOnline;
-                        translatedTitle = l10n.energy;
-                        translatedStatus = energyOnline
-                            ? _summaryPowerText(l10n)
-                            : 'Offline';
-                      } else if (device.type == DeviceType.door) {
-                        device.isActive = _summaryDoorDeviceOnline(appState);
-                        translatedTitle = l10n.doors;
-                        translatedStatus = _summaryDoorStatusText(
-                          l10n,
-                          appState,
+                        final energyOnline = _summaryEnergyOnline();
+                        final doorOnline = _summaryDoorOnline(appState);
+
+                        if (device.type == DeviceType.electricity) {
+                          device.isActive = energyOnline;
+                          translatedTitle = l10n.electricity;
+                          translatedStatus = energyOnline
+                              ? '${l10n.statusActive} • ${_summaryEnergyUsageLevel()}'
+                              : 'Inactive • ${_summaryEnergyUsageLevel()}';
+                        } else if (device.type == DeviceType.door) {
+                          device.isActive = doorOnline;
+                          translatedTitle = l10n.doors;
+                          translatedStatus = doorOnline
+                              ? _summaryDoorStatusText(l10n, appState)
+                              : 'Offline';
+                        } else if (device.type == DeviceType.energy) {
+                          device.isActive = energyOnline;
+                          translatedTitle = l10n.energy;
+                          translatedStatus = energyOnline
+                              ? _summaryPowerText(l10n)
+                              : 'Offline';
+                        }
+
+                        return SizedBox(
+                          width: cardWidth,
+                          height: cardWidth / 1.1,
+                          child: DeviceCard(
+                            device: device,
+                            localizedTitle: translatedTitle,
+                            localizedStatus: translatedStatus,
+                            onTap: null,
+                          ),
                         );
-                      } else if (device.type == DeviceType.energy) {
-                        device.isActive = _summaryEnergyDeviceOnline();
-                        translatedTitle = l10n.energy;
-                        translatedStatus = _summaryPowerText(l10n);
                       }
 
-                      return DeviceCard(
-                        device: device,
-                        localizedTitle: translatedTitle,
-                        localizedStatus: translatedStatus,
-                        onTap: null,
+                      return Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: spacing,
+                        runSpacing: spacing,
+                        children: List.generate(_devices.length, buildDeviceCard),
                       );
                     },
                   ),

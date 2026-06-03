@@ -62,7 +62,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 )
                 .toList()
           : <Map<String, dynamic>>[];
-      items.sort((a, b) => _d7AlertSortMillis(b).compareTo(_d7AlertSortMillis(a)));
+      items.sort(
+        (a, b) => _d7AlertSortMillis(b).compareTo(_d7AlertSortMillis(a)),
+      );
 
       if (!mounted) return;
 
@@ -108,7 +110,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
     ).canManageAlerts;
   }
 
-
   String _d7AlertTwo(int value) => value.toString().padLeft(2, '0');
 
   DateTime? _d7ParseAlertDateTime(String rawValue) {
@@ -120,8 +121,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
     value = value.replaceAll(RegExp(r'\s+'), ' ');
 
-    final hasExplicitTimezone =
-        RegExp(r'(Z|[+-]\d{2}:?\d{2})$').hasMatch(value);
+    final hasExplicitTimezone = RegExp(
+      r'(Z|[+-]\d{2}:?\d{2})$',
+    ).hasMatch(value);
 
     try {
       final parsed = DateTime.parse(value);
@@ -171,8 +173,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   int _d7AlertSortMillis(Map<String, dynamic> alert) {
-    final raw = (alert['timestamp'] ?? alert['created_at'] ?? alert['time'] ?? '')
-        .toString();
+    final raw =
+        (alert['timestamp'] ?? alert['created_at'] ?? alert['time'] ?? '')
+            .toString();
 
     final parsed = _d7ParseAlertDateTime(raw);
 
@@ -188,8 +191,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   String _d7AlertDisplayTime(Map<String, dynamic> alert) {
-    final timestamp =
-        (alert['timestamp'] ?? alert['created_at'] ?? '').toString();
+    final timestamp = (alert['timestamp'] ?? alert['created_at'] ?? '')
+        .toString();
 
     final parsedTimestamp = _d7ParseAlertDateTime(timestamp);
     if (parsedTimestamp != null) {
@@ -205,7 +208,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
     return fallback.trim().isEmpty ? 'Just now' : fallback;
   }
-
 
   IconData _iconFor(Map<String, dynamic> alert) {
     final type = (alert['type'] ?? '').toString();
@@ -316,7 +318,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
     );
   }
 
-
   Future<void> _markAllAlertsResolved() async {
     final activeAlerts = _alerts.where((alert) {
       final status = (alert['status'] ?? '').toString().toLowerCase();
@@ -335,17 +336,32 @@ class _AlertsScreenState extends State<AlertsScreen> {
       if (id.isNotEmpty) {
         await _api.resolveAppAlert(
           id,
-          homeId: Provider.of<AppStateProvider>(context, listen: false).homeDbId,
-          homeCode: Provider.of<AppStateProvider>(context, listen: false).homeCode,
-          adminLogin: Provider.of<AppStateProvider>(context, listen: false).adminName,
-          viewerRole: Provider.of<AppStateProvider>(context, listen: false).userRole,
+          homeId: Provider.of<AppStateProvider>(
+            context,
+            listen: false,
+          ).homeDbId,
+          homeCode: Provider.of<AppStateProvider>(
+            context,
+            listen: false,
+          ).homeCode,
+          adminLogin: Provider.of<AppStateProvider>(
+            context,
+            listen: false,
+          ).adminName,
+          viewerRole: Provider.of<AppStateProvider>(
+            context,
+            listen: false,
+          ).userRole,
         );
       }
     }
 
     if (!mounted) return;
 
-    Provider.of<AppStateProvider>(context, listen: false).setActiveAlertCount(0);
+    Provider.of<AppStateProvider>(
+      context,
+      listen: false,
+    ).setActiveAlertCount(0);
     await _loadAlerts(markSeen: true);
   }
 
@@ -578,33 +594,72 @@ class _AlertsScreenState extends State<AlertsScreen> {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final filtered = _filteredAlerts;
+    final compactAppBar = MediaQuery.of(context).size.width < 430;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.alerts),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: () => _loadAlerts(),
-            icon: const Icon(Icons.refresh, size: 20),
-          ),
-          TextButton(
-            onPressed: _alerts.isEmpty ? null : _markAllAlertsResolved,
-            child: const Text(
-              'Mark All Resolved',
-              style: TextStyle(color: Colors.green),
-            ),
-          ),
-          TextButton(
-            onPressed: _alerts.isEmpty ? null : _clearAlerts,
-            child: Text(
-              l10n.clear,
-              style: TextStyle(color: Theme.of(context).primaryColor),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
+        title: Text(
+          l10n.alerts,
+          maxLines: 1,
+          overflow: TextOverflow.visible,
+          softWrap: false,
+          style: TextStyle(fontSize: compactAppBar ? 19 : null),
+        ),
+        centerTitle: !compactAppBar,
+        titleSpacing: compactAppBar ? 0 : null,
+        actions: compactAppBar
+            ? [
+                IconButton(
+                  tooltip: 'Refresh',
+                  onPressed: () => _loadAlerts(),
+                  icon: const Icon(Icons.refresh, size: 20),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  onSelected: (value) {
+                    if (value == 'resolve') {
+                      _markAllAlertsResolved();
+                    } else if (value == 'clear') {
+                      _clearAlerts();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem<String>(
+                      value: 'resolve',
+                      enabled: _alerts.isNotEmpty,
+                      child: const Text('Mark All Resolved'),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'clear',
+                      enabled: _alerts.isNotEmpty,
+                      child: Text(l10n.clear),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
+              ]
+            : [
+                IconButton(
+                  tooltip: 'Refresh',
+                  onPressed: () => _loadAlerts(),
+                  icon: const Icon(Icons.refresh, size: 20),
+                ),
+                TextButton(
+                  onPressed: _alerts.isEmpty ? null : _markAllAlertsResolved,
+                  child: const Text(
+                    'Mark All Resolved',
+                    style: TextStyle(color: Colors.green),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _alerts.isEmpty ? null : _clearAlerts,
+                  child: Text(
+                    l10n.clear,
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
       ),
       body: RefreshIndicator(
         onRefresh: () => _loadAlerts(),

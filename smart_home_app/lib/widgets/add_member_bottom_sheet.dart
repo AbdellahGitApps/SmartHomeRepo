@@ -1,5 +1,7 @@
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -20,8 +22,11 @@ class AddMemberBottomSheet {
     onSaveOverride,
     String? fixedRole,
   }) {
-    final nameController = TextEditingController(text: memberToEdit?.name ?? '');
+    final nameController = TextEditingController(
+      text: memberToEdit?.name ?? '',
+    );
     bool faceEnrolled = memberToEdit?.faceEnrolled ?? false;
+    String? faceImageData = memberToEdit?.photoData;
     bool saving = false;
 
     Future<void> pickFace(
@@ -30,41 +35,46 @@ class AddMemberBottomSheet {
       ImageSource source,
     ) async {
       try {
+        String? selectedFaceImageData;
+
         if (source == ImageSource.camera) {
-          final captured = await _openCameraCaptureDialog(context, isDark);
+          selectedFaceImageData = await _captureFaceImageData(context, isDark);
+        } else {
+          final image = await _picker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 75,
+          );
 
-          if (captured) {
-            setModalState(() => faceEnrolled = true);
+          if (image != null) {
+            final bytes = await image.readAsBytes();
+            final mimeType = image.mimeType ?? 'image/jpeg';
+            selectedFaceImageData =
+                'data:$mimeType;base64,${base64Encode(bytes)}';
+          }
+        }
 
+        if (selectedFaceImageData != null && selectedFaceImageData.isNotEmpty) {
+          faceImageData = selectedFaceImageData;
+          setModalState(() => faceEnrolled = true);
+
+          if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Camera image captured. Face marked as enrolled.'),
+              SnackBar(
+                content: Text(
+                  source == ImageSource.camera
+                      ? 'Camera image captured. Face marked as enrolled.'
+                      : 'Gallery image selected. Face marked as enrolled.',
+                ),
               ),
             );
           }
-
-          return;
-        }
-
-        final image = await _picker.pickImage(
-          source: ImageSource.gallery,
-          imageQuality: 75,
-          maxWidth: 1280,
-        );
-
-        if (image != null) {
-          setModalState(() => faceEnrolled = true);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Gallery image selected. Face marked as enrolled.'),
-            ),
-          );
         }
       } catch (error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Face image selection failed: $error')),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Face image selection failed: $error')),
+          );
+        }
       }
     }
 
@@ -116,6 +126,14 @@ class AddMemberBottomSheet {
                       const SizedBox(height: 24),
                       TextField(
                         controller: nameController,
+                        textCapitalization: TextCapitalization.words,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(
+                              r'[A-Za-z\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]',
+                            ),
+                          ),
+                        ],
                         decoration: InputDecoration(
                           labelText: l10n.memberName,
                           prefixIcon: const Icon(LucideIcons.user),
@@ -197,6 +215,21 @@ class AddMemberBottomSheet {
                                   return;
                                 }
 
+                                final validName = RegExp(
+                                  r'^[A-Za-z\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+(?:\s+[A-Za-z\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+)*$',
+                                ).hasMatch(name);
+
+                                if (!validName) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Member name must contain letters only.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
                                 setModalState(() => saving = true);
 
                                 try {
@@ -212,12 +245,14 @@ class AddMemberBottomSheet {
                                       name,
                                       'Family',
                                       faceEnrolled,
+                                      faceImageData: faceImageData,
                                     );
                                   } else {
                                     await appState.addFamilyMember(
                                       name,
                                       'Family',
                                       faceEnrolled,
+                                      faceImageData: faceImageData,
                                     );
                                   }
 
@@ -268,7 +303,7 @@ class AddMemberBottomSheet {
     );
   }
 
-  static Future<bool> _openCameraCaptureDialog(
+  static Future<String?> _captureFaceImageData(
     BuildContext context,
     bool isDark,
   ) async {
@@ -281,110 +316,220 @@ class AddMemberBottomSheet {
         throw Exception('No camera found.');
       }
 
-      final selectedCamera = cameras.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
+      int cameraScore(CameraDescription camera) {
+        final name = camera.name.toLowerCase();
+        var score = 0;
 
-      controller = CameraController(
-        selectedCamera,
-        ResolutionPreset.medium,
-        enableAudio: false,
-      );
+        if (name.contains('ir') ||
+            name.contains('infrared') ||
+            name.contains('virtual') ||
+            name.contains('obs') ||
+            name.contains('screen')) {
+          score += 100;
+        }
 
-      await controller.initialize();
+        if (camera.lensDirection == CameraLensDirection.front) {
+          score -= 10;
+        }
 
-      if (!context.mounted) {
-        await controller.dispose();
-        return false;
+        if (camera.lensDirection == CameraLensDirection.back) {
+          score += 5;
+        }
+
+        return score;
       }
 
-      final result = await showDialog<bool>(
+      final orderedCameras = [...cameras]
+        ..sort((a, b) => cameraScore(a).compareTo(cameraScore(b)));
+
+      Future<void> initCamera(CameraDescription camera) async {
+        final oldController = controller;
+        controller = CameraController(
+          camera,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+
+        await controller!.initialize();
+        await oldController?.dispose();
+      }
+
+      await initCamera(orderedCameras.first);
+
+      if (!context.mounted) {
+        await controller?.dispose();
+        return null;
+      }
+
+      final capturedImage = await showDialog<XFile?>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) {
-          return Dialog(
-            insetPadding: const EdgeInsets.all(24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Container(
-              width: 640,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+          CameraDescription selectedCamera = orderedCameras.first;
+          bool switchingCamera = false;
+          String? cameraError;
+
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              Future<void> switchCamera(CameraDescription camera) async {
+                if (camera.name == selectedCamera.name) return;
+
+                setDialogState(() {
+                  switchingCamera = true;
+                  cameraError = null;
+                });
+
+                try {
+                  await initCamera(camera);
+                  selectedCamera = camera;
+                } catch (error) {
+                  cameraError = error.toString();
+                }
+
+                if (dialogContext.mounted) {
+                  setDialogState(() => switchingCamera = false);
+                }
+              }
+
+              final ready =
+                  controller != null &&
+                  controller!.value.isInitialized &&
+                  !switchingCamera;
+
+              return Dialog(
+                insetPadding: const EdgeInsets.all(24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Container(
+                  width: 680,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Expanded(
-                        child: Text(
-                          'Capture Face',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Capture Face',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                      if (orderedCameras.length > 1) ...[
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<CameraDescription>(
+                          value: selectedCamera,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Camera',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          items: orderedCameras.map((camera) {
+                            final label = camera.name.trim().isEmpty
+                                ? 'Camera'
+                                : camera.name;
+                            return DropdownMenuItem(
+                              value: camera,
+                              child: Text(label),
+                            );
+                          }).toList(),
+                          onChanged: switchingCamera
+                              ? null
+                              : (camera) {
+                                  if (camera != null) {
+                                    switchCamera(camera);
+                                  }
+                                },
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          height: 360,
+                          width: double.infinity,
+                          color: Colors.black,
+                          child: ready
+                              ? CameraPreview(controller!)
+                              : const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(dialogContext, false),
-                        icon: const Icon(Icons.close),
+                      if (cameraError != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          cameraError!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(LucideIcons.camera),
+                          label: const Text('Capture'),
+                          onPressed: ready
+                              ? () async {
+                                  try {
+                                    final image = await controller!
+                                        .takePicture();
+                                    if (dialogContext.mounted) {
+                                      Navigator.pop(dialogContext, image);
+                                    }
+                                  } catch (error) {
+                                    cameraError = error.toString();
+                                    if (dialogContext.mounted) {
+                                      setDialogState(() {});
+                                    }
+                                  }
+                                }
+                              : null,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: SizedBox(
-                      height: 360,
-                      width: double.infinity,
-                      child: CameraPreview(controller!),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(LucideIcons.camera),
-                      label: const Text('Capture'),
-                      onPressed: () async {
-                        try {
-                          await controller!.takePicture();
-                          if (dialogContext.mounted) {
-                            Navigator.pop(dialogContext, true);
-                          }
-                        } catch (_) {
-                          if (dialogContext.mounted) {
-                            Navigator.pop(dialogContext, false);
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
         },
       );
 
-      await controller.dispose();
-      return result == true;
+      await controller?.dispose();
+
+      if (capturedImage == null) return null;
+
+      final bytes = await capturedImage.readAsBytes();
+      return 'data:image/jpeg;base64,${base64Encode(bytes)}';
     } catch (error) {
       await controller?.dispose();
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Camera failed. Check browser and Windows camera permission. $error'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Camera failed: $error')));
       }
 
-      return false;
+      return null;
     }
   }
 

@@ -459,6 +459,83 @@ class _DoorsScreenState extends State<DoorsScreen>
   }
 
   Widget _buildAccessLogFilters(BuildContext context, bool isDark) {
+    Widget dateFilter() {
+      return DropdownButtonFormField<String>(
+        value: _accessLogDates.contains(_selectedAccessDate)
+            ? _selectedAccessDate
+            : 'all',
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Date',
+          border: OutlineInputBorder(),
+        ),
+        items: _accessLogDates
+            .map(
+              (date) => DropdownMenuItem(
+                value: date,
+                child: Text(
+                  date == 'all' ? 'All Dates' : date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedAccessDate = value ?? 'all';
+          });
+        },
+      );
+    }
+
+    Widget actorFilter() {
+      return DropdownButtonFormField<String>(
+        value: _accessLogActors.contains(_selectedAccessActor)
+            ? _selectedAccessActor
+            : 'all',
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Actor',
+          border: OutlineInputBorder(),
+        ),
+        items: _accessLogActors
+            .map(
+              (actor) => DropdownMenuItem(
+                value: actor,
+                child: Text(
+                  actor == 'all' ? 'All Actors' : actor,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedAccessActor = value ?? 'all';
+          });
+        },
+      );
+    }
+
+    Widget deleteButton({bool wide = false}) {
+      return SizedBox(
+        width: wide ? double.infinity : null,
+        child: OutlinedButton.icon(
+          onPressed: _filteredAccessLogs.isEmpty
+              ? null
+              : _deleteFilteredAccessLogs,
+          icon: const Icon(LucideIcons.trash2, color: Colors.red),
+          label: const Text('Delete', style: TextStyle(color: Colors.red)),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Colors.red),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 18, 24, 8),
       padding: const EdgeInsets.all(14),
@@ -475,68 +552,32 @@ class _DoorsScreenState extends State<DoorsScreen>
                 ),
               ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _accessLogDates.contains(_selectedAccessDate) ? _selectedAccessDate : 'all',
-              decoration: const InputDecoration(
-                labelText: 'Date',
-                border: OutlineInputBorder(),
-              ),
-              items: _accessLogDates
-                  .map(
-                    (date) => DropdownMenuItem(
-                      value: date,
-                      child: Text(date == 'all' ? 'All Dates' : date),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedAccessDate = value ?? 'all';
-                });
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _accessLogActors.contains(_selectedAccessActor)
-                  ? _selectedAccessActor
-                  : 'all',
-              decoration: const InputDecoration(
-                labelText: 'Actor',
-                border: OutlineInputBorder(),
-              ),
-              items: _accessLogActors
-                  .map(
-                    (actor) => DropdownMenuItem(
-                      value: actor,
-                      child: Text(actor == 'all' ? 'All Actors' : actor),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedAccessActor = value ?? 'all';
-                });
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
-            onPressed: _filteredAccessLogs.isEmpty
-                ? null
-                : _deleteFilteredAccessLogs,
-            icon: const Icon(LucideIcons.trash2, color: Colors.red),
-            label: const Text('Delete', style: TextStyle(color: Colors.red)),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.red),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 520;
+
+          if (compact) {
+            return Column(
+              children: [
+                dateFilter(),
+                const SizedBox(height: 12),
+                actorFilter(),
+                const SizedBox(height: 12),
+                deleteButton(wide: true),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: dateFilter()),
+              const SizedBox(width: 12),
+              Expanded(child: actorFilter()),
+              const SizedBox(width: 12),
+              deleteButton(),
+            ],
+          );
+        },
       ),
     );
   }
@@ -649,87 +690,126 @@ class _DoorsScreenState extends State<DoorsScreen>
                                 ),
                               ],
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              _accessLogIcon(result),
-                              color: color,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '$door ? $actor',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final compact = constraints.maxWidth < 390;
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.12),
+                                  shape: BoxShape.circle,
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
+                                child: Icon(
+                                  _accessLogIcon(result),
+                                  color: color,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: color.withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        result,
-                                        style: TextStyle(
-                                          color: color,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                                    Text(
+                                      '$door — $actor',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        method,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
-                                      ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 5,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: color.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            result,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: color,
+                                              fontSize: compact ? 10 : 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxWidth: compact ? 110 : 160,
+                                          ),
+                                          child: Text(
+                                            method,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  fontSize: compact ? 11 : null,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      log['time_label'] ??
+                                          _formatLogTime(
+                                            log['timestamp'] ?? log['time'],
+                                          ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  log['time_label'] ??
-                                      _formatLogTime(
-                                        log['timestamp'] ?? log['time'],
+                              ),
+                              compact
+                                  ? IconButton(
+                                      onPressed: () =>
+                                          _deleteSingleAccessLog(log),
+                                      icon: const Icon(
+                                        LucideIcons.trash2,
+                                        color: Colors.red,
+                                        size: 20,
                                       ),
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => _deleteSingleAccessLog(log),
-                            icon: const Icon(
-                              LucideIcons.trash2,
-                              color: Colors.red,
-                              size: 18,
-                            ),
-                            label: const Text(
-                              'Delete',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        ],
+                                    )
+                                  : TextButton.icon(
+                                      onPressed: () =>
+                                          _deleteSingleAccessLog(log),
+                                      icon: const Icon(
+                                        LucideIcons.trash2,
+                                        color: Colors.red,
+                                        size: 18,
+                                      ),
+                                      label: const Text(
+                                        'Delete',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                            ],
+                          );
+                        },
                       ),
                     );
                   },
@@ -770,199 +850,219 @@ class _DoorsScreenState extends State<DoorsScreen>
               child: _accessLogLoading && _filteredAccessLogs.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredAccessLogs.isEmpty
-                      ? Center(child: Text(l10n.noAccessLogs))
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(24.0),
-                          itemCount: _filteredAccessLogs.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final log = _filteredAccessLogs[index];
-                            bool isGranted = log['result'] == 'accessGranted';
-                            String door = _getDoorName(l10n, log['doorKey']);
-                            final customUser = _asText(log['user']);
-                            String user = customUser.isNotEmpty
-                                ? customUser
-                                : log['userKey'] != null
-                                    ? l10n.greeting
-                                    : l10n.unknownPerson;
-                            final customMethod = _asText(log['methodLabel']);
-                            String method = customMethod.isNotEmpty
-                                ? customMethod
-                                : log['method'] == 'aiRecognition'
-                                    ? l10n.aiRecognition
-                                    : l10n.manualApp;
-                            final customResult = _asText(log['resultLabel']);
-                            String result = customResult.isNotEmpty
-                                ? customResult
-                                : isGranted
-                                    ? l10n.accessGranted
-                                    : l10n.accessDenied;
-                            final resultLower = result.toLowerCase();
-                            final rawResultKey =
-                                _asText(log['result']).toLowerCase();
+                  ? Center(child: Text(l10n.noAccessLogs))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(24.0),
+                      itemCount: _filteredAccessLogs.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final log = _filteredAccessLogs[index];
+                        bool isGranted = log['result'] == 'accessGranted';
+                        String door = _getDoorName(l10n, log['doorKey']);
+                        final customUser = _asText(log['user']);
+                        String user = customUser.isNotEmpty
+                            ? customUser
+                            : log['userKey'] != null
+                            ? l10n.greeting
+                            : l10n.unknownPerson;
+                        final customMethod = _asText(log['methodLabel']);
+                        String method = customMethod.isNotEmpty
+                            ? customMethod
+                            : log['method'] == 'aiRecognition'
+                            ? l10n.aiRecognition
+                            : l10n.manualApp;
+                        final customResult = _asText(log['resultLabel']);
+                        String result = customResult.isNotEmpty
+                            ? customResult
+                            : isGranted
+                            ? l10n.accessGranted
+                            : l10n.accessDenied;
+                        final resultLower = result.toLowerCase();
+                        final rawResultKey = _asText(
+                          log['result'],
+                        ).toLowerCase();
 
-                            final isRestart = resultLower.contains('restart');
+                        final isRestart = resultLower.contains('restart');
 
-                            final isPendingUnknown =
-                                (resultLower.contains('unknown face detected') ||
-                                        resultLower.contains('pending') ||
-                                        resultLower.contains('waiting')) &&
-                                    !resultLower.contains('opened') &&
-                                    !resultLower.contains('denied') &&
-                                    !resultLower.contains('after family add') &&
-                                    !resultLower.contains('granted');
+                        final isPendingUnknown =
+                            (resultLower.contains('unknown face detected') ||
+                                resultLower.contains('pending') ||
+                                resultLower.contains('waiting')) &&
+                            !resultLower.contains('opened') &&
+                            !resultLower.contains('denied') &&
+                            !resultLower.contains('after family add') &&
+                            !resultLower.contains('granted');
 
-                            final isAccessGranted =
-                                rawResultKey == 'accessgranted' ||
-                                resultLower.contains('opened once') ||
-                                resultLower.contains('door opened') ||
-                                resultLower.contains('manual door opened') ||
-                                resultLower.contains('after family add') ||
-                                resultLower.contains(
-                                    'family member access granted') ||
-                                resultLower.contains('access granted');
+                        final isAccessGranted =
+                            rawResultKey == 'accessgranted' ||
+                            resultLower.contains('opened once') ||
+                            resultLower.contains('door opened') ||
+                            resultLower.contains('manual door opened') ||
+                            resultLower.contains('after family add') ||
+                            resultLower.contains(
+                              'family member access granted',
+                            ) ||
+                            resultLower.contains('access granted');
 
-                            final isAccessDenied =
-                                rawResultKey == 'accessdenied' ||
-                                resultLower.contains('denied') ||
-                                resultLower.contains('access denied') ||
-                                resultLower.contains('manual door locked') ||
-                                resultLower.contains('door locked') ||
-                                resultLower.contains('disabled');
+                        final isAccessDenied =
+                            rawResultKey == 'accessdenied' ||
+                            resultLower.contains('denied') ||
+                            resultLower.contains('access denied') ||
+                            resultLower.contains('manual door locked') ||
+                            resultLower.contains('door locked') ||
+                            resultLower.contains('disabled');
 
-                            final resultColor = (isPendingUnknown || isRestart)
-                                ? Colors.orange
-                                : isAccessGranted
-                                    ? Colors.green
-                                    : isAccessDenied
-                                        ? Colors.red
-                                        : isGranted
-                                            ? Colors.green
-                                            : Colors.red;
+                        final resultColor = (isPendingUnknown || isRestart)
+                            ? Colors.orange
+                            : isAccessGranted
+                            ? Colors.green
+                            : isAccessDenied
+                            ? Colors.red
+                            : isGranted
+                            ? Colors.green
+                            : Colors.red;
 
-                            final resultIcon = isRestart
-                                ? LucideIcons.refreshCcw
-                                : isAccessGranted
-                                    ? LucideIcons.shieldCheck
-                                    : LucideIcons.shieldAlert;
+                        final resultIcon = isRestart
+                            ? LucideIcons.refreshCcw
+                            : isAccessGranted
+                            ? LucideIcons.shieldCheck
+                            : LucideIcons.shieldAlert;
 
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Theme.of(context).colorScheme.surface
-                                    : Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(20),
-                                border: isDark
-                                    ? Border.all(
-                                        color: const Color(0xFF334155),
-                                        width: 1,
-                                      )
-                                    : null,
-                                boxShadow: isDark
-                                    ? []
-                                    : [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.03),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Theme.of(context).colorScheme.surface
+                                : Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(20),
+                            border: isDark
+                                ? Border.all(
+                                    color: const Color(0xFF334155),
+                                    width: 1,
+                                  )
+                                : null,
+                            boxShadow: isDark
+                                ? []
+                                : [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: resultColor.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  resultIcon,
+                                  color: resultColor,
+                                  size: 20,
+                                ),
                               ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: resultColor.withOpacity(0.1),
-                                      shape: BoxShape.circle,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$door — $user',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
                                     ),
-                                    child: Icon(
-                                      resultIcon,
-                                      color: resultColor,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
+                                    const SizedBox(height: 4),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                          WrapCrossAlignment.center,
                                       children: [
-                                        Text(
-                                          '$door — $user',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 3,
+                                        ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 150,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: resultColor.withOpacity(
+                                                0.1,
                                               ),
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    resultColor.withOpacity(0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                result,
-                                                style: TextStyle(
-                                                  color: resultColor,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              result,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: resultColor,
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              method,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall,
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          log['time_label'] ??
-                                              _formatLogTime(
-                                                log['timestamp'] ?? log['time'],
-                                              ),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
+                                        ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 120,
+                                          ),
+                                          child: Text(
+                                            method,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(fontSize: 11),
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    tooltip: 'Delete',
-                                    onPressed: () => _deleteSingleAccessLog(log),
-                                    icon: const Icon(
-                                      LucideIcons.trash2,
-                                      color: Colors.red,
-                                      size: 18,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      log['time_label'] ??
+                                          _formatLogTime(
+                                            log['timestamp'] ?? log['time'],
+                                          ),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            );
-                          },
-                        ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: 'Delete',
+                                onPressed: () => _deleteSingleAccessLog(log),
+                                icon: const Icon(
+                                  LucideIcons.trash2,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
       );
     }
-
 
     return DefaultTabController(
       length: 2,
@@ -1123,9 +1223,7 @@ class _DoorsScreenState extends State<DoorsScreen>
                                               : Colors.red,
                                         ),
                                     child: Text(
-                                      door['isLocked']
-                                          ? 'Locked'
-                                          : 'Unlocked',
+                                      door['isLocked'] ? 'Locked' : 'Unlocked',
                                     ),
                                   ),
                                 ],
@@ -1235,7 +1333,7 @@ class _DoorsScreenState extends State<DoorsScreen>
                       : _filteredAccessLogs.isEmpty
                       ? Center(child: Text(l10n.noAccessLogs))
                       : ListView.separated(
-                          padding: const EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
                           itemCount: _filteredAccessLogs.length,
                           separatorBuilder: (context, index) =>
                               const SizedBox(height: 12),
@@ -1262,18 +1360,22 @@ class _DoorsScreenState extends State<DoorsScreen>
                                 ? l10n.accessGranted
                                 : l10n.accessDenied;
                             final resultLower = result.toLowerCase();
-                            final rawResultKey = _asText(log['result']).toLowerCase();
+                            final rawResultKey = _asText(
+                              log['result'],
+                            ).toLowerCase();
 
                             final isRestart = resultLower.contains('restart');
 
                             final isPendingUnknown =
-                                (resultLower.contains('unknown face detected') ||
-                                        resultLower.contains('pending') ||
-                                        resultLower.contains('waiting')) &&
-                                    !resultLower.contains('opened') &&
-                                    !resultLower.contains('denied') &&
-                                    !resultLower.contains('after family add') &&
-                                    !resultLower.contains('granted');
+                                (resultLower.contains(
+                                      'unknown face detected',
+                                    ) ||
+                                    resultLower.contains('pending') ||
+                                    resultLower.contains('waiting')) &&
+                                !resultLower.contains('opened') &&
+                                !resultLower.contains('denied') &&
+                                !resultLower.contains('after family add') &&
+                                !resultLower.contains('granted');
 
                             final isAccessGranted =
                                 rawResultKey == 'accessgranted' ||
@@ -1281,7 +1383,9 @@ class _DoorsScreenState extends State<DoorsScreen>
                                 resultLower.contains('door opened') ||
                                 resultLower.contains('manual door opened') ||
                                 resultLower.contains('after family add') ||
-                                resultLower.contains('family member access granted') ||
+                                resultLower.contains(
+                                  'family member access granted',
+                                ) ||
                                 resultLower.contains('access granted');
 
                             final isAccessDenied =
@@ -1353,39 +1457,61 @@ class _DoorsScreenState extends State<DoorsScreen>
                                       children: [
                                         Text(
                                           '$door — $user',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: Theme.of(
                                             context,
                                           ).textTheme.titleMedium,
                                         ),
                                         const SizedBox(height: 4),
-                                        Row(
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
                                           children: [
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 3,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: resultColor.withOpacity(0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                            ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                maxWidth: 150,
                                               ),
-                                              child: Text(
-                                                result,
-                                                style: TextStyle(
-                                                  color: resultColor,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: resultColor
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  result,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: resultColor,
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              method,
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall,
+                                            ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                maxWidth: 120,
+                                              ),
+                                              child: Text(
+                                                method,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(fontSize: 11),
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -1405,7 +1531,8 @@ class _DoorsScreenState extends State<DoorsScreen>
                                   const SizedBox(width: 8),
                                   IconButton(
                                     tooltip: 'Delete',
-                                    onPressed: () => _deleteSingleAccessLog(log),
+                                    onPressed: () =>
+                                        _deleteSingleAccessLog(log),
                                     icon: const Icon(
                                       LucideIcons.trash2,
                                       color: Colors.red,

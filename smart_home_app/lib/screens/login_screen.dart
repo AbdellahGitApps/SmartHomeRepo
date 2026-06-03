@@ -10,7 +10,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedMode = 0;
   int _adminSubMode = 0;
   int _failedAdminAttempts = 0;
@@ -28,10 +29,25 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscureSignInPassword = true;
   bool _obscureLoginPassword = true;
   bool _obscureUserPassword = true;
-  
+  bool _obscureSignInPhone = true;
+  bool _obscureSignInHomeCode = true;
+  bool _obscureLoginPhone = true;
+  bool _obscureUserLogin = true;
+
   bool _obscureRecoveryNewPassword = true;
   bool _obscureRecoveryConfirmPassword = true;
-String? _errorMessage;
+  String? _errorMessage;
+
+  late final AnimationController _logoPulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _logoPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
 
   @override
   void dispose() {
@@ -42,6 +58,7 @@ String? _errorMessage;
     _loginPasswordCtrl.dispose();
     _userLoginCtrl.dispose();
     _userPasswordCtrl.dispose();
+    _logoPulseController.dispose();
     super.dispose();
   }
 
@@ -325,10 +342,15 @@ String? _errorMessage;
                         decoration: InputDecoration(
                           labelText: 'New Password',
                           suffixIcon: IconButton(
-                            icon: Icon(_obscureRecoveryNewPassword ? LucideIcons.eyeOff : LucideIcons.eye),
+                            icon: Icon(
+                              _obscureRecoveryNewPassword
+                                  ? LucideIcons.eyeOff
+                                  : LucideIcons.eye,
+                            ),
                             onPressed: () {
                               setDialogState(() {
-                                _obscureRecoveryNewPassword = !_obscureRecoveryNewPassword;
+                                _obscureRecoveryNewPassword =
+                                    !_obscureRecoveryNewPassword;
                               });
                             },
                           ),
@@ -342,10 +364,15 @@ String? _errorMessage;
                         decoration: InputDecoration(
                           labelText: 'Confirm Password',
                           suffixIcon: IconButton(
-                            icon: Icon(_obscureRecoveryConfirmPassword ? LucideIcons.eyeOff : LucideIcons.eye),
+                            icon: Icon(
+                              _obscureRecoveryConfirmPassword
+                                  ? LucideIcons.eyeOff
+                                  : LucideIcons.eye,
+                            ),
                             onPressed: () {
                               setDialogState(() {
-                                _obscureRecoveryConfirmPassword = !_obscureRecoveryConfirmPassword;
+                                _obscureRecoveryConfirmPassword =
+                                    !_obscureRecoveryConfirmPassword;
                               });
                             },
                           ),
@@ -424,9 +451,17 @@ String? _errorMessage;
       children: [
         TextField(
           controller: _signInLoginCtrl,
+          obscureText: _obscureSignInPhone,
           decoration: _decoration(
-            label: 'User name Or Email',
+            label: 'Phone Number',
             icon: LucideIcons.user,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureSignInPhone ? LucideIcons.eyeOff : LucideIcons.eye,
+              ),
+              onPressed: () =>
+                  setState(() => _obscureSignInPhone = !_obscureSignInPhone),
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -449,7 +484,19 @@ String? _errorMessage;
         const SizedBox(height: 16),
         TextField(
           controller: _signInHomeCodeCtrl,
-          decoration: _decoration(label: 'Home Code', icon: LucideIcons.home),
+          obscureText: _obscureSignInHomeCode,
+          decoration: _decoration(
+            label: 'Home Code',
+            icon: LucideIcons.home,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureSignInHomeCode ? LucideIcons.eyeOff : LucideIcons.eye,
+              ),
+              onPressed: () => setState(
+                () => _obscureSignInHomeCode = !_obscureSignInHomeCode,
+              ),
+            ),
+          ),
           onSubmitted: (_) => _attemptAdminSignIn(),
         ),
         const SizedBox(height: 20),
@@ -464,9 +511,17 @@ String? _errorMessage;
       children: [
         TextField(
           controller: _loginCtrl,
+          obscureText: _obscureLoginPhone,
           decoration: _decoration(
-            label: 'User name Or Email',
+            label: 'Phone Number',
             icon: LucideIcons.user,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureLoginPhone ? LucideIcons.eyeOff : LucideIcons.eye,
+              ),
+              onPressed: () =>
+                  setState(() => _obscureLoginPhone = !_obscureLoginPhone),
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -507,9 +562,17 @@ String? _errorMessage;
       children: [
         TextField(
           controller: _userLoginCtrl,
+          obscureText: _obscureUserLogin,
           decoration: _decoration(
-            label: 'User name Or Email',
+            label: 'Username',
             icon: LucideIcons.user,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureUserLogin ? LucideIcons.eyeOff : LucideIcons.eye,
+              ),
+              onPressed: () =>
+                  setState(() => _obscureUserLogin = !_obscureUserLogin),
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -543,27 +606,26 @@ String? _errorMessage;
           children: [
             Expanded(
               child: TextButton(
-                onPressed: () => setState(() {
-                  _adminSubMode = 0;
-                  _errorMessage = null;
-                }),
-                child: Text(
-                  'Sign in (First login)',
-                  style: TextStyle(
-                    color: _adminSubMode == 0
-                        ? const Color(0xFFF2BE2E)
-                        : Colors.grey,
-                    fontWeight: FontWeight.w700,
+                onPressed: () => _setAdminSubMode(0),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'Sign in (First login)',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      color: _adminSubMode == 0
+                          ? const Color(0xFFF2BE2E)
+                          : Colors.grey,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
             ),
             Expanded(
               child: TextButton(
-                onPressed: () => setState(() {
-                  _adminSubMode = 1;
-                  _errorMessage = null;
-                }),
+                onPressed: () => _setAdminSubMode(1),
                 child: Text(
                   'Login',
                   style: TextStyle(
@@ -596,6 +658,112 @@ String? _errorMessage;
     );
   }
 
+  void _clearAuthFields() {
+    _signInLoginCtrl.clear();
+    _signInPasswordCtrl.clear();
+    _signInHomeCodeCtrl.clear();
+    _loginCtrl.clear();
+    _loginPasswordCtrl.clear();
+    _userLoginCtrl.clear();
+    _userPasswordCtrl.clear();
+    _errorMessage = null;
+  }
+
+  void _setSelectedMode(int mode) {
+    setState(() {
+      _selectedMode = mode;
+      _adminSubMode = 0;
+      _failedAdminAttempts = 0;
+      _clearAuthFields();
+    });
+  }
+
+  void _setAdminSubMode(int mode) {
+    setState(() {
+      _adminSubMode = mode;
+      _failedAdminAttempts = 0;
+      _clearAuthFields();
+    });
+  }
+
+  Widget _buildLoginHeader() {
+    const gold = Color(0xFFF2BE2E);
+
+    return Column(
+      children: [
+        SizedBox(
+          width: 118,
+          height: 118,
+          child: AnimatedBuilder(
+            animation: _logoPulseController,
+            builder: (context, child) {
+              final pulse = _logoPulseController.value;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 94 + (pulse * 22),
+                    height: 94 + (pulse * 22),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: gold.withOpacity(0.06 + (pulse * 0.03)),
+                      border: Border.all(
+                        color: gold.withOpacity(0.20 - (pulse * 0.07)),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 92,
+                    height: 92,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: gold,
+                      boxShadow: [
+                        BoxShadow(
+                          color: gold.withOpacity(0.30),
+                          blurRadius: 24,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      LucideIcons.shieldCheck,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          'Smart Home',
+          style: TextStyle(
+            color: gold,
+            fontSize: 31,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Secure \u2022 Connected \u2022 Intelligent',
+          style: TextStyle(
+            color: Colors.grey,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1.6,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -606,40 +774,8 @@ String? _errorMessage;
             padding: const EdgeInsets.all(32),
             child: Column(
               children: [
-                Container(
-                  width: 84,
-                  height: 84,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFFF2BE2E),
-                  ),
-                  child: const Icon(
-                    LucideIcons.shieldCheck,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'Smart Home',
-                  style: TextStyle(
-                    color: Color(0xFFF2BE2E),
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Secure ? Connected ? Intelligent',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 40),
+                _buildLoginHeader(),
+                const SizedBox(height: 34),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
@@ -662,20 +798,14 @@ String? _errorMessage;
                             label: 'Admin',
                             icon: LucideIcons.shield,
                             selected: _selectedMode == 0,
-                            onTap: () => setState(() {
-                              _selectedMode = 0;
-                              _errorMessage = null;
-                            }),
+                            onTap: () => _setSelectedMode(0),
                           ),
                           const SizedBox(width: 8),
                           _toggleButton(
                             label: 'User',
                             icon: LucideIcons.user,
                             selected: _selectedMode == 1,
-                            onTap: () => setState(() {
-                              _selectedMode = 1;
-                              _errorMessage = null;
-                            }),
+                            onTap: () => _setSelectedMode(1),
                           ),
                         ],
                       ),

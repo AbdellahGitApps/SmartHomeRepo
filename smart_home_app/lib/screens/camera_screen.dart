@@ -19,6 +19,11 @@ class _CameraScreenState extends State<CameraScreen>
   final BackendApiService _api = BackendApiService();
 
   late final TabController _tabController;
+  final _cameraPinController = TextEditingController();
+
+  bool _cameraPinUnlocked = false;
+  bool _obscureCameraPinGate = true;
+  String? _cameraPinGateError;
 
   Timer? _fakePreviewTimer;
   int _previewTick = 0;
@@ -52,16 +57,14 @@ class _CameraScreenState extends State<CameraScreen>
   @override
   void dispose() {
     _fakePreviewTimer?.cancel();
+    _cameraPinController.dispose();
     _tabController.dispose();
     _api.close();
     super.dispose();
   }
 
   Future<void> _loadCameraPage() async {
-    await Future.wait([
-      _loadCameras(),
-      _loadFaceEvents(),
-    ]);
+    await Future.wait([_loadCameras(), _loadFaceEvents()]);
   }
 
   Future<void> _loadCameras() async {
@@ -76,7 +79,9 @@ class _CameraScreenState extends State<CameraScreen>
 
     try {
       final response = await _api.getAppCameras(
-        homeId: appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId,
+        homeId: appState.homeDbId.isNotEmpty
+            ? appState.homeDbId
+            : appState.homeId,
         homeCode: appState.homeCode,
         apartmentNumber: appState.apartmentNumber,
         adminLogin: appState.adminName,
@@ -86,9 +91,9 @@ class _CameraScreenState extends State<CameraScreen>
 
       final items = raw is List
           ? raw
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList()
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
           : <Map<String, dynamic>>[];
 
       if (!mounted) return;
@@ -123,7 +128,9 @@ class _CameraScreenState extends State<CameraScreen>
 
     try {
       final response = await _api.getAppCameraFaceEvents(
-        homeId: appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId,
+        homeId: appState.homeDbId.isNotEmpty
+            ? appState.homeDbId
+            : appState.homeId,
         homeCode: appState.homeCode,
         apartmentNumber: appState.apartmentNumber,
         adminLogin: appState.adminName,
@@ -134,9 +141,9 @@ class _CameraScreenState extends State<CameraScreen>
 
       final items = raw is List
           ? raw
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList()
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
           : <Map<String, dynamic>>[];
 
       if (!mounted) return;
@@ -159,8 +166,11 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  bool _readBool(Map<String, dynamic> data, List<String> keys,
-      {bool fallback = false}) {
+  bool _readBool(
+    Map<String, dynamic> data,
+    List<String> keys, {
+    bool fallback = false,
+  }) {
     for (final key in keys) {
       final value = data[key];
 
@@ -303,16 +313,18 @@ class _CameraScreenState extends State<CameraScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildCamerasTab(context),
-          _buildFaceEventsTab(context),
-        ],
+        children: [_buildCamerasTab(context), _buildFaceEventsTab(context)],
       ),
     );
   }
 
   Widget _buildCamerasTab(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final appState = Provider.of<AppStateProvider>(context);
+
+    if (appState.isUser && !_cameraPinUnlocked) {
+      return _buildCameraPinGate(context, appState, isDark);
+    }
 
     if (_loadingCameras) {
       return const Center(child: CircularProgressIndicator());
@@ -323,7 +335,9 @@ class _CameraScreenState extends State<CameraScreen>
     }
 
     if (_cameras.isEmpty) {
-      return const Center(child: Text('No cameras registered for this apartment.'));
+      return const Center(
+        child: Text('No cameras registered for this apartment.'),
+      );
     }
 
     return RefreshIndicator(
@@ -350,8 +364,9 @@ class _CameraScreenState extends State<CameraScreen>
           final lastSeen = _formatTime(camera['last_seen']);
           final apartment = _text(camera['apartment_number'], fallback: '--');
 
-          final previewHeight =
-              (MediaQuery.of(context).size.height * 0.48).clamp(340.0, 560.0).toDouble();
+          final previewHeight = (MediaQuery.of(context).size.height * 0.48)
+              .clamp(340.0, 560.0)
+              .toDouble();
 
           return Container(
             padding: const EdgeInsets.all(20),
@@ -382,9 +397,8 @@ class _CameraScreenState extends State<CameraScreen>
                         children: [
                           Text(
                             name,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -443,7 +457,10 @@ class _CameraScreenState extends State<CameraScreen>
                               fit: BoxFit.cover,
                               gaplessPlayback: true,
                               errorBuilder: (_, __, ___) {
-                                return _streamFallback(isDark, 'Stream Not Available');
+                                return _streamFallback(
+                                  isDark,
+                                  'Stream Not Available',
+                                );
                               },
                             ),
                             if (isFake)
@@ -488,7 +505,9 @@ class _CameraScreenState extends State<CameraScreen>
                       color: Colors.orange,
                     ),
                     _infoChip(
-                      icon: enabled ? LucideIcons.checkCircle : LucideIcons.xCircle,
+                      icon: enabled
+                          ? LucideIcons.checkCircle
+                          : LucideIcons.xCircle,
                       label: enabled ? 'Enabled' : 'Disabled',
                       color: enabled ? Colors.green : Colors.red,
                     ),
@@ -498,6 +517,130 @@ class _CameraScreenState extends State<CameraScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _unlockCameraWithPin(AppStateProvider appState) {
+    final expectedPin = appState.cameraPin.trim();
+    final enteredPin = _cameraPinController.text.trim();
+
+    if (expectedPin.isEmpty) {
+      setState(() {
+        _cameraPinGateError = 'Camera PIN is not set by Admin yet.';
+      });
+      return;
+    }
+
+    if (enteredPin != expectedPin) {
+      setState(() {
+        _cameraPinGateError = 'Invalid Camera PIN.';
+      });
+      return;
+    }
+
+    setState(() {
+      _cameraPinUnlocked = true;
+      _cameraPinGateError = null;
+      _cameraPinController.clear();
+    });
+  }
+
+  Widget _buildCameraPinGate(
+    BuildContext context,
+    AppStateProvider appState,
+    bool isDark,
+  ) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 460),
+          padding: const EdgeInsets.all(24),
+          decoration: _cardDecoration(context, isDark),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  LucideIcons.lock,
+                  color: Theme.of(context).primaryColor,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Camera Locked',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Enter the Camera PIN to view the live camera stream.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _cameraPinController,
+                obscureText: _obscureCameraPinGate,
+                keyboardType: TextInputType.number,
+                onSubmitted: (_) => _unlockCameraWithPin(appState),
+                decoration: InputDecoration(
+                  labelText: 'Camera PIN',
+                  prefixIcon: const Icon(LucideIcons.keyRound),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureCameraPinGate
+                          ? LucideIcons.eyeOff
+                          : LucideIcons.eye,
+                    ),
+                    onPressed: () => setState(
+                      () => _obscureCameraPinGate = !_obscureCameraPinGate,
+                    ),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  filled: true,
+                  fillColor: isDark
+                      ? const Color(0xFF0F172A)
+                      : Colors.grey.shade50,
+                ),
+              ),
+              if (_cameraPinGateError != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _cameraPinGateError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.lock_open),
+                  label: const Text('Unlock Camera'),
+                  onPressed: () => _unlockCameraWithPin(appState),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -583,9 +726,7 @@ class _CameraScreenState extends State<CameraScreen>
                           Expanded(
                             child: Text(
                               title,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),

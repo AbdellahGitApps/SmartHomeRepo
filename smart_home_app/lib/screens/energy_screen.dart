@@ -586,14 +586,20 @@ class _EnergyScreenState extends State<EnergyScreen>
               position: _slide2,
               child: FadeTransition(
                 opacity: _fade2,
-                child: Container(
-                  height: 300,
-                  padding: const EdgeInsets.all(24),
-                  decoration: _cardDecoration(context, isDark),
-                  child: SimpleEnergyChart(
-                    values: _chartValues,
-                    labels: _chartLabels,
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 430;
+
+                    return Container(
+                      height: 300,
+                      padding: EdgeInsets.all(compact ? 8 : 24),
+                      decoration: _cardDecoration(context, isDark),
+                      child: SimpleEnergyChart(
+                        values: _chartValues,
+                        labels: _chartLabels,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -812,85 +818,122 @@ class _EnergyScreenState extends State<EnergyScreen>
             ...predictions.map(
               (p) => Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: _cardDecoration(context, isDark),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          p['icon'] as IconData,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              p['period'] as String,
-                              style: Theme.of(context).textTheme.titleLarge,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 430;
+
+                    return Container(
+                      padding: EdgeInsets.all(compact ? 18 : 24),
+                      decoration: _cardDecoration(context, isDark),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(compact ? 11 : 14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).primaryColor.withOpacity(0.15),
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              l10n.predictedUsage,
-                              style: Theme.of(context).textTheme.bodyMedium,
+                            child: Icon(
+                              p['icon'] as IconData,
+                              color: Theme.of(context).primaryColor,
+                              size: compact ? 21 : 24,
                             ),
-                            const SizedBox(height: 8),
-                            Row(
+                          ),
+                          SizedBox(width: compact ? 12 : 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  (p['isIncrease'] as bool)
-                                      ? LucideIcons.trendingUp
-                                      : LucideIcons.trendingDown,
-                                  size: 14,
-                                  color: (p['isIncrease'] as bool)
-                                      ? Colors.red
-                                      : Colors.green,
+                                Text(
+                                  p['period'] as String,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleLarge,
                                 ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    p['comparison'] as String,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: (p['isIncrease'] as bool)
-                                          ? Colors.red
-                                          : Colors.green,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  l10n.predictedUsage,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Transform.translate(
+                                  offset: Offset(compact ? -18 : -8, 0),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        (p['isIncrease'] as bool)
+                                            ? LucideIcons.trendingUp
+                                            : LucideIcons.trendingDown,
+                                        size: 14,
+                                        color: (p['isIncrease'] as bool)
+                                            ? Colors.red
+                                            : Colors.green,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          p['comparison'] as String,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: compact ? 11.5 : 12,
+                                            color: (p['isIncrease'] as bool)
+                                                ? Colors.red
+                                                : Colors.green,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: p['value'] as double),
-                        duration: const Duration(milliseconds: 1200),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) {
-                          return Text(
-                            '${value.toStringAsFixed(1)} ${l10n.kWh}',
-                            style: Theme.of(context).textTheme.headlineSmall!
-                                .copyWith(
-                                  color: Theme.of(context).primaryColor,
-                                  fontWeight: FontWeight.bold,
+                          ),
+                          SizedBox(width: compact ? 14 : 24),
+                          Transform.translate(
+                            offset: Offset(compact ? 18 : 8, 0),
+                            child: SizedBox(
+                              width: compact ? 128 : 160,
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween(
+                                  begin: 0,
+                                  end: p['value'] as double,
                                 ),
-                          );
-                        },
+                                duration: const Duration(milliseconds: 1200),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, value, _) {
+                                  return FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      '${value.toStringAsFixed(1)} ${l10n.kWh}',
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      textAlign: TextAlign.right,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall!
+                                          .copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).primaryColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -951,23 +994,42 @@ class _EnergyScreenState extends State<EnergyScreen>
     bool isDark,
   ) {
     return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, size: 18, color: Theme.of(context).primaryColor),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 105;
+
+          return Column(
+            children: [
+              Icon(
+                icon,
+                size: compact ? 16 : 18,
+                color: Theme.of(context).primaryColor,
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: compact ? 14 : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontSize: compact ? 11 : null),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

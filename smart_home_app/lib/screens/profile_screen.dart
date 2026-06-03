@@ -17,14 +17,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _adminNameController = TextEditingController();
   final _adminPasswordController = TextEditingController();
   final _doorPinController = TextEditingController();
+  final _cameraPinController = TextEditingController();
   final _userAccountController = TextEditingController();
+  final _userUsernameController = TextEditingController();
   final _aptController = TextEditingController(text: '');
   final _homeIdController = TextEditingController(text: '');
   final _homeCodeController = TextEditingController();
 
+  bool _obscureAdminPhone = true;
   bool _obscureAdminPassword = true;
   bool _obscureDoorPin = true;
+  bool _obscureCameraPin = true;
   bool _obscureUserAccount = true;
+  bool _obscureUserPassword = true;
   bool _obscureHomeCode = true;
 
   bool _editAccount = false;
@@ -44,14 +49,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _aptController.text = appState.apartmentNumber;
     _homeIdController.text = appState.homeId;
     _actualHomeCode = appState.homeCode;
-    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode ? _actualHomeCode : '********';
+    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode
+        ? _actualHomeCode
+        : '********';
     _adminPasswordController.text = appState.password;
     _doorPinController.text = appState.doorPin;
+    _cameraPinController.text = appState.cameraPin;
     _userAccountController.text = appState.userAccountPassword;
+    _userUsernameController.text = appState.userAccountUsername;
     _aptController.text = appState.apartmentNumber;
     _homeIdController.text = appState.homeId;
     _actualHomeCode = appState.homeCode;
-    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode ? _actualHomeCode : '********';
+    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode
+        ? _actualHomeCode
+        : '********';
   }
 
   @override
@@ -59,7 +70,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _adminNameController.dispose();
     _adminPasswordController.dispose();
     _doorPinController.dispose();
+    _cameraPinController.dispose();
     _userAccountController.dispose();
+    _userUsernameController.dispose();
     _aptController.dispose();
     _homeIdController.dispose();
     _homeCodeController.dispose();
@@ -68,12 +81,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _hiddenValue() => '*********';
 
-  void _saveSettings(AppStateProvider appState, AppLocalizations l10n) {
+  Future<void> _saveSettings(
+    AppStateProvider appState,
+    AppLocalizations l10n,
+  ) async {
     if (appState.isAdmin) {
-      appState.updateName(_adminNameController.text);
-      appState.updatePassword(_adminPasswordController.text);
-      appState.updateDoorPin(_doorPinController.text);
-      appState.updateUserAccountPassword(_userAccountController.text);
+      if (_editSecurity) {
+        final usernameOk = await appState.updateUserAccountUsername(
+          _userUsernameController.text,
+        );
+
+        if (!usernameOk) {
+          _userUsernameController.text = appState.userAccountUsername;
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                appState.lastAuthError ?? 'Could not update username.',
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+      }
+
+      if (_editAccount) {
+        appState.updateName(_adminNameController.text);
+      }
     }
 
     setState(() {
@@ -212,7 +248,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _aptController.text = appState.apartmentNumber;
     _homeIdController.text = appState.homeId;
     _actualHomeCode = appState.homeCode;
-    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode ? _actualHomeCode : '********';
+    _homeCodeController.text = appState.isAdmin && !_obscureHomeCode
+        ? _actualHomeCode
+        : '********';
+    _adminPasswordController.text = appState.password;
+    _doorPinController.text = appState.doorPin;
+    _cameraPinController.text = appState.cameraPin;
+    _userAccountController.text = appState.userAccountPassword;
+    _userUsernameController.text = appState.userAccountUsername;
 
     return Scaffold(
       appBar: AppBar(
@@ -253,46 +296,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   isDark: isDark,
                   enabled: true,
                   readOnly: true,
-                  suffix: (Provider.of<AppStateProvider>(context, listen: false).userRole.toLowerCase() == 'user') ? null : (appState.isAdmin ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          _obscureHomeCode
-                              ? LucideIcons.eyeOff
-                              : LucideIcons.eye,
-                          size: 18,
-                        ),
-                        onPressed: () => setState(() {
-                          _obscureHomeCode = !_obscureHomeCode;
-                          _homeCodeController.text = _obscureHomeCode
-                              ? '********'
-                              : _actualHomeCode;
-                        }),
-                      ),
-                      IconButton(
-                        icon: const Icon(LucideIcons.copy, size: 18),
-                        onPressed: () {
-                          Clipboard.setData(
-                            ClipboardData(text: appState.isAdmin ? _actualHomeCode : '********'),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Home Code copied'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ) : null),
+                  suffix:
+                      (Provider.of<AppStateProvider>(
+                            context,
+                            listen: false,
+                          ).userRole.toLowerCase() ==
+                          'user')
+                      ? null
+                      : (appState.isAdmin
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      _obscureHomeCode
+                                          ? LucideIcons.eyeOff
+                                          : LucideIcons.eye,
+                                      size: 18,
+                                    ),
+                                    onPressed: () => setState(() {
+                                      _obscureHomeCode = !_obscureHomeCode;
+                                      _homeCodeController.text =
+                                          _obscureHomeCode
+                                          ? '********'
+                                          : _actualHomeCode;
+                                    }),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      LucideIcons.copy,
+                                      size: 18,
+                                    ),
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(
+                                          text: appState.isAdmin
+                                              ? _actualHomeCode
+                                              : '********',
+                                        ),
+                                      );
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Home Code copied'),
+                                          duration: Duration(seconds: 1),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              )
+                            : null),
                 ),
               ],
             ),
             const SizedBox(height: 24),
 
             _buildSection(
-              title: l10n.account,
+              title: 'Admin Account',
               icon: LucideIcons.user,
               isDark: isDark,
               isEditing: isAdmin && _editAccount,
@@ -302,23 +364,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   : null,
               children: [
                 _buildTextField(
-                  label: l10n.adminName,
+                  label: 'Phone Number',
                   controller: _adminNameController,
-                  icon: LucideIcons.userCircle,
+                  icon: LucideIcons.phone,
                   isDark: isDark,
-                  enabled: isAdmin && _editAccount,
+                  obscureText: _obscureAdminPhone,
+                  enabled: isAdmin,
                   readOnly: !isAdmin || !_editAccount,
+                  suffix: isAdmin
+                      ? IconButton(
+                          icon: Icon(
+                            _obscureAdminPhone
+                                ? LucideIcons.eyeOff
+                                : LucideIcons.eye,
+                            size: 18,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscureAdminPhone = !_obscureAdminPhone,
+                          ),
+                        )
+                      : null,
                 ),
                 if (isAdmin) ...[
                   const SizedBox(height: 12),
                   _buildTextField(
-                    label: 'Admin Password',
+                    label: 'Password',
                     controller: _adminPasswordController,
                     icon: LucideIcons.lock,
                     isDark: isDark,
                     obscureText: _obscureAdminPassword,
                     enabled: true,
-                    readOnly: !_editAccount,
+                    readOnly: true,
                     suffix: IconButton(
                       icon: Icon(
                         _obscureAdminPassword
@@ -333,14 +409,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildSettingTile(
-                    title: 'Change Admin Password',
+                    title: 'Change Password',
                     icon: LucideIcons.key,
                     isDark: isDark,
                     enabled: _editAccount,
                     onTap: _editAccount
                         ? () => _showSimplePasswordDialog(
-                            title: 'Admin Password',
-                            label: 'New Admin Password',
+                            title: 'Password',
+                            label: 'New Password',
                             isDark: isDark,
                             onSave: (value) {
                               _adminPasswordController.text = value;
@@ -357,7 +433,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     isDark: isDark,
                     obscureText: _obscureDoorPin,
                     enabled: true,
-                    readOnly: !_editAccount,
+                    readOnly: true,
                     suffix: IconButton(
                       icon: Icon(
                         _obscureDoorPin ? LucideIcons.eyeOff : LucideIcons.eye,
@@ -385,11 +461,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           )
                         : null,
                   ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    label: 'Password',
+                    controller: _adminPasswordController,
+                    icon: LucideIcons.lock,
+                    isDark: isDark,
+                    obscureText: true,
+                    enabled: false,
+                    readOnly: true,
+                  ),
                 ],
               ],
             ),
             const SizedBox(height: 24),
-
             _buildSection(
               title: l10n.security,
               icon: LucideIcons.shield,
@@ -412,11 +498,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildTextField(
                   label: 'User Account',
                   controller: isAdmin
-                      ? _userAccountController
+                      ? _userUsernameController
                       : TextEditingController(text: _hiddenValue()),
-                  icon: LucideIcons.lock,
+                  icon: LucideIcons.user,
                   isDark: isDark,
-                  obscureText: isAdmin ? _obscureUserAccount : false,
+                  obscureText: isAdmin ? _obscureUserAccount : true,
                   enabled: isAdmin,
                   readOnly: !isAdmin || !_editSecurity,
                   suffix: isAdmin
@@ -433,17 +519,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )
                       : null,
                 ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  label: 'Password',
+                  controller: isAdmin
+                      ? _userAccountController
+                      : TextEditingController(text: _hiddenValue()),
+                  icon: LucideIcons.lock,
+                  isDark: isDark,
+                  obscureText: isAdmin ? _obscureUserPassword : true,
+                  enabled: isAdmin,
+                  readOnly: true,
+                  suffix: isAdmin
+                      ? IconButton(
+                          icon: Icon(
+                            _obscureUserPassword
+                                ? LucideIcons.eyeOff
+                                : LucideIcons.eye,
+                            size: 18,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscureUserPassword = !_obscureUserPassword,
+                          ),
+                        )
+                      : null,
+                ),
                 if (isAdmin) ...[
                   const SizedBox(height: 12),
                   _buildSettingTile(
-                    title: 'Change User Account',
+                    title: 'Change Password',
                     icon: LucideIcons.key,
                     isDark: isDark,
                     enabled: _editSecurity,
                     onTap: _editSecurity
                         ? () => _showSimplePasswordDialog(
                             title: 'User Account',
-                            label: 'New User Account Password',
+                            label: 'New Password',
                             isDark: isDark,
                             onSave: (value) {
                               _userAccountController.text = value;
@@ -453,10 +564,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : null,
                   ),
                 ],
+                const SizedBox(height: 12),
+                _buildTextField(
+                  label: 'Camera PIN',
+                  controller: isAdmin
+                      ? _cameraPinController
+                      : TextEditingController(text: _hiddenValue()),
+                  icon: LucideIcons.camera,
+                  isDark: isDark,
+                  obscureText: isAdmin ? _obscureCameraPin : true,
+                  enabled: isAdmin,
+                  readOnly: true,
+                  suffix: isAdmin
+                      ? IconButton(
+                          icon: Icon(
+                            _obscureCameraPin
+                                ? LucideIcons.eyeOff
+                                : LucideIcons.eye,
+                            size: 18,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscureCameraPin = !_obscureCameraPin,
+                          ),
+                        )
+                      : null,
+                ),
+                if (isAdmin) ...[
+                  const SizedBox(height: 12),
+                  _buildSettingTile(
+                    title: 'Change Camera PIN',
+                    icon: LucideIcons.key,
+                    isDark: isDark,
+                    enabled: _editSecurity,
+                    onTap: _editSecurity
+                        ? () => _showSimplePasswordDialog(
+                            title: 'Camera PIN',
+                            label: 'New Camera PIN',
+                            isDark: isDark,
+                            onSave: (value) {
+                              _cameraPinController.text = value;
+                              appState.updateCameraPin(value);
+                            },
+                          )
+                        : null,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 24),
-
             _buildSection(
               title: l10n.appearance,
               icon: LucideIcons.palette,
@@ -651,6 +806,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     final isVisuallyDisabled = !enabled || readOnly;
 
+    final activeFillColor = isDark
+        ? const Color(0xFF0F172A)
+        : Colors.grey.shade50;
+
+    final lockedFillColor = isDark
+        ? const Color(0xFF1E293B)
+        : Colors.grey.shade100;
+
+    final activeBorderColor = isDark
+        ? const Color(0xFF334155)
+        : Colors.grey.shade300;
+
+    final lockedBorderColor = isDark
+        ? const Color(0xFF334155).withOpacity(0.5)
+        : Colors.grey.shade200;
+
+    final fieldFillColor = isVisuallyDisabled
+        ? lockedFillColor
+        : activeFillColor;
+
+    final fieldBorderColor = isVisuallyDisabled
+        ? lockedBorderColor
+        : activeBorderColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -670,43 +849,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
           obscureText: obscureText,
           enabled: enabled,
           readOnly: readOnly,
+          enableInteractiveSelection: !isVisuallyDisabled,
+          mouseCursor: isVisuallyDisabled
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.text,
           decoration: InputDecoration(
             prefixIcon: icon != null ? Icon(icon, size: 20) : null,
-            suffixIcon: (label == 'Home Code' && (Provider.of<AppStateProvider>(context, listen: false).userRole.toLowerCase() == 'user')) ? null : suffix,
+            suffixIcon:
+                (label == 'Home Code' &&
+                    (Provider.of<AppStateProvider>(
+                          context,
+                          listen: false,
+                        ).userRole.toLowerCase() ==
+                        'user'))
+                ? null
+                : suffix,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: isDark
-                    ? const Color(0xFF334155).withOpacity(0.5)
-                    : Colors.grey.shade200,
-              ),
+              borderSide: BorderSide(color: fieldBorderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: isVisuallyDisabled
-                    ? (isDark
-                          ? const Color(0xFF334155).withOpacity(0.5)
-                          : Colors.grey.shade200)
-                    : (isDark ? const Color(0xFF334155) : Colors.grey.shade300),
-              ),
+              borderSide: BorderSide(color: fieldBorderColor, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
                 color: isVisuallyDisabled
-                    ? (isDark
-                          ? const Color(0xFF334155).withOpacity(0.5)
-                          : Colors.grey.shade200)
+                    ? fieldBorderColor
                     : Theme.of(context).primaryColor,
                 width: isVisuallyDisabled ? 1 : 2,
               ),
             ),
+            hoverColor: fieldFillColor,
+            focusColor: fieldFillColor,
             filled: true,
-            fillColor: !isVisuallyDisabled
-                ? (isDark ? const Color(0xFF0F172A) : Colors.grey.shade50)
-                : (isDark ? const Color(0xFF1E293B) : Colors.grey.shade100),
+            fillColor: fieldFillColor,
           ),
         ),
       ],

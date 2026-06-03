@@ -106,7 +106,7 @@ class BackendApiService {
   }
 
   Map<String, dynamic> _decodeResponse(http.Response response) {
-    final text = response.body.trim();
+    final text = utf8.decode(response.bodyBytes).trim();
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw BackendApiException(
@@ -252,6 +252,25 @@ class BackendApiService {
     );
   }
 
+  Future<Map<String, dynamic>> getFamilyMemberPhotos({required int homeId}) {
+    return _get('/api/app/family-member-photos', query: {'home_id': homeId});
+  }
+
+  Future<Map<String, dynamic>> saveFamilyMemberPhoto({
+    required int homeId,
+    required String memberId,
+    required String photoData,
+  }) {
+    return _post(
+      '/api/app/family-member-photos',
+      body: {
+        'home_id': homeId,
+        'member_id': memberId,
+        'photo_data': photoData,
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> createFamilyMember({
     required String name,
     required String role,
@@ -259,6 +278,7 @@ class BackendApiService {
     bool faceEnrolled = false,
     bool enabled = true,
     String? notes,
+    String? faceImageData,
   }) {
     return _post(
       '/api/family/members',
@@ -269,6 +289,8 @@ class BackendApiService {
         'face_enrolled': faceEnrolled,
         'enabled': enabled,
         if (notes != null) 'notes': notes,
+        if (faceImageData != null && faceImageData.trim().isNotEmpty)
+          'face_image_data': faceImageData.trim(),
       },
     );
   }
@@ -281,6 +303,7 @@ class BackendApiService {
     bool enabled = true,
     required int homeId,
     String? notes,
+    String? faceImageData,
   }) {
     return _patch(
       '/api/family/members/$id',
@@ -291,6 +314,8 @@ class BackendApiService {
         'face_enrolled': faceEnrolled,
         'enabled': enabled,
         if (notes != null) 'notes': notes,
+        if (faceImageData != null && faceImageData.trim().isNotEmpty)
+          'face_image_data': faceImageData.trim(),
       },
     );
   }
@@ -314,7 +339,14 @@ class BackendApiService {
   }) {
     return _post(
       '/api/app/auth/register-admin',
-      body: {'login': login, 'password': password, 'home_code': homeCode},
+      body: {
+        'login': login,
+        'phone_number': login,
+        'phone': login,
+        'admin_login': login,
+        'password': password,
+        'home_code': homeCode,
+      },
     );
   }
 
@@ -324,7 +356,13 @@ class BackendApiService {
   }) {
     return _post(
       '/api/app/auth/login-admin',
-      body: {'login': login, 'password': password},
+      body: {
+        'login': login,
+        'phone_number': login,
+        'phone': login,
+        'admin_login': login,
+        'password': password,
+      },
     );
   }
 
@@ -334,7 +372,12 @@ class BackendApiService {
   }) {
     return _post(
       '/api/app/auth/login-user',
-      body: {'admin_login': adminLogin, 'user_password': userPassword},
+      body: {
+        'username': adminLogin,
+        'user_username': adminLogin,
+        'admin_login': adminLogin,
+        'user_password': userPassword,
+      },
     );
   }
 
@@ -344,7 +387,9 @@ class BackendApiService {
     String? newLogin,
     String? newAdminPassword,
     String? userPassword,
+    String? userUsername,
     String? doorPin,
+    String? cameraPin,
   }) {
     return _post(
       '/api/app/auth/settings',
@@ -354,7 +399,9 @@ class BackendApiService {
         if (newLogin != null) 'new_login': newLogin,
         if (newAdminPassword != null) 'new_admin_password': newAdminPassword,
         if (userPassword != null) 'user_password': userPassword,
+        if (userUsername != null) 'user_username': userUsername,
         if (doorPin != null) 'door_pin': doorPin,
+        if (cameraPin != null) 'camera_pin': cameraPin,
       },
     );
   }
@@ -617,10 +664,7 @@ class BackendApiService {
 
   // D7M16_REAL_ALERTS_LOG_DELETE_API_END
 
-
-  Future<Map<String, dynamic>> clearFamilyMembers({
-    String? homeId,
-  }) {
+  Future<Map<String, dynamic>> clearFamilyMembers({String? homeId}) {
     final query = homeId != null && homeId.trim().isNotEmpty
         ? '?home_id=${Uri.encodeQueryComponent(homeId.trim())}'
         : '';
@@ -683,7 +727,6 @@ class BackendApiService {
 
     return _get('/api/app/camera-face-events-real-v2', query: query);
   }
+
   // D7M16_APP_CAMERA_REAL_BINDING_END
-
-
 }

@@ -5874,6 +5874,7 @@ def _d7_app_ensure_schema(conn):
             admin_password TEXT NOT NULL,
             user_password TEXT DEFAULT '',
             door_pin TEXT DEFAULT '',
+            camera_pin TEXT DEFAULT '',
             owner_phone TEXT DEFAULT '',
             failed_login_attempts INTEGER DEFAULT 0,
             recovery_otp TEXT DEFAULT '',
@@ -11142,3 +11143,1066 @@ async def d7m16_log_delete_isolation_middleware(request, call_next):
 
     return await call_next(request)
 # D7M16_LOG_DELETE_ISOLATION_FINAL_END
+
+# D7M16_APP_AUTH_PHONE_USERNAME_FINAL_START
+# Final app auth behavior:
+# - Admin first login: Phone Number + Password + Home Code.
+# - Admin login: Phone Number + Password.
+# - User login: Username + User Password.
+# - user_username is globally unique.
+
+from fastapi.responses import JSONResponse as _D7M16AuthJSONResponse
+from pathlib import Path as _D7M16AuthPath
+import sqlite3 as _d7m16_auth_sqlite3
+import re as _d7m16_auth_re
+from datetime import datetime as _d7m16_auth_datetime
+
+
+def _d7m16_auth_now():
+    return _d7m16_auth_datetime.now().isoformat(timespec="seconds")
+
+
+def _d7m16_auth_db_path():
+    return _D7M16AuthPath(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+
+def _d7m16_auth_conn():
+    conn = _d7m16_auth_sqlite3.connect(str(_d7m16_auth_db_path()))
+    conn.row_factory = _d7m16_auth_sqlite3.Row
+    return conn
+
+
+def _d7m16_auth_tables(conn):
+    return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+
+
+def _d7m16_auth_cols(conn, table):
+    try:
+        return {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    except Exception:
+        return set()
+
+
+def _d7m16_auth_ensure_schema(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS app_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            home_id INTEGER NOT NULL,
+            admin_login TEXT NOT NULL,
+            admin_password TEXT NOT NULL,
+            user_password TEXT DEFAULT '',
+            door_pin TEXT DEFAULT '',
+            camera_pin TEXT DEFAULT '',
+            owner_phone TEXT DEFAULT '',
+            failed_login_attempts INTEGER DEFAULT 0,
+            recovery_otp TEXT DEFAULT '',
+            recovery_expires_at TEXT DEFAULT '',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cols = _d7m16_auth_cols(conn, "app_accounts")
+
+    needed = {
+        "user_username": "TEXT DEFAULT ''",
+        "owner_phone": "TEXT DEFAULT ''",
+        "failed_login_attempts": "INTEGER DEFAULT 0",
+        "recovery_otp": "TEXT DEFAULT ''",
+        "recovery_expires_at": "TEXT DEFAULT ''",
+        "created_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
+        "updated_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
+    }
+
+    for col, col_type in needed.items():
+        if col not in cols:
+            conn.execute(f"ALTER TABLE app_accounts ADD COLUMN {col} {col_type}")
+
+    try:
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_accounts_user_username_unique
+            ON app_accounts(lower(user_username))
+            WHERE user_username IS NOT NULL AND trim(user_username) <> ''
+            """
+        )
+    except Exception:
+        pass
+
+    try:
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_app_accounts_admin_login_unique
+            ON app_accounts(lower(admin_login))
+            WHERE admin_login IS NOT NULL AND trim(admin_login) <> ''
+            """
+        )
+    except Exception:
+        pass
+
+    conn.commit()
+
+
+def _d7m16_phone(value):
+    value = str(value or "").strip()
+    digits = _d7m16_auth_re.sub(r"\D+", "", value)
+    return digits or value
+
+
+def _d7m16_username(value):
+    return str(value or "").strip()
+
+
+def _d7m16_lower(value):
+    return str(value or "").strip().lower()
+
+
+def _d7m16_home_to_dict(row):
+    if not row:
+        return {}
+    data = dict(row)
+    return {
+        **data,
+        "id": str(data.get("id") or ""),
+        "home_id": str(data.get("id") or data.get("home_id") or ""),
+        "home_code": str(data.get("home_code") or ""),
+        "apartment_number": str(data.get("apartment_number") or ""),
+        "owner_name": str(data.get("owner_name") or ""),
+        "owner_email": str(data.get("owner_email") or ""),
+        "owner_phone": str(data.get("owner_phone") or ""),
+        "status": str(data.get("status") or "online"),
+    }
+
+
+def _d7m16_account_to_dict(account, home=None):
+    data = dict(account)
+    home_data = _d7m16_home_to_dict(home) if home else {}
+
+    return {
+        **data,
+        "id": str(data.get("id") or ""),
+        "home_id": str(data.get("home_id") or home_data.get("home_id") or ""),
+        "admin_login": str(data.get("admin_login") or ""),
+        "admin_username": str(data.get("admin_login") or ""),
+        "admin_password": str(data.get("admin_password") or ""),
+        "user_username": str(data.get("user_username") or ""),
+        "user_password": str(data.get("user_password") or ""),
+        "door_pin": str(data.get("door_pin") or ""),
+        "camera_pin": str(data.get("camera_pin") or ""),
+        "owner_phone": str(data.get("owner_phone") or home_data.get("owner_phone") or ""),
+        "home_code": str(home_data.get("home_code") or ""),
+        "apartment_number": str(home_data.get("apartment_number") or ""),
+    }
+
+
+def _d7m16_auth_response(account, home, role):
+    account_data = _d7m16_account_to_dict(account, home)
+    home_data = _d7m16_home_to_dict(home)
+
+    alerts_count = 0
+    try:
+        conn = _d7m16_auth_conn()
+        row = conn.execute(
+            "SELECT alerts_count FROM app_home_demo_state WHERE CAST(home_id AS TEXT)=CAST(? AS TEXT) LIMIT 1",
+            (str(account_data.get("home_id") or ""),),
+        ).fetchone()
+        if row:
+            alerts_count = int(row["alerts_count"] or 0)
+        conn.close()
+    except Exception:
+        alerts_count = 0
+
+    return {
+        "success": True,
+        "role": role,
+        "account": account_data,
+        "home": home_data,
+        "alerts_count": alerts_count,
+    }
+
+
+def _d7m16_find_home_by_code_and_phone(conn, home_code, phone):
+    if "homes" not in _d7m16_auth_tables(conn):
+        return None
+
+    cols = _d7m16_auth_cols(conn, "homes")
+    if "home_code" not in cols or "owner_phone" not in cols:
+        return None
+
+    rows = conn.execute(
+        "SELECT * FROM homes WHERE lower(home_code)=lower(?)",
+        (str(home_code or "").strip(),),
+    ).fetchall()
+
+    wanted = _d7m16_phone(phone)
+
+    for row in rows:
+        stored = _d7m16_phone(row["owner_phone"])
+        if stored == wanted:
+            return row
+
+    return None
+
+
+def _d7m16_find_home_by_id(conn, home_id):
+    if "homes" not in _d7m16_auth_tables(conn):
+        return None
+
+    return conn.execute(
+        "SELECT * FROM homes WHERE CAST(id AS TEXT)=CAST(? AS TEXT) LIMIT 1",
+        (str(home_id),),
+    ).fetchone()
+
+
+def _d7m16_find_account_by_admin_phone(conn, phone):
+    clean = _d7m16_phone(phone)
+    return conn.execute(
+        """
+        SELECT *
+        FROM app_accounts
+        WHERE lower(COALESCE(admin_login,'')) = lower(?)
+           OR COALESCE(owner_phone,'') = ?
+        LIMIT 1
+        """,
+        (clean, clean),
+    ).fetchone()
+
+
+def _d7m16_find_account_by_user_username(conn, username):
+    clean = _d7m16_username(username)
+    return conn.execute(
+        """
+        SELECT *
+        FROM app_accounts
+        WHERE lower(COALESCE(user_username,'')) = lower(?)
+        LIMIT 1
+        """,
+        (clean,),
+    ).fetchone()
+
+
+def _d7m16_auth_error(message, status_code=400):
+    return _D7M16AuthJSONResponse({"success": False, "detail": message}, status_code=status_code)
+
+
+async def _d7m16_json_body(request):
+    try:
+        return await request.json()
+    except Exception:
+        return {}
+
+
+@app.middleware("http")
+async def d7m16_app_auth_phone_username_middleware(request, call_next):
+    path = request.url.path
+    method = request.method.upper()
+
+    if method != "POST" or path not in {
+        "/api/app/auth/register-admin",
+        "/api/app/auth/login-admin",
+        "/api/app/auth/login-user",
+        "/api/app/auth/settings",
+    }:
+        return await call_next(request)
+
+    payload = await _d7m16_json_body(request)
+    conn = _d7m16_auth_conn()
+
+    try:
+        _d7m16_auth_ensure_schema(conn)
+
+        if path == "/api/app/auth/register-admin":
+            phone = _d7m16_phone(
+                payload.get("phone_number")
+                or payload.get("phone")
+                or payload.get("login")
+                or payload.get("admin_login")
+            )
+            password = str(payload.get("password") or "").strip()
+            home_code = str(payload.get("home_code") or "").strip()
+
+            if not phone or not password or not home_code:
+                return _d7m16_auth_error("Phone Number, Password, and Home Code are required.", 400)
+
+            home = _d7m16_find_home_by_code_and_phone(conn, home_code, phone)
+            if not home:
+                return _d7m16_auth_error("Phone Number does not match this Home Code.", 404)
+
+            existing_home = conn.execute(
+                "SELECT id FROM app_accounts WHERE CAST(home_id AS TEXT)=CAST(? AS TEXT) LIMIT 1",
+                (str(home["id"]),),
+            ).fetchone()
+            if existing_home:
+                return _d7m16_auth_error("This home already has an admin account. Use Login instead.", 409)
+
+            existing_phone = _d7m16_find_account_by_admin_phone(conn, phone)
+            if existing_phone:
+                return _d7m16_auth_error("This phone number is already used.", 409)
+
+            now = _d7m16_auth_now()
+            cur = conn.execute(
+                """
+                INSERT INTO app_accounts (
+                    home_id, admin_login, admin_password, user_username,
+                    user_password, door_pin, camera_pin, owner_phone, created_at, updated_at
+                )
+                VALUES (?, ?, ?, '', '', '', '', ?, ?, ?)
+                """,
+                (home["id"], phone, password, phone, now, now),
+            )
+            conn.commit()
+
+            account = conn.execute(
+                "SELECT * FROM app_accounts WHERE id = ? LIMIT 1",
+                (cur.lastrowid,),
+            ).fetchone()
+
+            return _D7M16AuthJSONResponse(_d7m16_auth_response(account, home, "Admin"))
+
+        if path == "/api/app/auth/login-admin":
+            phone = _d7m16_phone(
+                payload.get("phone_number")
+                or payload.get("phone")
+                or payload.get("login")
+                or payload.get("admin_login")
+            )
+            password = str(payload.get("password") or "").strip()
+
+            if not phone or not password:
+                return _d7m16_auth_error("Phone Number and Password are required.", 400)
+
+            account = _d7m16_find_account_by_admin_phone(conn, phone)
+            if not account:
+                return _d7m16_auth_error("Invalid phone number.", 404)
+
+            account = dict(account)
+            if str(account.get("admin_password") or "") != password:
+                return _d7m16_auth_error("Invalid password.", 401)
+
+            home = _d7m16_find_home_by_id(conn, account.get("home_id"))
+            return _D7M16AuthJSONResponse(_d7m16_auth_response(account, home, "Admin"))
+
+        if path == "/api/app/auth/login-user":
+            username = _d7m16_username(
+                payload.get("username")
+                or payload.get("user_username")
+                or payload.get("admin_login")
+            )
+            user_password = str(payload.get("user_password") or payload.get("password") or "").strip()
+
+            if not username or not user_password:
+                return _d7m16_auth_error("Username and User Password are required.", 400)
+
+            account = _d7m16_find_account_by_user_username(conn, username)
+            if not account:
+                return _d7m16_auth_error("Invalid username.", 404)
+
+            account = dict(account)
+            saved_user_password = str(account.get("user_password") or "").strip()
+
+            if not saved_user_password:
+                return _d7m16_auth_error("User password is not set by the admin yet.", 403)
+
+            if saved_user_password != user_password:
+                return _d7m16_auth_error("Invalid user password.", 401)
+
+            home = _d7m16_find_home_by_id(conn, account.get("home_id"))
+            return _D7M16AuthJSONResponse(_d7m16_auth_response(account, home, "User"))
+
+        if path == "/api/app/auth/settings":
+            current_login = _d7m16_phone(payload.get("current_login") or payload.get("phone_number") or payload.get("phone"))
+            current_password = str(payload.get("current_password") or "").strip()
+
+            account = _d7m16_find_account_by_admin_phone(conn, current_login)
+            if not account:
+                return _d7m16_auth_error("Admin account was not found.", 404)
+
+            account = dict(account)
+            if str(account.get("admin_password") or "") != current_password:
+                return _d7m16_auth_error("Current password is invalid.", 401)
+
+            updates = []
+            values = []
+
+            if payload.get("new_admin_password") is not None and str(payload.get("new_admin_password")).strip():
+                updates.append("admin_password = ?")
+                values.append(str(payload.get("new_admin_password")).strip())
+
+            if payload.get("door_pin") is not None:
+                updates.append("door_pin = ?")
+                values.append(str(payload.get("door_pin") or "").strip())
+
+            if payload.get("camera_pin") is not None:
+                updates.append("camera_pin = ?")
+                values.append(str(payload.get("camera_pin") or "").strip())
+
+            if payload.get("user_username") is not None:
+                user_username = _d7m16_username(payload.get("user_username"))
+                if user_username:
+                    exists = conn.execute(
+                        """
+                        SELECT id
+                        FROM app_accounts
+                        WHERE lower(COALESCE(user_username,'')) = lower(?)
+                          AND id <> ?
+                        LIMIT 1
+                        """,
+                        (user_username, account["id"]),
+                    ).fetchone()
+                    if exists:
+                        return _d7m16_auth_error("This username is already used.", 409)
+
+                updates.append("user_username = ?")
+                values.append(user_username)
+
+            if payload.get("user_password") is not None:
+                updates.append("user_password = ?")
+                values.append(str(payload.get("user_password") or "").strip())
+
+            if updates:
+                updates.append("updated_at = ?")
+                values.append(_d7m16_auth_now())
+                values.append(account["id"])
+
+                conn.execute(
+                    f"UPDATE app_accounts SET {', '.join(updates)} WHERE id = ?",
+                    values,
+                )
+                conn.commit()
+
+            updated = conn.execute("SELECT * FROM app_accounts WHERE id = ? LIMIT 1", (account["id"],)).fetchone()
+            home = _d7m16_find_home_by_id(conn, updated["home_id"])
+
+            return _D7M16AuthJSONResponse(_d7m16_auth_response(updated, home, "Admin"))
+
+    except Exception as exc:
+        return _d7m16_auth_error(f"Auth patch error: {exc}", 500)
+    finally:
+        conn.close()
+
+    return await call_next(request)
+# D7M16_APP_AUTH_PHONE_USERNAME_FINAL_END
+
+# D7M16_AUTH_PHONE_USERNAME_HARD_FIX_START
+# Final app auth behavior:
+# Admin First Login = Phone Number + Password + Home Code
+# Admin Login = Phone Number + Password
+# User Login = Username + User Password
+# Forgot Password stays handled by existing recovery endpoints.
+
+from fastapi.responses import JSONResponse as _D7M16HardAuthJSONResponse
+from pathlib import Path as _D7M16HardAuthPath
+import sqlite3 as _d7m16_hard_auth_sqlite3
+import re as _d7m16_hard_auth_re
+from datetime import datetime as _d7m16_hard_auth_datetime
+
+
+def _d7m16_hard_auth_now():
+    return _d7m16_hard_auth_datetime.now().isoformat(timespec="seconds")
+
+
+def _d7m16_hard_auth_db_path():
+    return _D7M16HardAuthPath(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+
+def _d7m16_hard_auth_conn():
+    conn = _d7m16_hard_auth_sqlite3.connect(str(_d7m16_hard_auth_db_path()))
+    conn.row_factory = _d7m16_hard_auth_sqlite3.Row
+    return conn
+
+
+def _d7m16_hard_auth_cols(conn, table):
+    try:
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    except Exception:
+        return set()
+
+
+def _d7m16_hard_clean_phone(value):
+    return _d7m16_hard_auth_re.sub(r"\D+", "", str(value or "").strip())
+
+
+def _d7m16_hard_clean_text(value):
+    return str(value or "").strip()
+
+
+def _d7m16_hard_cors_headers():
+    return {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+    }
+
+
+def _d7m16_hard_json(payload, status_code=200):
+    return _D7M16HardAuthJSONResponse(
+        payload,
+        status_code=status_code,
+        headers=_d7m16_hard_cors_headers(),
+    )
+
+
+def _d7m16_hard_error(message, status_code=400):
+    return _d7m16_hard_json({"success": False, "detail": message}, status_code=status_code)
+
+
+def _d7m16_hard_ensure_schema(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS app_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            home_id INTEGER NOT NULL,
+            admin_login TEXT NOT NULL,
+            admin_password TEXT NOT NULL,
+            user_password TEXT DEFAULT '',
+            door_pin TEXT DEFAULT '',
+            owner_phone TEXT DEFAULT '',
+            failed_login_attempts INTEGER DEFAULT 0,
+            recovery_otp TEXT DEFAULT '',
+            recovery_expires_at TEXT DEFAULT '',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cols = _d7m16_hard_auth_cols(conn, "app_accounts")
+    if "user_username" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN user_username TEXT DEFAULT ''")
+    if "owner_phone" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN owner_phone TEXT DEFAULT ''")
+    if "camera_pin" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN camera_pin TEXT DEFAULT ''")
+    if "failed_login_attempts" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN failed_login_attempts INTEGER DEFAULT 0")
+    if "recovery_otp" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN recovery_otp TEXT DEFAULT ''")
+    if "recovery_expires_at" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN recovery_expires_at TEXT DEFAULT ''")
+    if "created_at" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP")
+    if "updated_at" not in cols:
+        conn.execute("ALTER TABLE app_accounts ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP")
+
+    conn.execute("""
+    UPDATE app_accounts
+    SET owner_phone = (
+        SELECT COALESCE(h.owner_phone, '')
+        FROM homes h
+        WHERE CAST(h.id AS TEXT) = CAST(app_accounts.home_id AS TEXT)
+        LIMIT 1
+    )
+    WHERE COALESCE(owner_phone, '') = ''
+    """)
+
+    conn.execute("""
+    UPDATE app_accounts
+    SET admin_login = COALESCE(NULLIF(owner_phone, ''), admin_login)
+    WHERE COALESCE(owner_phone, '') <> ''
+    """)
+
+    try:
+        conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_app_accounts_admin_login_unique
+        ON app_accounts(lower(admin_login))
+        WHERE admin_login IS NOT NULL AND trim(admin_login) <> ''
+        """)
+    except Exception:
+        pass
+
+    try:
+        conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_app_accounts_user_username_unique
+        ON app_accounts(lower(user_username))
+        WHERE user_username IS NOT NULL AND trim(user_username) <> ''
+        """)
+    except Exception:
+        pass
+
+    conn.commit()
+
+
+def _d7m16_hard_home_dict(row):
+    if not row:
+        return {}
+    data = dict(row)
+    return {
+        **data,
+        "id": str(data.get("id") or ""),
+        "home_id": str(data.get("id") or data.get("home_id") or ""),
+        "home_code": str(data.get("home_code") or ""),
+        "apartment_number": str(data.get("apartment_number") or ""),
+        "owner_name": str(data.get("owner_name") or ""),
+        "owner_email": str(data.get("owner_email") or ""),
+        "owner_phone": str(data.get("owner_phone") or ""),
+        "status": str(data.get("status") or "online"),
+    }
+
+
+def _d7m16_hard_account_dict(account, home=None):
+    if not account:
+        return {}
+    data = dict(account)
+    home_data = _d7m16_hard_home_dict(home)
+    phone = _d7m16_hard_clean_phone(data.get("owner_phone") or home_data.get("owner_phone") or data.get("admin_login"))
+
+    return {
+        **data,
+        "id": str(data.get("id") or ""),
+        "home_id": str(data.get("home_id") or home_data.get("home_id") or ""),
+        "admin_login": phone,
+        "admin_username": phone,
+        "admin_password": str(data.get("admin_password") or ""),
+        "user_username": str(data.get("user_username") or ""),
+        "user_password": str(data.get("user_password") or ""),
+        "door_pin": str(data.get("door_pin") or ""),
+        "camera_pin": str(data.get("camera_pin") or ""),
+        "owner_phone": phone,
+        "home_code": str(home_data.get("home_code") or ""),
+        "apartment_number": str(home_data.get("apartment_number") or ""),
+    }
+
+
+def _d7m16_hard_response(account, home, role):
+    return {
+        "success": True,
+        "role": role,
+        "account": _d7m16_hard_account_dict(account, home),
+        "home": _d7m16_hard_home_dict(home),
+        "alerts_count": 0,
+    }
+
+
+def _d7m16_hard_find_home_by_id(conn, home_id):
+    return conn.execute(
+        "SELECT * FROM homes WHERE CAST(id AS TEXT)=CAST(? AS TEXT) LIMIT 1",
+        (str(home_id),),
+    ).fetchone()
+
+
+def _d7m16_hard_find_home_by_code_phone(conn, home_code, phone):
+    rows = conn.execute(
+        "SELECT * FROM homes WHERE lower(home_code)=lower(?)",
+        (_d7m16_hard_clean_text(home_code),),
+    ).fetchall()
+
+    wanted = _d7m16_hard_clean_phone(phone)
+    for row in rows:
+        if _d7m16_hard_clean_phone(row["owner_phone"]) == wanted:
+            return row
+    return None
+
+
+def _d7m16_hard_find_admin_account(conn, phone):
+    clean = _d7m16_hard_clean_phone(phone)
+    return conn.execute(
+        """
+        SELECT *
+        FROM app_accounts
+        WHERE COALESCE(owner_phone, '') = ?
+           OR COALESCE(admin_login, '') = ?
+        LIMIT 1
+        """,
+        (clean, clean),
+    ).fetchone()
+
+
+def _d7m16_hard_find_user_account(conn, username):
+    clean = _d7m16_hard_clean_text(username)
+    return conn.execute(
+        """
+        SELECT *
+        FROM app_accounts
+        WHERE lower(COALESCE(user_username, '')) = lower(?)
+          AND COALESCE(user_username, '') <> ''
+        LIMIT 1
+        """,
+        (clean,),
+    ).fetchone()
+
+
+async def _d7m16_hard_request_json(request):
+    try:
+        return await request.json()
+    except Exception:
+        return {}
+
+
+@app.middleware("http")
+async def d7m16_auth_phone_username_hard_fix_middleware(request, call_next):
+    path = request.url.path
+    method = request.method.upper()
+
+    if method == "OPTIONS" and path.startswith("/api/app/auth/"):
+        return _d7m16_hard_json({"success": True}, status_code=200)
+
+    target_posts = {
+        "/api/app/auth/register-admin",
+        "/api/app/auth/login-admin",
+        "/api/app/auth/login-user",
+        "/api/app/auth/settings",
+    }
+
+    if method == "GET" and path == "/api/app/auth/account-status":
+        conn = _d7m16_hard_auth_conn()
+        try:
+            _d7m16_hard_ensure_schema(conn)
+            phone = _d7m16_hard_clean_phone(request.query_params.get("admin_login") or request.query_params.get("phone") or "")
+            home_id = _d7m16_hard_clean_text(request.query_params.get("home_id") or "")
+
+            account = _d7m16_hard_find_admin_account(conn, phone) if phone else None
+            home = None
+
+            if account:
+                home = _d7m16_hard_find_home_by_id(conn, account["home_id"])
+            elif home_id:
+                home = _d7m16_hard_find_home_by_id(conn, home_id)
+
+            return _d7m16_hard_json({
+                "success": True,
+                "account": _d7m16_hard_account_dict(account, home) if account else None,
+                "home": _d7m16_hard_home_dict(home) if home else None,
+            })
+        finally:
+            conn.close()
+
+    if method != "POST" or path not in target_posts:
+        return await call_next(request)
+
+    payload = await _d7m16_hard_request_json(request)
+    conn = _d7m16_hard_auth_conn()
+
+    try:
+        _d7m16_hard_ensure_schema(conn)
+
+        if path == "/api/app/auth/register-admin":
+            phone = _d7m16_hard_clean_phone(
+                payload.get("phone_number")
+                or payload.get("phone")
+                or payload.get("login")
+                or payload.get("admin_login")
+            )
+            password = _d7m16_hard_clean_text(payload.get("password"))
+            home_code = _d7m16_hard_clean_text(payload.get("home_code"))
+
+            if not phone or not password or not home_code:
+                return _d7m16_hard_error("Phone Number, Password, and Home Code are required.", 400)
+
+            home = _d7m16_hard_find_home_by_code_phone(conn, home_code, phone)
+            if not home:
+                return _d7m16_hard_error("Phone Number does not match this Home Code.", 404)
+
+            existing_home = conn.execute(
+                "SELECT * FROM app_accounts WHERE CAST(home_id AS TEXT)=CAST(? AS TEXT) LIMIT 1",
+                (str(home["id"]),),
+            ).fetchone()
+
+            if existing_home:
+                return _d7m16_hard_error("This home already has an admin account. Use Login instead.", 409)
+
+            existing_phone = _d7m16_hard_find_admin_account(conn, phone)
+            if existing_phone:
+                return _d7m16_hard_error("This phone number is already used.", 409)
+
+            now = _d7m16_hard_auth_now()
+            cur = conn.execute(
+                """
+                INSERT INTO app_accounts (
+                    home_id, admin_login, admin_password, user_username,
+                    user_password, door_pin, camera_pin, owner_phone, created_at, updated_at
+                )
+                VALUES (?, ?, ?, '', '', '', '', ?, ?, ?)
+                """,
+                (home["id"], phone, password, phone, now, now),
+            )
+            conn.commit()
+
+            account = conn.execute("SELECT * FROM app_accounts WHERE id=? LIMIT 1", (cur.lastrowid,)).fetchone()
+            return _d7m16_hard_json(_d7m16_hard_response(account, home, "Admin"))
+
+        if path == "/api/app/auth/login-admin":
+            phone = _d7m16_hard_clean_phone(
+                payload.get("phone_number")
+                or payload.get("phone")
+                or payload.get("login")
+                or payload.get("admin_login")
+            )
+            password = _d7m16_hard_clean_text(payload.get("password"))
+
+            if not phone or not password:
+                return _d7m16_hard_error("Phone Number and Password are required.", 400)
+
+            account = _d7m16_hard_find_admin_account(conn, phone)
+            if not account:
+                return _d7m16_hard_error("Invalid phone number.", 404)
+
+            account = dict(account)
+            if str(account.get("admin_password") or "") != password:
+                attempts = int(account.get("failed_login_attempts") or 0) + 1
+                conn.execute(
+                    "UPDATE app_accounts SET failed_login_attempts=?, updated_at=? WHERE id=?",
+                    (attempts, _d7m16_hard_auth_now(), account["id"]),
+                )
+                conn.commit()
+                return _d7m16_hard_error(
+                    "Invalid password. Forgot Password will appear after 3 failed attempts."
+                    if attempts < 3 else
+                    "Invalid password. You can use Forgot Password now.",
+                    401,
+                )
+
+            conn.execute(
+                """
+                UPDATE app_accounts
+                SET failed_login_attempts=0,
+                    admin_login=?,
+                    owner_phone=?,
+                    updated_at=?
+                WHERE id=?
+                """,
+                (phone, phone, _d7m16_hard_auth_now(), account["id"]),
+            )
+            conn.commit()
+
+            account = conn.execute("SELECT * FROM app_accounts WHERE id=? LIMIT 1", (account["id"],)).fetchone()
+            home = _d7m16_hard_find_home_by_id(conn, account["home_id"])
+            return _d7m16_hard_json(_d7m16_hard_response(account, home, "Admin"))
+
+        if path == "/api/app/auth/login-user":
+            username = _d7m16_hard_clean_text(
+                payload.get("username")
+                or payload.get("user_username")
+                or payload.get("admin_login")
+                or payload.get("login")
+            )
+            user_password = _d7m16_hard_clean_text(payload.get("user_password") or payload.get("password"))
+
+            if not username or not user_password:
+                return _d7m16_hard_error("Username and User Password are required.", 400)
+
+            account = _d7m16_hard_find_user_account(conn, username)
+            if not account:
+                return _d7m16_hard_error("Invalid username.", 404)
+
+            account = dict(account)
+            if not str(account.get("user_password") or "").strip():
+                return _d7m16_hard_error("User password is not set by the admin yet.", 403)
+
+            if str(account.get("user_password") or "").strip() != user_password:
+                return _d7m16_hard_error("Invalid user password.", 401)
+
+            home = _d7m16_hard_find_home_by_id(conn, account["home_id"])
+            return _d7m16_hard_json(_d7m16_hard_response(account, home, "User"))
+
+        if path == "/api/app/auth/settings":
+            phone = _d7m16_hard_clean_phone(
+                payload.get("current_login")
+                or payload.get("phone_number")
+                or payload.get("phone")
+                or payload.get("admin_login")
+                or payload.get("login")
+            )
+            current_password = _d7m16_hard_clean_text(payload.get("current_password"))
+
+            account = _d7m16_hard_find_admin_account(conn, phone)
+            if not account:
+                return _d7m16_hard_error("Admin account was not found.", 404)
+
+            account = dict(account)
+            if str(account.get("admin_password") or "") != current_password:
+                return _d7m16_hard_error("Current password is invalid.", 401)
+
+            updates = []
+            values = []
+
+            new_login_phone = _d7m16_hard_clean_phone(
+                payload.get("new_login")
+                or payload.get("new_admin_login")
+                or payload.get("new_phone")
+                or payload.get("new_phone_number")
+            )
+            if new_login_phone and new_login_phone != phone:
+                duplicate = conn.execute(
+                    """
+                    SELECT id FROM app_accounts
+                    WHERE (
+                        COALESCE(owner_phone, '') = ?
+                        OR COALESCE(admin_login, '') = ?
+                    )
+                    AND id <> ?
+                    LIMIT 1
+                    """,
+                    (new_login_phone, new_login_phone, account["id"]),
+                ).fetchone()
+                if duplicate:
+                    return _d7m16_hard_error("This phone number is already used.", 409)
+
+                home_duplicate = conn.execute(
+                    """
+                    SELECT id FROM homes
+                    WHERE COALESCE(owner_phone, '') = ?
+                      AND CAST(id AS TEXT) <> CAST(? AS TEXT)
+                    LIMIT 1
+                    """,
+                    (new_login_phone, account["home_id"]),
+                ).fetchone()
+                if home_duplicate:
+                    return _d7m16_hard_error("This phone number is already used by another home.", 409)
+
+                phone = new_login_phone
+                updates.append("admin_login=?")
+                values.append(phone)
+                updates.append("owner_phone=?")
+                values.append(phone)
+
+                try:
+                    conn.execute(
+                        "UPDATE homes SET owner_phone=? WHERE CAST(id AS TEXT)=CAST(? AS TEXT)",
+                        (phone, account["home_id"]),
+                    )
+                except Exception:
+                    pass
+
+            if payload.get("new_admin_password") is not None and _d7m16_hard_clean_text(payload.get("new_admin_password")):
+                updates.append("admin_password=?")
+                values.append(_d7m16_hard_clean_text(payload.get("new_admin_password")))
+
+            if payload.get("door_pin") is not None:
+                updates.append("door_pin=?")
+                values.append(_d7m16_hard_clean_text(payload.get("door_pin")))
+
+            if payload.get("camera_pin") is not None:
+                updates.append("camera_pin=?")
+                values.append(_d7m16_hard_clean_text(payload.get("camera_pin")))
+
+            if payload.get("user_username") is not None:
+                user_username = _d7m16_hard_clean_text(payload.get("user_username"))
+                if user_username:
+                    exists = conn.execute(
+                        """
+                        SELECT id FROM app_accounts
+                        WHERE lower(COALESCE(user_username,''))=lower(?)
+                          AND id <> ?
+                        LIMIT 1
+                        """,
+                        (user_username, account["id"]),
+                    ).fetchone()
+                    if exists:
+                        return _d7m16_hard_error("This username is already used.", 409)
+
+                updates.append("user_username=?")
+                values.append(user_username)
+
+            if payload.get("user_password") is not None:
+                updates.append("user_password=?")
+                values.append(_d7m16_hard_clean_text(payload.get("user_password")))
+
+            if updates:
+                if "admin_login=?" not in updates:
+                    updates.append("admin_login=?")
+                    values.append(phone)
+                if "owner_phone=?" not in updates:
+                    updates.append("owner_phone=?")
+                    values.append(phone)
+                updates.append("updated_at=?")
+                values.append(_d7m16_hard_auth_now())
+                values.append(account["id"])
+
+                conn.execute(
+                    f"UPDATE app_accounts SET {', '.join(updates)} WHERE id=?",
+                    values,
+                )
+                conn.commit()
+
+            updated = conn.execute("SELECT * FROM app_accounts WHERE id=? LIMIT 1", (account["id"],)).fetchone()
+            home = _d7m16_hard_find_home_by_id(conn, updated["home_id"])
+            return _d7m16_hard_json(_d7m16_hard_response(updated, home, "Admin"))
+
+    except Exception as exc:
+        return _d7m16_hard_error(f"Auth hard fix error: {exc}", 500)
+    finally:
+        conn.close()
+
+    return await call_next(request)
+# D7M16_AUTH_PHONE_USERNAME_HARD_FIX_END
+
+    
+# D7M16_FAMILY_PHOTO_SYNC_START
+class D7M16FamilyPhotoPayload(BaseModel):
+    home_id: int | str | None = None
+    member_id: str
+    photo_data: str
+
+
+def _d7m16_family_photo_db_path():
+    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+
+
+def _d7m16_family_photo_ensure(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS family_member_photos (
+            member_id TEXT PRIMARY KEY,
+            home_id TEXT,
+            photo_data TEXT NOT NULL,
+            updated_at TEXT
+        )
+    """)
+
+
+@app.get("/api/app/family-member-photos")
+def d7m16_get_family_member_photos(home_id: str | None = None):
+    db_path = _d7m16_family_photo_db_path()
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        _d7m16_family_photo_ensure(conn)
+        rows = conn.execute(
+            """
+            SELECT member_id, photo_data
+            FROM family_member_photos
+            WHERE (? IS NULL OR CAST(home_id AS TEXT) = CAST(? AS TEXT))
+            """,
+            (home_id, home_id),
+        ).fetchall()
+        return {
+            "success": True,
+            "photos": {
+                str(row["member_id"]): str(row["photo_data"] or "")
+                for row in rows
+            },
+        }
+    finally:
+        conn.close()
+
+
+@app.post("/api/app/family-member-photos")
+def d7m16_save_family_member_photo(payload: D7M16FamilyPhotoPayload):
+    member_id = str(payload.member_id or "").strip()
+    photo_data = str(payload.photo_data or "").strip()
+    if not member_id or not photo_data:
+        return {"success": False, "detail": "member_id and photo_data are required."}
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    home_id = str(payload.home_id or "").strip()
+    db_path = _d7m16_family_photo_db_path()
+    conn = sqlite3.connect(str(db_path))
+    try:
+        _d7m16_family_photo_ensure(conn)
+        conn.execute(
+            """
+            INSERT INTO family_member_photos (member_id, home_id, photo_data, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(member_id) DO UPDATE SET
+                home_id = excluded.home_id,
+                photo_data = excluded.photo_data,
+                updated_at = excluded.updated_at
+            """,
+            (member_id, home_id, photo_data, now),
+        )
+        conn.commit()
+        return {"success": True}
+    finally:
+        conn.close()
+# D7M16_FAMILY_PHOTO_SYNC_END
