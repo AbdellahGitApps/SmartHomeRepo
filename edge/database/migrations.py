@@ -15,7 +15,11 @@ DEVICE_COLUMNS = {
 
 
 def get_default_db_path():
-    return Path(__file__).resolve().parent / "smart_home_edge.db"
+    try:
+        from core_database import get_database_path
+        return get_database_path()
+    except Exception:
+        return Path(__file__).resolve().parent / "smart_home_edge.db"
 
 
 def table_exists(cursor, table_name):

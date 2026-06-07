@@ -50,6 +50,135 @@ from database.models.device import Device
 
 Base.metadata.create_all(bind=engine)
 
+def init_database_tables():
+    import sqlite3
+    from core_database import get_database_path
+    db_path = get_database_path()
+    
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cur = conn.cursor()
+        
+        # 1. system_logs
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS system_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                created_at TEXT,
+                severity TEXT,
+                actor TEXT,
+                source TEXT,
+                home TEXT,
+                home_id TEXT,
+                apartment_number TEXT,
+                event_type TEXT,
+                details TEXT,
+                action_taken TEXT,
+                device_id TEXT,
+                device_name TEXT
+            )
+        """)
+        existing_cols = {row[1] for row in cur.execute("PRAGMA table_info(system_logs)").fetchall()}
+        system_logs_needed = {
+            "timestamp": "TEXT",
+            "created_at": "TEXT",
+            "severity": "TEXT",
+            "actor": "TEXT",
+            "source": "TEXT",
+            "home": "TEXT",
+            "home_id": "TEXT",
+            "apartment_number": "TEXT",
+            "event_type": "TEXT",
+            "details": "TEXT",
+            "action_taken": "TEXT",
+            "device_id": "TEXT",
+            "device_name": "TEXT"
+        }
+        for col, col_type in system_logs_needed.items():
+            if col not in existing_cols:
+                cur.execute(f"ALTER TABLE system_logs ADD COLUMN {col} {col_type}")
+        print("[DB INIT] system_logs verified")
+
+        # 2. family_members
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_id INTEGER DEFAULT 1,
+                name TEXT NOT NULL,
+                role TEXT DEFAULT 'Family',
+                face_enrolled INTEGER DEFAULT 0,
+                enabled INTEGER DEFAULT 1,
+                person_id INTEGER,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+        existing_cols = {row[1] for row in cur.execute("PRAGMA table_info(family_members)").fetchall()}
+        family_members_needed = {
+            "home_id": "INTEGER DEFAULT 1",
+            "name": "TEXT",
+            "role": "TEXT DEFAULT 'Family'",
+            "face_enrolled": "INTEGER DEFAULT 0",
+            "enabled": "INTEGER DEFAULT 1",
+            "person_id": "INTEGER",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT"
+        }
+        for col, col_type in family_members_needed.items():
+            if col not in existing_cols:
+                cur.execute(f"ALTER TABLE family_members ADD COLUMN {col} {col_type}")
+        print("[DB INIT] family_members verified")
+
+        # 3. door_events
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS door_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_id INTEGER,
+                apartment_number TEXT,
+                device_id TEXT,
+                device_name TEXT,
+                status TEXT,
+                event_type TEXT,
+                details TEXT,
+                source TEXT,
+                reason TEXT,
+                actor TEXT,
+                action_taken TEXT,
+                timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        existing_cols = {row[1] for row in cur.execute("PRAGMA table_info(door_events)").fetchall()}
+        door_events_needed = {
+            "home_id": "INTEGER",
+            "apartment_number": "TEXT",
+            "device_id": "TEXT",
+            "device_name": "TEXT",
+            "status": "TEXT",
+            "event_type": "TEXT",
+            "details": "TEXT",
+            "source": "TEXT",
+            "reason": "TEXT",
+            "actor": "TEXT",
+            "action_taken": "TEXT",
+            "timestamp": "TEXT DEFAULT CURRENT_TIMESTAMP",
+            "created_at": "TEXT DEFAULT CURRENT_TIMESTAMP"
+        }
+        for col, col_type in door_events_needed.items():
+            if col not in existing_cols:
+                cur.execute(f"ALTER TABLE door_events ADD COLUMN {col} {col_type}")
+        print("[DB INIT] door_events verified")
+
+        conn.commit()
+    except Exception as e:
+        print(f"[DB INIT ERROR] Failed to initialize custom SQLite tables: {e}")
+    finally:
+        conn.close()
+
+init_database_tables()
+
 # =========================
 # APP INIT
 # =========================
@@ -633,7 +762,11 @@ def status(request: Request):
 # D7M16_SECURITY_LOGS_UNIFIED_START
 
 def _security_db_path():
-    return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+    try:
+        from core_database import get_database_path
+        return get_database_path()
+    except Exception:
+        return Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
 
 
 def _ensure_system_logs_table():
@@ -7173,7 +7306,11 @@ async def d7m16_app_door_manual_action(request: Request):
 
     data = await request.json()
 
-    db_path = _Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+    try:
+        from core_database import get_database_path
+        db_path = get_database_path()
+    except Exception:
+        db_path = _Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
     now = _datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     home_id = str(data.get("home_id") or "").strip()

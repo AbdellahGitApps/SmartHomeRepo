@@ -65,8 +65,12 @@ def _build_home_summary(h: dict, devices: list, conn: sqlite3.Connection) -> dic
     
     # Members count
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM family_members WHERE home_id = ?", (home_id,))
-    members_count = cur.fetchone()[0]
+    try:
+        cur.execute("SELECT COUNT(*) FROM family_members WHERE home_id = ?", (home_id,))
+        members_count = cur.fetchone()[0]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table family_members. Returning default values. Error: {e}")
+        members_count = 0
 
     return {
         "raw_id": home_id,
@@ -88,9 +92,23 @@ def _build_home_summary(h: dict, devices: list, conn: sqlite3.Connection) -> dic
 def get_home_overview_data(conn: sqlite3.Connection = Depends(get_db_connection)):
     print("[MIGRATION LOG] SUCCESS: Hitting NEW routers/dashboard.py -> get_home_overview_data")
     cur = conn.cursor()
-    homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
-    devices = [dict(r) for r in cur.execute("SELECT * FROM devices").fetchall()]
-    logs = [dict(r) for r in cur.execute("SELECT * FROM system_logs ORDER BY id DESC LIMIT 500").fetchall()]
+    try:
+        homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table homes. Returning default values. Error: {e}")
+        homes = []
+
+    try:
+        devices = [dict(r) for r in cur.execute("SELECT * FROM devices").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table devices. Returning default values. Error: {e}")
+        devices = []
+
+    try:
+        logs = [dict(r) for r in cur.execute("SELECT * FROM system_logs ORDER BY id DESC LIMIT 500").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table system_logs. Returning default values. Error: {e}")
+        logs = []
 
     system_errors = sum(1 for l in logs if _safe_str(l.get("severity")).upper() in {"ERROR", "CRITICAL"})
     
@@ -110,13 +128,21 @@ def get_home_overview_data(conn: sqlite3.Connection = Depends(get_db_connection)
 @router.get("/home-details-data")
 def get_home_details_data(home_id: str, conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
-    homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
+    try:
+        homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table homes. Returning default values. Error: {e}")
+        homes = []
     
     home = next((h for h in homes if str(h["id"]) == home_id or h["home_code"] == home_id), None)
     if not home:
         raise HTTPException(status_code=404, detail="Home not found")
 
-    devices = [dict(r) for r in cur.execute("SELECT * FROM devices").fetchall()]
+    try:
+        devices = [dict(r) for r in cur.execute("SELECT * FROM devices").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table devices. Returning default values. Error: {e}")
+        devices = []
     
     apt = home.get("apartment_number") or ""
     home_code = home.get("home_code", "")
@@ -134,8 +160,17 @@ def get_home_details_data(home_id: str, conn: sqlite3.Connection = Depends(get_d
 
     home_devices = [_format_device(d) for d in home_devices_raw]
     
-    logs = [dict(r) for r in cur.execute("SELECT * FROM system_logs ORDER BY id DESC LIMIT 100").fetchall()]
-    door_logs = [dict(r) for r in cur.execute("SELECT * FROM door_events WHERE home_id = ? ORDER BY id DESC LIMIT 10", (home["id"],)).fetchall()]
+    try:
+        logs = [dict(r) for r in cur.execute("SELECT * FROM system_logs ORDER BY id DESC LIMIT 100").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table system_logs. Returning default values. Error: {e}")
+        logs = []
+
+    try:
+        door_logs = [dict(r) for r in cur.execute("SELECT * FROM door_events WHERE home_id = ? ORDER BY id DESC LIMIT 10", (home["id"],)).fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table door_events. Returning default values. Error: {e}")
+        door_logs = []
     
     recent_logs = []
     for log in logs + door_logs:
@@ -239,19 +274,31 @@ async def add_device(home_id_param: int, request: Request, conn: sqlite3.Connect
 @router.get("/logs")
 def get_security_logs(limit: int = 100, conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
-    logs = [dict(r) for r in cur.execute("SELECT * FROM system_logs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()]
+    try:
+        logs = [dict(r) for r in cur.execute("SELECT * FROM system_logs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table system_logs. Returning default values. Error: {e}")
+        logs = []
     return {"success": True, "logs": logs}
 
 @router.get("/final-qa/homes-lite")
 def get_homes_lite(conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
-    homes = [dict(r) for r in cur.execute("SELECT id, name, home_code, apartment_number FROM homes").fetchall()]
+    try:
+        homes = [dict(r) for r in cur.execute("SELECT id, name, home_code, apartment_number FROM homes").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table homes. Returning default values. Error: {e}")
+        homes = []
     return {"success": True, "homes": homes}
 
 @router.get("/energy-page-data-v2")
 def get_energy_page_data(conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
-    homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
+    try:
+        homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table homes. Returning default values. Error: {e}")
+        homes = []
     return {"success": True, "energy_records": [], "homes_count": len(homes)}
 
 @router.post("/devices/{device_id}/actions/{action}")
@@ -330,8 +377,11 @@ def delete_home_route(home_key: str, conn: sqlite3.Connection = Depends(get_db_c
 @router.delete("/security-logs/{log_id}")
 def delete_log(log_id: str, conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
-    cur.execute("DELETE FROM system_logs WHERE id = ?", (log_id,))
-    conn.commit()
+    try:
+        cur.execute("DELETE FROM system_logs WHERE id = ?", (log_id,))
+        conn.commit()
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table system_logs on delete. Error: {e}")
     return {"success": True}
 
 @router.delete("/logs/bulk")
@@ -340,6 +390,9 @@ def delete_log(log_id: str, conn: sqlite3.Connection = Depends(get_db_connection
 @router.post("/security-logs/delete-filtered")
 def delete_logs_bulk(conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
-    cur.execute("DELETE FROM system_logs")
-    conn.commit()
+    try:
+        cur.execute("DELETE FROM system_logs")
+        conn.commit()
+    except sqlite3.OperationalError as e:
+        print(f"[WARNING] Missing table system_logs on bulk delete. Error: {e}")
     return {"success": True, "message": "Logs cleared"}

@@ -1,27 +1,34 @@
+from pathlib import Path
+import sys
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# 🗄️ Database Connection URL (SQLite)
-# Since the server runs from the 'edge' directory, the database file is located at ./database/smart_home_edge.db
-DATABASE_URL = "sqlite:///./database/smart_home_edge.db"
+# Ensure base dir is in sys.path so we can import core_database safely
+base_dir = Path(__file__).resolve().parents[2]
+if str(base_dir) not in sys.path:
+    sys.path.insert(0, str(base_dir))
 
-# ⚙️ Create Database Engine
+from core_database import get_database_path
+
+db_path = get_database_path()
+DATABASE_URL = f"sqlite:///{db_path.as_posix()}"
+
+print(f"[DB] Using database: {db_path.resolve()}")
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Required for SQLite multi-threading in FastAPI
+    connect_args={"check_same_thread": False}
 )
 
-# 🔁 Create session factory
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
 
-# 🧱 Base class for all database models
 Base = declarative_base()
 
-# 🧪 Dependency to get DB session
 def get_db():
     db = SessionLocal()
     try:

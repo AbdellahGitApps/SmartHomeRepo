@@ -30,19 +30,12 @@ class FamilyMemberUpdate(BaseModel):
 
 
 def _db_path() -> Path:
-    base = Path(__file__).resolve().parents[1]
-    candidates = [
-        base / "database" / "smart_home_edge.db",
-        base / "database" / "smart_home.db",
-        base.parent / "data" / "smart_home.db",
-        base / "data" / "smart_home.db",
-    ]
-
-    for path in candidates:
-        if path.exists():
-            return path
-
-    return base / "database" / "smart_home_edge.db"
+    try:
+        from core_database import get_database_path
+        return get_database_path()
+    except Exception:
+        base = Path(__file__).resolve().parents[1]
+        return base / "database" / "smart_home_edge.db"
 
 
 def _conn():
