@@ -1,0 +1,2256 @@
+{% extends "base.html" %}
+{% block title %}Device Provisioning
+
+
+<!-- D7M16_RESTART_BUTTON_OBJECT_FIX -->
+
+<script>
+window.d7m16ResolveDeviceId = function(value) {
+    if (typeof value === "string") {
+        return value.trim().replace(/\s+/g, "");
+    }
+
+    if (value && value.closest) {
+        const row = value.closest("tr");
+        if (row) {
+            const cells = Array.from(row.children || []);
+            const hit = cells
+                .map((cell) => (cell.innerText || "").trim().replace(/\s+/g, ""))
+                .find((text) => /^(DOOR|METER|CAM)-HOME\d+-\d+|^(DOOR|METER|CAM)-APT\d+-\d+/i.test(text));
+
+            if (hit) return hit;
+        }
+    }
+
+    return String(value || "").trim().replace(/\s+/g, "");
+};
+
+window.d7m16SendRestartCommand = async function(input) {
+    const deviceId = window.d7m16ResolveDeviceId(input);
+
+    if (!deviceId || deviceId === "[objectHTMLButtonElement]" || deviceId === "[objectHTMLButtonElement]") {
+        if (typeof showToast === "function") {
+            showToast("Device ID not found for restart action", "error");
+        } else {
+            alert("Device ID not found for restart action");
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/restart`, {
+            method: "POST",
+            headers: {
+                "X-Actor-Role": "system_owner",
+                "X-System-Owner-Token": "dev-system-owner-token"
+            }
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.detail || data.message || `Restart failed for ${deviceId}`);
+        }
+
+        if (typeof showToast === "function") {
+            showToast("RESTART completed. MQTT published.", "success");
+        }
+
+        if (typeof loadDevices === "function") {
+            await loadDevices();
+        } else if (typeof refreshDevices === "function") {
+            await refreshDevices();
+        } else if (typeof loadDeviceTable === "function") {
+            await loadDeviceTable();
+        } else {
+            window.location.reload();
+        }
+    } catch (error) {
+        if (typeof showToast === "function") {
+            showToast(error.message || "Restart failed", "error");
+        } else {
+            alert(error.message || "Restart failed");
+        }
+    }
+};
+</script>
+
+
+<!-- D7M16_TOAST_3_SECONDS_FIX -->
+<script>
+(function () {
+    const TOAST_DURATION_MS = 3000;
+
+    window.showToast = function (message, type = "success") {
+        const oldToast = document.querySelector(".d7m16-toast");
+        if (oldToast) oldToast.remove();
+
+        const toast = document.createElement("div");
+        toast.className = "d7m16-toast";
+        toast.textContent = message;
+
+        const bg = type === "error" ? "#ef4444" : "#3b82f6";
+
+        toast.style.position = "fixed";
+        toast.style.right = "24px";
+        toast.style.bottom = "28px";
+        toast.style.zIndex = "99999";
+        toast.style.background = bg;
+        toast.style.color = "#fff";
+        toast.style.padding = "14px 22px";
+        toast.style.borderRadius = "10px";
+        toast.style.fontWeight = "800";
+        toast.style.boxShadow = "0 12px 32px rgba(0,0,0,.35)";
+        toast.style.transition = "opacity .25s ease, transform .25s ease";
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateY(10px)";
+            setTimeout(() => toast.remove(), 300);
+        }, TOAST_DURATION_MS);
+    };
+})();
+</script>
+
+
+<!-- D7M16_RESTART_TOAST_DELAY_FINAL -->
+<script>
+(function () {
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    window.d7m16SendRestartCommand = async function(input) {
+        const deviceId = window.d7m16ResolveDeviceId
+            ? window.d7m16ResolveDeviceId(input)
+            : String(input || "").trim().replace(/\s+/g, "");
+
+        if (!deviceId || deviceId.includes("[object")) {
+            if (typeof showToast === "function") {
+                showToast("Device ID not found for restart action", "error");
+            } else {
+                alert("Device ID not found for restart action");
+            }
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/restart`, {
+                method: "POST",
+                headers: {
+                    "X-Actor-Role": "system_owner",
+                    "X-System-Owner-Token": "dev-system-owner-token"
+                }
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok || data.success === false) {
+                throw new Error(data.detail || data.message || `Restart failed for ${deviceId}`);
+            }
+
+            if (typeof showToast === "function") {
+                showToast("RESTART command sent successfully", "success");
+            }
+
+            await wait(3000);
+
+            if (typeof loadDevices === "function") {
+                await loadDevices();
+            } else if (typeof refreshDevices === "function") {
+                await refreshDevices();
+            } else if (typeof loadDeviceTable === "function") {
+                await loadDeviceTable();
+            }
+        } catch (error) {
+            if (typeof showToast === "function") {
+                showToast(error.message || "Restart failed", "error");
+            } else {
+                alert(error.message || "Restart failed");
+            }
+        }
+    };
+})();
+</script>
+
+
+
+
+
+
+
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1 data-i18n="nav_devices">Device Provisioning</h1>
+        <p data-i18n="devices_desc">Register and configure ESP32-CAM devices and electricity meters</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-outline"><i class="ph ph-arrows-clockwise"></i> <span data-i18n="refresh_status">Refresh Status</span></button>
+        <button class="btn btn-primary"><i class="ph ph-plus"></i> <span data-i18n="register_device">Register Device</span></button>
+    </div>
+</div>
+
+{% if devices %}
+<div class="glass-card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th data-i18n="col_device_id">Device ID</th>
+                    <th data-i18n="col_device_name">Device Name</th>
+                    <th data-i18n="col_type">Type</th>
+                    <th data-i18n="col_assigned">APARTMENT NUMBER</th>
+                    <th data-i18n="col_mqtt">MQTT Topic</th>
+                    <th data-i18n="col_claim_code">Claim Code</th>
+                    <th data-i18n="col_claim_status">Claim Status</th>
+                    <th data-i18n="col_device_token">Device Token</th>
+                    <th data-i18n="col_status">Status</th>
+                    <th data-i18n="col_last_seen">Last Seen</th>
+                    <th data-i18n="col_actions">Actions</th>
+                    <th data-i18n="col_advanced_info">Advanced Info</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for device in devices %}
+                <tr>
+                    <td style="font-family: monospace;">{{ device.device_id }}</td>
+                    <td style="font-weight: 500;">{{ device.device_name }}</td>
+                    <td><span class="badge" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-primary);">{{ device.device_type }}</span></td>
+                    <td>
+                        <span class="badge" style="background: rgba(255,255,255,0.05);">
+                            {{ home_map.get(device.home_id).apartment_number if home_map and home_map.get(device.home_id) else (device.home_id or '--') }}
+                        </span>
+                    </td>
+                    <td style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);">{{ device.mqtt_topic }}</td>
+                    <td>
+                        <span style="display: inline-flex; align-items: center; gap: 6px;">
+                            <span style="font-family: monospace; font-size: 0.95em;">{{ device.claim_code or '--' }}</span>
+                            {% if device.claim_code %}
+                            <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.8em; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="navigator.clipboard.writeText('{{ device.claim_code }}'); showToast('Claim Code Copied!');" title="Copy Claim Code">
+                                <i class="ph ph-copy"></i>
+                            </button>
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        {% if device.claim_status == 'claimed' or device.claim_status == 'active' %}
+                        <span class="badge badge-success">{{ device.claim_status }}</span>
+                        {% else %}
+                        <span class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.25); border-radius: 4px; padding: 2px 6px;">{{ device.claim_status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="token-container" style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span class="token-text" style="font-family: monospace; font-size: 0.9em; color: var(--text-secondary);" data-token="{{ device.device_token }}">••••••••••••••••</span>
+                            <button class="btn btn-outline" style="padding: 2px 6px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;" onclick="toggleTokenVisibility(this)" title="Toggle Token Visibility">
+                                <i class="ph ph-eye"></i>
+                            </button>
+                        </span>
+                    </td>
+                    <td>
+                        {% if device.status == 'online' %}
+                        <span class="badge badge-success device-status-badge" data-device-id="{{ device.device_id }}" data-i18n="status_online">Online</span>
+                        {% else %}
+                        <span class="badge badge-offline device-status-badge" data-device-id="{{ device.device_id }}" data-i18n="badge_offline">Offline</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size: 0.9em; color: var(--text-secondary);">
+                        {{ device.last_seen or 'Not available yet' }}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--text-secondary);" title="Restart Device" onclick="d7m16SendRestartCommand(this)"><i class="ph ph-power"></i></button>
+                            <button class="btn btn-outline btn-toggle-status" style="padding: 4px 8px; border: none; color: {% set enabled_value = device.enabled|string|lower %}{% if device.enabled is not defined or enabled_value in ['1', 'true', 'yes', 'enabled'] %}#f59e0b{% else %}#22c55e{% endif %};" title="{% if device.enabled is not defined or enabled_value in ['1', 'true', 'yes', 'enabled'] %}Disable Device{% else %}Enable Device{% endif %}" data-device-id="{{ device.device_id }}" onclick="mockToggleDeviceStatus('{{ device.device_id }}')">
+                                {% if device.enabled is not defined or enabled_value in ['1', 'true', 'yes', 'enabled'] %}
+                                <i class="ph ph-pause"></i>
+                                {% else %}
+                                <i class="ph ph-play"></i>
+                                {% endif %}
+                            </button>
+                            <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--status-danger);" title="Remove Device" onclick="mockRemoveDevice(this)"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px; border: none; color: var(--accent-primary);" title="Advanced Info" onclick="toggleAdvancedInfo('{{ device.device_id }}')">
+                            <i class="ph ph-info"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr id="adv-{{ device.device_id }}" style="display: none; background: rgba(255,255,255,0.02);">
+                    <td colspan="11" style="padding: 16px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 0.9em;">
+                            <div>
+                                <strong style="color: var(--text-secondary);">Device IP:</strong><br>
+                                <span style="font-family: monospace;">{{ device.device_ip or 'Not available yet' }}</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">MAC Address:</strong><br>
+                                <span style="font-family: monospace;">{{ device.mac_address or 'Not available yet' }}</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">MQTT Topic:</strong><br>
+                                <span style="font-family: monospace;">{{ device.mqtt_topic or 'Not available yet' }}</span>
+                            </div>
+                            {% if device.device_type in ['smart_door', 'esp32_cam', 'door_camera', 'camera'] %}
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Stream URL:</strong><br>
+                                <span style="font-family: monospace;">{{ device.camera_stream_url_url or 'Not available yet' }}</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Capture URL:</strong><br>
+                                <span style="font-family: monospace;">{{ device.camera_capture_url_url or 'Not available yet' }}</span>
+                            </div>
+                            {% else %}
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Stream URL:</strong><br>
+                                <span>Not applicable</span>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-secondary);">Camera Capture URL:</strong><br>
+                                <span>Not applicable</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="glass-card" style="text-align: center; padding: 48px; color: var(--text-secondary);">
+    <i class="ph ph-devices" style="font-size: 3rem; margin-bottom: 16px; color: var(--accent-primary);"></i>
+    <p style="font-size: 1.1rem; font-weight: 500;" data-i18n="no_devices_msg">No devices registered yet.</p>
+    <p style="font-size: 0.9rem; margin-top: 8px;" data-i18n="add_first_device_desc">Get started by provisioning devices when creating a home.</p>
+</div>
+{% endif %}
+
+<script>
+    function toggleAdvancedInfo(deviceId) {
+        const row = document.getElementById(`adv-${deviceId}`);
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
+    function toggleTokenVisibility(btn) {
+        const container = btn.closest('.token-container');
+        const tokenText = container.querySelector('.token-text');
+        const icon = btn.querySelector('i');
+        const actualToken = tokenText.getAttribute('data-token');
+        if (tokenText.textContent.includes('•')) {
+            tokenText.textContent = actualToken;
+            icon.className = 'ph ph-eye-closed';
+        } else {
+            tokenText.textContent = '••••••••••••••••';
+            icon.className = 'ph ph-eye';
+        }
+    }
+</script>
+
+<!-- D7M16_RESTART_BUTTON_OBJECT_FIX -->
+
+<script>
+window.d7m16ResolveDeviceId = function(value) {
+    if (typeof value === "string") {
+        return value.trim().replace(/\s+/g, "");
+    }
+
+    if (value && value.closest) {
+        const row = value.closest("tr");
+        if (row) {
+            const cells = Array.from(row.children || []);
+            const hit = cells
+                .map((cell) => (cell.innerText || "").trim().replace(/\s+/g, ""))
+                .find((text) => /^(DOOR|METER|CAM)-HOME\d+-\d+|^(DOOR|METER|CAM)-APT\d+-\d+/i.test(text));
+
+            if (hit) return hit;
+        }
+    }
+
+    return String(value || "").trim().replace(/\s+/g, "");
+};
+
+window.d7m16SendRestartCommand = async function(input) {
+    const deviceId = window.d7m16ResolveDeviceId(input);
+
+    if (!deviceId || deviceId === "[objectHTMLButtonElement]" || deviceId === "[objectHTMLButtonElement]") {
+        if (typeof showToast === "function") {
+            showToast("Device ID not found for restart action", "error");
+        } else {
+            alert("Device ID not found for restart action");
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/restart`, {
+            method: "POST",
+            headers: {
+                "X-Actor-Role": "system_owner",
+                "X-System-Owner-Token": "dev-system-owner-token"
+            }
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.detail || data.message || `Restart failed for ${deviceId}`);
+        }
+
+        if (typeof showToast === "function") {
+            showToast("RESTART completed. MQTT published.", "success");
+        }
+
+        if (typeof loadDevices === "function") {
+            await loadDevices();
+        } else if (typeof refreshDevices === "function") {
+            await refreshDevices();
+        } else if (typeof loadDeviceTable === "function") {
+            await loadDeviceTable();
+        } else {
+            window.location.reload();
+        }
+    } catch (error) {
+        if (typeof showToast === "function") {
+            showToast(error.message || "Restart failed", "error");
+        } else {
+            alert(error.message || "Restart failed");
+        }
+    }
+};
+</script>
+
+
+<!-- D7M16_TOAST_3_SECONDS_FIX -->
+<script>
+(function () {
+    const TOAST_DURATION_MS = 3000;
+
+    window.showToast = function (message, type = "success") {
+        const oldToast = document.querySelector(".d7m16-toast");
+        if (oldToast) oldToast.remove();
+
+        const toast = document.createElement("div");
+        toast.className = "d7m16-toast";
+        toast.textContent = message;
+
+        const bg = type === "error" ? "#ef4444" : "#3b82f6";
+
+        toast.style.position = "fixed";
+        toast.style.right = "24px";
+        toast.style.bottom = "28px";
+        toast.style.zIndex = "99999";
+        toast.style.background = bg;
+        toast.style.color = "#fff";
+        toast.style.padding = "14px 22px";
+        toast.style.borderRadius = "10px";
+        toast.style.fontWeight = "800";
+        toast.style.boxShadow = "0 12px 32px rgba(0,0,0,.35)";
+        toast.style.transition = "opacity .25s ease, transform .25s ease";
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateY(10px)";
+            setTimeout(() => toast.remove(), 300);
+        }, TOAST_DURATION_MS);
+    };
+})();
+</script>
+
+
+<!-- D7M16_RESTART_TOAST_DELAY_FINAL -->
+<script>
+(function () {
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    window.d7m16SendRestartCommand = async function(input) {
+        const deviceId = window.d7m16ResolveDeviceId
+            ? window.d7m16ResolveDeviceId(input)
+            : String(input || "").trim().replace(/\s+/g, "");
+
+        if (!deviceId || deviceId.includes("[object")) {
+            if (typeof showToast === "function") {
+                showToast("Device ID not found for restart action", "error");
+            } else {
+                alert("Device ID not found for restart action");
+            }
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/restart`, {
+                method: "POST",
+                headers: {
+                    "X-Actor-Role": "system_owner",
+                    "X-System-Owner-Token": "dev-system-owner-token"
+                }
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok || data.success === false) {
+                throw new Error(data.detail || data.message || `Restart failed for ${deviceId}`);
+            }
+
+            if (typeof showToast === "function") {
+                showToast("RESTART command sent successfully", "success");
+            }
+
+            await wait(3000);
+
+            if (typeof loadDevices === "function") {
+                await loadDevices();
+            } else if (typeof refreshDevices === "function") {
+                await refreshDevices();
+            } else if (typeof loadDeviceTable === "function") {
+                await loadDeviceTable();
+            }
+        } catch (error) {
+            if (typeof showToast === "function") {
+                showToast(error.message || "Restart failed", "error");
+            } else {
+                alert(error.message || "Restart failed");
+            }
+        }
+    };
+})();
+</script>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    if (typeof translations !== 'undefined') {
+        translations.en["no_devices_msg"] = "No devices registered yet.";
+        translations.ar["no_devices_msg"] = "لا توجد أجهزة مسجلة بعد.";
+
+        translations.en["add_first_device_desc"] = "Get started by provisioning devices when creating a home.";
+        translations.ar["add_first_device_desc"] = "ابدأ بتهيئة الأجهزة عند إنشاء منزل.";
+    }
+</script>
+
+
+
+
+
+
+
+<!-- D7M16_PHASE10_DEVICE_LAST_FIX_START -->
+<style>
+.phase10-hidden-col {
+  display: none !important;
+}
+
+.phase10-status-badge,
+.phase10-enabled-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.phase10-online,
+.phase10-enabled {
+  color: #10b981;
+  background: rgba(16, 185, 129, .15);
+  border: 1px solid rgba(16, 185, 129, .25);
+}
+
+.phase10-offline,
+.phase10-disabled {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, .14);
+  border: 1px solid rgba(148, 163, 184, .22);
+}
+
+.phase10-action-play {
+  color: #22c55e !important;
+}
+
+.phase10-action-pause {
+  color: #f59e0b !important;
+}
+
+.phase10-advanced-device-id {
+  min-width: 160px;
+  margin-bottom: 8px;
+}
+</style>
+
+<script>
+(function () {
+  const HEADERS = {
+    "X-Actor-Role": "system_owner",
+    "X-System-Owner-Token": "dev-system-owner-token"
+  };
+
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function lower(value) {
+    return clean(value).toLowerCase();
+  }
+
+  function getTable() {
+    return document.querySelector("table");
+  }
+
+  function getHeaders() {
+    const table = getTable();
+    return table ? Array.from(table.querySelectorAll("thead th")) : [];
+  }
+
+  function getRows() {
+    const table = getTable();
+    return table ? Array.from(table.querySelectorAll("tbody tr")) : [];
+  }
+
+  function exactHeaderIndex(label) {
+    const target = lower(label);
+    return getHeaders().findIndex((th) => {
+      const dataI18n = th.getAttribute("data-i18n");
+      if (dataI18n) {
+        // match common data-i18n keys for headers
+        if (target === "device id" && dataI18n === "col_device_id") return true;
+        if (target === "status" && dataI18n === "col_status") return true;
+        if (target === "enabled" && dataI18n === "col_actions") return false; // assuming actions
+        if (target === "apartment" && dataI18n === "col_assigned") return true;
+      }
+      return lower(th.textContent) === target;
+    });
+  }
+
+  function containsHeaderIndex(label) {
+    const target = lower(label);
+    return getHeaders().findIndex((th) => {
+      const dataI18n = th.getAttribute("data-i18n");
+      if (dataI18n) {
+        if (target.includes("assigned") && dataI18n === "col_assigned") return true;
+        if (target.includes("apartment") && dataI18n === "col_assigned") return true;
+      }
+      return lower(th.textContent).includes(target);
+    });
+  }
+
+  function setHeader(oldLabel, newLabel) {
+    // With i18n, we don't manually rename headers using textContent.
+    // The translatePage function handles it. We just skip this to avoid breaking i18n.
+    return;
+  }
+
+  function isMainDeviceRow(row) {
+    if (!row) return false;
+    return !!row.querySelector("button, a, [onclick]");
+  }
+
+  function extractDeviceIdFromRow(row) {
+    if (!row) return "";
+
+    if (row.dataset.deviceId) return row.dataset.deviceId;
+
+    const html = row.innerHTML || "";
+    const patterns = [
+      /['"]([A-Z]+-[A-Z0-9]+-\d+)['"]/,
+      /([A-Z]+-[A-Z0-9]+-\d+)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        row.dataset.deviceId = match[1];
+        return match[1];
+      }
+    }
+
+    return "";
+  }
+
+  function findRowByDeviceId(deviceId) {
+    return getRows().find((row) => {
+      return row.dataset.deviceId === deviceId || clean(row.innerHTML).includes(deviceId);
+    });
+  }
+
+  function badge(text, cls) {
+    return `<span class="${cls}">${text}</span>`;
+  }
+
+  function forceStatusOnlineOffline(row) {
+    const statusIdx = exactHeaderIndex("status");
+    if (statusIdx < 0 || !row.children[statusIdx]) return;
+
+    // Check DOM classes/attributes instead of text to avoid i18n breakage
+    const cellHtml = row.children[statusIdx].innerHTML;
+    const isOnline = cellHtml.includes("online") || cellHtml.includes("success") || cellHtml.includes("phase10-online") || lower(row.children[statusIdx].textContent).includes("online");
+
+    row.children[statusIdx].innerHTML = isOnline
+      ? badge("<span data-i18n='status_online'>Online</span>", "phase10-status-badge phase10-online")
+      : badge("<span data-i18n='badge_offline'>Offline</span>", "phase10-status-badge phase10-offline");
+  }
+
+  function renderEnabled(row, enabled) {
+    const enabledIdx = exactHeaderIndex("enabled");
+    if (enabledIdx < 0 || !row.children[enabledIdx]) return;
+
+    row.dataset.enabledState = enabled ? "enabled" : "disabled";
+
+    row.children[enabledIdx].innerHTML = enabled
+      ? badge("<span data-i18n='btn_enable'>ENABLED</span>", "phase10-enabled-badge phase10-enabled")
+      : badge("<span data-i18n='btn_disable'>DISABLED</span>", "phase10-enabled-badge phase10-disabled");
+  }
+
+  function getInitialEnabled(row) {
+    const enabledIdx = exactHeaderIndex("enabled");
+
+    if (enabledIdx >= 0 && row.children[enabledIdx]) {
+      const cellHtml = lower(row.children[enabledIdx].innerHTML);
+      if (cellHtml.includes("disabled") || cellHtml.includes("btn_disable")) return false;
+      if (cellHtml.includes("enabled") || cellHtml.includes("btn_enable")) return true;
+    }
+
+    const play = row.querySelector(".ph-play");
+    const pause = row.querySelector(".ph-pause");
+
+    if (play) return false;
+    if (pause) return true;
+
+    return true;
+  }
+
+  function renderToggle(row, enabled) {
+    const button =
+      row.querySelector(".btn-toggle-status") ||
+      Array.from(row.querySelectorAll("button")).find((btn) => {
+        return btn.querySelector(".ph-play") || btn.querySelector(".ph-pause");
+      });
+
+    if (!button) return;
+
+    button.classList.remove("phase10-action-play", "phase10-action-pause");
+    button.classList.add(enabled ? "phase10-action-pause" : "phase10-action-play");
+    button.title = enabled ? window.d7T("btn_disable", "Disable Device") : window.d7T("btn_enable", "Enable Device");
+    button.innerHTML = enabled ? '<i class="ph ph-pause"></i>' : '<i class="ph ph-play"></i>';
+
+    button.onclick = function () {
+      return sendDeviceAction(row.dataset.deviceId, enabled ? "disable" : "enable");
+    };
+  }
+
+  function putDeviceIdInsideAdvancedInfo() {
+    const rows = getRows();
+
+    rows.forEach((row, index) => {
+      if (!isMainDeviceRow(row)) return;
+
+      const deviceId = extractDeviceIdFromRow(row);
+      if (!deviceId) return;
+
+      const next = rows[index + 1];
+      if (!next || isMainDeviceRow(next)) return;
+
+      const nextHtml = lower(next.innerHTML);
+
+      if (
+        !nextHtml.includes("device_ip") && !nextHtml.includes("device ip") &&
+        !nextHtml.includes("mac_address") && !nextHtml.includes("mac address") &&
+        !nextHtml.includes("mqtt_topic") && !nextHtml.includes("mqtt topic") &&
+        !nextHtml.includes("camera stream") && !nextHtml.includes("camera capture") &&
+        !nextHtml.includes("adv_") 
+      ) {
+        return;
+      }
+
+      if (nextHtml.includes("device id") || nextHtml.includes("device_id")) return;
+
+      const cell = next.children[0];
+      if (!cell) return;
+
+      const item = document.createElement("div");
+      item.className = "phase10-advanced-device-id";
+      item.innerHTML = `<strong>Device ID:</strong><br>${deviceId}`;
+
+      cell.prepend(item);
+    });
+  }
+
+  function normalizeDevicesTable() {
+    setHeader("assigned apartment", "APARTMENT NUMBER");
+    setHeader("apartment", "APARTMENT NUMBER");
+
+    const deviceIdIdx = exactHeaderIndex("device id");
+    if (deviceIdIdx >= 0) {
+      getHeaders()[deviceIdIdx].classList.add("phase10-hidden-col");
+    }
+
+    getRows().forEach((row) => {
+      if (!isMainDeviceRow(row)) return;
+
+      extractDeviceIdFromRow(row);
+
+      if (deviceIdIdx >= 0 && row.children[deviceIdIdx]) {
+        row.children[deviceIdIdx].classList.add("phase10-hidden-col");
+      }
+
+      const enabled = getInitialEnabled(row);
+
+      forceStatusOnlineOffline(row);
+      renderEnabled(row, enabled);
+      renderToggle(row, enabled);
+    });
+
+    putDeviceIdInsideAdvancedInfo();
+  }
+
+  function toast(message, type = "success") {
+    if (typeof showToast === "function") {
+      showToast(message);
+      return;
+    }
+
+    const old = document.getElementById("phase10-device-toast");
+    if (old) old.remove();
+
+    const item = document.createElement("div");
+    item.id = "phase10-device-toast";
+    item.textContent = message;
+    item.style.position = "fixed";
+    item.style.right = "24px";
+    item.style.bottom = "24px";
+    item.style.zIndex = "99999";
+    item.style.padding = "12px 16px";
+    item.style.borderRadius = "10px";
+    item.style.color = "#fff";
+    item.style.fontWeight = "800";
+    item.style.background = type === "error" ? "#dc2626" : "#2563eb";
+    item.style.boxShadow = "0 10px 30px rgba(0,0,0,.35)";
+    document.body.appendChild(item);
+
+    setTimeout(() => item.remove(), 3000);
+  }
+
+  async function sendDeviceAction(deviceId, action) {
+    deviceId = clean(deviceId);
+    action = lower(action);
+
+    if (!deviceId) {
+      toast("Missing device ID", "error");
+      return;
+    }
+
+    if (action === "disable" && !(await DashboardConfirm.show(`Disable device ${deviceId}?`, { variant: "warning", confirmText: "Disable" }))) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(action)}`,
+        {
+          method: "POST",
+          headers: HEADERS
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.detail || data.message || `${action} failed`);
+      }
+
+      const row = findRowByDeviceId(deviceId);
+
+      if (row) {
+        if (action === "disable") {
+          renderEnabled(row, false);
+
+          renderToggle(row, false);
+        }
+
+        if (action === "enable") {
+          renderEnabled(row, true);
+
+          renderToggle(row, true);
+        }
+      }
+
+      const mqttText = data.mqtt && data.mqtt.published ? "MQTT published" : "MQTT prepared";
+      toast(`${action.toUpperCase()} completed. ${mqttText}.`);
+    } catch (error) {
+      console.error(error);
+      toast(error.message || "Device action failed", "error");
+    }
+  }
+
+  window.restartDevice = function (input) {
+    return sendDeviceAction(clean(input), "restart");
+  };
+
+  window.enableDevice = function (input) {
+    return sendDeviceAction(clean(input), "enable");
+  };
+
+  window.disableDevice = function (input) {
+    return sendDeviceAction(clean(input), "disable");
+  };
+
+  window.mockRestartDevice = function (input) {
+    return sendDeviceAction(clean(input), "restart");
+  };
+
+  window.mockToggleDeviceStatus = function (input) {
+    const deviceId = clean(input);
+    const row = findRowByDeviceId(deviceId);
+    const enabled = row ? row.dataset.enabledState !== "disabled" : true;
+    return sendDeviceAction(deviceId, enabled ? "disable" : "enable");
+  };
+
+  function wireTopButtons() {
+    document.querySelectorAll("button, a").forEach((el) => {
+      const text = lower(el.textContent);
+
+      if (text.includes("refresh status")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.reload();
+        };
+      }
+
+      if (text.includes("register device")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.href = "/create-home";
+        };
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    normalizeDevicesTable();
+    wireTopButtons();
+
+    // Run again after template scripts finish, because old scripts love drama.
+    setTimeout(function () {
+      normalizeDevicesTable();
+      wireTopButtons();
+    }, 300);
+  });
+})();
+</script>
+<!-- D7M16_PHASE10_DEVICE_LAST_FIX_END -->
+
+
+<!-- D7M16_ADVANCED_DEVICE_ID_FIELD_START -->
+<style>
+.phase10-advanced-grid-fix {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
+  gap: 18px;
+  width: 100%;
+  align-items: start;
+}
+
+.phase10-advanced-device-id-field {
+  min-width: 150px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.phase10-advanced-device-id-field strong {
+  display: block;
+  font-weight: 800;
+  color: inherit;
+}
+</style>
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function lower(value) {
+    return clean(value).toLowerCase();
+  }
+
+  function rows() {
+    return Array.from(document.querySelectorAll("table tbody tr"));
+  }
+
+  function parseDeviceId(text) {
+    text = String(text || "");
+    const match = text.match(/\b(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+\b/i);
+    return match ? match[0].toUpperCase() : "";
+  }
+
+  function isAdvancedRow(row) {
+    const text = lower(row.textContent);
+    return (
+      text.includes("device ip") ||
+      text.includes("mac address") ||
+      text.includes("mqtt topic") ||
+      text.includes("camera stream url") ||
+      text.includes("camera capture url")
+    );
+  }
+
+  function previousMainRow(index, list) {
+    for (let i = index - 1; i >= 0; i--) {
+      if (!isAdvancedRow(list[i])) {
+        return list[i];
+      }
+    }
+    return null;
+  }
+
+  function getDeviceIdForAdvancedRow(row, index, list) {
+    let id = parseDeviceId(row.textContent) || parseDeviceId(row.innerHTML);
+    if (id) return id;
+
+    const prev = previousMainRow(index, list);
+    if (!prev) return "";
+
+    id = parseDeviceId(prev.textContent) || parseDeviceId(prev.innerHTML);
+    return id;
+  }
+
+  function makeDeviceIdField(deviceId) {
+    const field = document.createElement("div");
+    field.className = "phase10-advanced-device-id-field";
+    field.innerHTML = `<strong>Device ID:</strong>${deviceId}`;
+    return field;
+  }
+
+  function addDeviceIdField() {
+    const list = rows();
+
+    list.forEach((row, index) => {
+      if (!isAdvancedRow(row)) return;
+      if (lower(row.textContent).includes("device id")) return;
+
+      const deviceId = getDeviceIdForAdvancedRow(row, index, list);
+      if (!deviceId) return;
+
+      /*
+        If advanced info is built as multiple TD fields:
+        add a real TD before Device IP.
+      */
+      if (row.children.length > 1) {
+        const td = document.createElement("td");
+        td.appendChild(makeDeviceIdField(deviceId));
+        row.insertBefore(td, row.children[0]);
+        return;
+      }
+
+      /*
+        If advanced info is one colspan TD:
+        wrap existing fields into grid, then insert Device ID as first field.
+      */
+      const cell = row.children[0];
+      if (!cell) return;
+
+      let grid = cell.querySelector(".phase10-advanced-grid-fix");
+
+      if (!grid) {
+        grid = document.createElement("div");
+        grid.className = "phase10-advanced-grid-fix";
+
+        while (cell.firstChild) {
+          grid.appendChild(cell.firstChild);
+        }
+
+        cell.appendChild(grid);
+      }
+
+      grid.insertBefore(makeDeviceIdField(deviceId), grid.firstChild);
+    });
+  }
+
+  function fixTopButtons() {
+    document.querySelectorAll("button, a").forEach((el) => {
+      const text = lower(el.textContent);
+
+      if (text.includes("refresh status")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.reload();
+        };
+      }
+
+      if (text.includes("register device")) {
+        el.onclick = function (event) {
+          event.preventDefault();
+          window.location.href = "/create-home";
+        };
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    addDeviceIdField();
+    fixTopButtons();
+
+    setTimeout(function () {
+      addDeviceIdField();
+      fixTopButtons();
+    }, 300);
+  });
+})();
+</script>
+<!-- D7M16_ADVANCED_DEVICE_ID_FIELD_END -->
+
+
+<!-- D7M16_DEVICE_ID_VISIBLE_COLUMN_START -->
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function lower(value) {
+    return clean(value).toLowerCase();
+  }
+
+  function table() {
+    return document.querySelector("table");
+  }
+
+  function headers() {
+    const t = table();
+    return t ? Array.from(t.querySelectorAll("thead th")) : [];
+  }
+
+  function rows() {
+    const t = table();
+    return t ? Array.from(t.querySelectorAll("tbody tr")) : [];
+  }
+
+  function headerIndex(label) {
+    const target = lower(label);
+    return headers().findIndex((th) => lower(th.textContent) === target);
+  }
+
+  function isAdvancedRow(row) {
+    const text = lower(row.textContent);
+    return (
+      text.includes("device ip") ||
+      text.includes("mac address") ||
+      text.includes("mqtt topic") ||
+      text.includes("camera stream url") ||
+      text.includes("camera capture url")
+    );
+  }
+
+  function extractDeviceId(row) {
+    if (!row) return "";
+
+    if (row.dataset.deviceId) return row.dataset.deviceId;
+
+    const source = row.innerHTML + " " + row.textContent;
+    const match = source.match(/\b(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+\b/i);
+
+    if (!match) return "";
+
+    const id = match[0].toUpperCase();
+    row.dataset.deviceId = id;
+    return id;
+  }
+
+  function addVisibleDeviceIdColumn() {
+    const h = headers();
+    if (!h.length) return;
+
+    const typeIdx = headerIndex("type");
+    if (typeIdx < 0) return;
+
+    const alreadyVisible = h.some((th) => {
+      return lower(th.textContent) === "device id" && !th.classList.contains("phase10-hidden-col");
+    });
+
+    if (!alreadyVisible) {
+      const th = document.createElement("th");
+      th.textContent = "DEVICE ID";
+      th.className = "phase10-visible-device-id-header";
+      h[typeIdx].parentNode.insertBefore(th, h[typeIdx].nextSibling);
+    }
+
+    rows().forEach((row) => {
+      if (isAdvancedRow(row)) return;
+      if (row.querySelector(".phase10-visible-device-id-cell")) return;
+
+      const currentHeaders = headers();
+      const currentTypeIdx = currentHeaders.findIndex((th) => lower(th.textContent) === "type");
+      if (currentTypeIdx < 0) return;
+
+      const deviceId = extractDeviceId(row);
+      if (!deviceId) return;
+
+      const td = document.createElement("td");
+      td.className = "phase10-visible-device-id-cell";
+      td.textContent = deviceId;
+      td.style.fontFamily = "monospace";
+      td.style.fontWeight = "700";
+      td.style.fontSize = "0.86rem";
+
+      row.insertBefore(td, row.children[currentTypeIdx + 1] || null);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    addVisibleDeviceIdColumn();
+    setTimeout(addVisibleDeviceIdColumn, 300);
+    setTimeout(addVisibleDeviceIdColumn, 800);
+  });
+})();
+</script>
+<!-- D7M16_DEVICE_ID_VISIBLE_COLUMN_END -->
+
+
+<!-- D7M16_RESTART_BUTTON_OBJECT_FIX -->
+
+<script>
+window.d7m16ResolveDeviceId = function(value) {
+    if (typeof value === "string") {
+        return value.trim().replace(/\s+/g, "");
+    }
+
+    if (value && value.closest) {
+        const row = value.closest("tr");
+        if (row) {
+            const cells = Array.from(row.children || []);
+            const hit = cells
+                .map((cell) => (cell.innerText || "").trim().replace(/\s+/g, ""))
+                .find((text) => /^(DOOR|METER|CAM)-HOME\d+-\d+|^(DOOR|METER|CAM)-APT\d+-\d+/i.test(text));
+
+            if (hit) return hit;
+        }
+    }
+
+    return String(value || "").trim().replace(/\s+/g, "");
+};
+
+window.d7m16SendRestartCommand = async function(input) {
+    const deviceId = window.d7m16ResolveDeviceId(input);
+
+    if (!deviceId || deviceId === "[objectHTMLButtonElement]" || deviceId === "[objectHTMLButtonElement]") {
+        if (typeof showToast === "function") {
+            showToast("Device ID not found for restart action", "error");
+        } else {
+            alert("Device ID not found for restart action");
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/restart`, {
+            method: "POST",
+            headers: {
+                "X-Actor-Role": "system_owner",
+                "X-System-Owner-Token": "dev-system-owner-token"
+            }
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.detail || data.message || `Restart failed for ${deviceId}`);
+        }
+
+        if (typeof showToast === "function") {
+            showToast("RESTART completed. MQTT published.", "success");
+        }
+
+        if (typeof loadDevices === "function") {
+            await loadDevices();
+        } else if (typeof refreshDevices === "function") {
+            await refreshDevices();
+        } else if (typeof loadDeviceTable === "function") {
+            await loadDeviceTable();
+        } else {
+            window.location.reload();
+        }
+    } catch (error) {
+        if (typeof showToast === "function") {
+            showToast(error.message || "Restart failed", "error");
+        } else {
+            alert(error.message || "Restart failed");
+        }
+    }
+};
+</script>
+
+
+<!-- D7M16_TOAST_3_SECONDS_FIX -->
+<script>
+(function () {
+    const TOAST_DURATION_MS = 3000;
+
+    window.showToast = function (message, type = "success") {
+        const oldToast = document.querySelector(".d7m16-toast");
+        if (oldToast) oldToast.remove();
+
+        const toast = document.createElement("div");
+        toast.className = "d7m16-toast";
+        toast.textContent = message;
+
+        const bg = type === "error" ? "#ef4444" : "#3b82f6";
+
+        toast.style.position = "fixed";
+        toast.style.right = "24px";
+        toast.style.bottom = "28px";
+        toast.style.zIndex = "99999";
+        toast.style.background = bg;
+        toast.style.color = "#fff";
+        toast.style.padding = "14px 22px";
+        toast.style.borderRadius = "10px";
+        toast.style.fontWeight = "800";
+        toast.style.boxShadow = "0 12px 32px rgba(0,0,0,.35)";
+        toast.style.transition = "opacity .25s ease, transform .25s ease";
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateY(10px)";
+            setTimeout(() => toast.remove(), 300);
+        }, TOAST_DURATION_MS);
+    };
+})();
+</script>
+
+
+<!-- D7M16_RESTART_TOAST_DELAY_FINAL -->
+<script>
+(function () {
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    window.d7m16SendRestartCommand = async function(input) {
+        const deviceId = window.d7m16ResolveDeviceId
+            ? window.d7m16ResolveDeviceId(input)
+            : String(input || "").trim().replace(/\s+/g, "");
+
+        if (!deviceId || deviceId.includes("[object")) {
+            if (typeof showToast === "function") {
+                showToast("Device ID not found for restart action", "error");
+            } else {
+                alert("Device ID not found for restart action");
+            }
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/restart`, {
+                method: "POST",
+                headers: {
+                    "X-Actor-Role": "system_owner",
+                    "X-System-Owner-Token": "dev-system-owner-token"
+                }
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok || data.success === false) {
+                throw new Error(data.detail || data.message || `Restart failed for ${deviceId}`);
+            }
+
+            if (typeof showToast === "function") {
+                showToast("RESTART command sent successfully", "success");
+            }
+
+            await wait(3000);
+
+            if (typeof loadDevices === "function") {
+                await loadDevices();
+            } else if (typeof refreshDevices === "function") {
+                await refreshDevices();
+            } else if (typeof loadDeviceTable === "function") {
+                await loadDeviceTable();
+            }
+        } catch (error) {
+            if (typeof showToast === "function") {
+                showToast(error.message || "Restart failed", "error");
+            } else {
+                alert(error.message || "Restart failed");
+            }
+        }
+    };
+})();
+</script>
+
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").replace(/\s+/g, "").trim();
+  }
+
+  function rowFromInput(input) {
+    if (input && input.closest) return input.closest("tr");
+    const key = clean(input);
+    if (!key) return null;
+    return Array.from(document.querySelectorAll("table tbody tr")).find((row) => {
+      return clean(row.textContent || row.innerHTML || "").includes(key);
+    }) || null;
+  }
+
+  function deviceIdFromInput(input) {
+    if (typeof input === "string") return clean(input);
+
+    const row = rowFromInput(input);
+    if (!row) return "";
+
+    const source = clean(row.textContent || row.innerHTML || "");
+    const match = source.match(/(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+/i);
+
+    return match ? match[0].toUpperCase() : "";
+  }
+
+  function toast(message, type = "success") {
+    if (typeof showToast === "function") {
+      showToast(message, type);
+      return;
+    }
+
+    const old = document.getElementById("d7-final-device-toast");
+    if (old) old.remove();
+
+    const item = document.createElement("div");
+    item.id = "d7-final-device-toast";
+    item.textContent = message;
+    item.style.position = "fixed";
+    item.style.right = "24px";
+    item.style.bottom = "24px";
+    item.style.zIndex = "99999";
+    item.style.padding = "12px 16px";
+    item.style.borderRadius = "10px";
+    item.style.color = "#fff";
+    item.style.fontWeight = "800";
+    item.style.background = type === "error" ? "#dc2626" : "#2563eb";
+    item.style.boxShadow = "0 10px 30px rgba(0,0,0,.35)";
+    document.body.appendChild(item);
+
+    setTimeout(() => item.remove(), 3000);
+  }
+
+  async function sendFinalDeviceAction(input, action) {
+    const deviceId = deviceIdFromInput(input);
+
+    if (!deviceId) {
+      toast("Device ID not found.", "error");
+      return;
+    }
+
+    if (action === "remove" && !(await DashboardConfirm.show("Are you sure you want to remove this device?", { variant: "danger", confirmText: "Delete Device" }))) {
+      return;
+    }
+
+    const response = await fetch(`/api/dashboard/devices/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(action)}`, {
+      method: "POST",
+      headers: {
+        "X-Actor-Role": "system_owner",
+        "X-System-Owner-Token": "dev-system-owner-token"
+      }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success === false) {
+      toast(data.detail || data.message || "Device action failed.", "error");
+      return;
+    }
+
+    if (action === "remove") {
+      const row = rowFromInput(input);
+      if (row) {
+        const next = row.nextElementSibling;
+        row.remove();
+
+        if (next && /device ip|mac address|mqtt topic|camera stream url|camera capture url/i.test(next.textContent || "")) {
+          next.remove();
+        }
+      }
+
+      toast("Device removed from system.", "success");
+      setTimeout(() => window.location.reload(), 700);
+      return;
+    }
+
+    toast(`${action.toUpperCase()} completed. MQTT published.`, "success");
+    setTimeout(() => window.location.reload(), 700);
+  }
+
+  window.mockRemoveDevice = function (input) {
+    return sendFinalDeviceAction(input, "remove");
+  };
+
+  window.mockToggleDeviceStatus = function (input) {
+    const row = rowFromInput(input);
+    const enabled = row ? row.dataset.enabledState !== "disabled" : true;
+    return sendFinalDeviceAction(input, enabled ? "disable" : "enable");
+  };
+})();
+</script>
+
+
+<!-- D7M16_FINAL_QA_DEVICE_ACTION_V6_FRONTEND_START -->
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim().replace(/\s+/g, "");
+  }
+
+  function lower(value) {
+    return String(value || "").toLowerCase();
+  }
+
+  function getRows() {
+    return Array.from(document.querySelectorAll("table tbody tr"));
+  }
+
+  function isAdvancedRow(row) {
+    const text = lower(row.textContent);
+    return text.includes("device ip") || text.includes("mac address") || text.includes("mqtt topic") || text.includes("camera stream url") || text.includes("camera capture url");
+  }
+
+  function extractDeviceId(source) {
+    if (typeof source === "string") {
+      const direct = clean(source);
+      if (/^(DOOR|METER|CAM)-/i.test(direct)) return direct.toUpperCase();
+    }
+
+    let row = null;
+
+    if (source && source.closest) {
+      row = source.closest("tr");
+    }
+
+    if (!row && source && source.parentElement) {
+      row = source.parentElement.closest("tr");
+    }
+
+    if (!row) return "";
+
+    if (row.dataset.deviceId) return clean(row.dataset.deviceId).toUpperCase();
+
+    const text = row.innerHTML + " " + row.textContent;
+    const match = text.match(/\b(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+\b/i);
+
+    if (!match) return "";
+
+    const id = match[0].toUpperCase();
+    row.dataset.deviceId = id;
+    return id;
+  }
+
+  function findRow(deviceId) {
+    const id = clean(deviceId).toUpperCase();
+    return getRows().find(row => {
+      if (isAdvancedRow(row)) return false;
+      const rowId = extractDeviceId(row);
+      return clean(rowId).toUpperCase() === id;
+    });
+  }
+
+  function setStatusOnline(row) {
+    if (!row) return;
+
+    const badges = Array.from(row.querySelectorAll(".badge, span"));
+    const statusBadge = badges.find(item => {
+      const text = lower(item.textContent);
+      return text === "online" || text === "offline";
+    });
+
+    if (statusBadge) {
+      statusBadge.textContent = "ONLINE";
+      statusBadge.classList.remove("badge-offline");
+      statusBadge.classList.add("badge-success");
+    }
+  }
+
+  function setToggle(row, enabled) {
+    if (!row) return;
+
+    row.dataset.enabledState = enabled ? "enabled" : "disabled";
+
+    const buttons = Array.from(row.querySelectorAll("button"));
+    const toggle = buttons.find(btn => {
+      const title = lower(btn.title);
+      return title.includes("enable") || title.includes("disable") || btn.classList.contains("btn-toggle-status");
+    });
+
+    if (!toggle) return;
+
+    toggle.title = enabled ? "Disable Device" : "Enable Device";
+    toggle.style.color = enabled ? "#f59e0b" : "#22c55e";
+    toggle.innerHTML = enabled ? '<i class="ph ph-pause"></i>' : '<i class="ph ph-play"></i>';
+    toggle.onclick = function (event) {
+      event.preventDefault();
+      return sendV6(row.dataset.deviceId || extractDeviceId(row), enabled ? "disable" : "enable");
+    };
+  }
+
+  function removeRow(row) {
+    if (!row) return;
+
+    const rows = getRows();
+    const index = rows.indexOf(row);
+    const next = rows[index + 1];
+
+    row.remove();
+
+    if (next && isAdvancedRow(next)) {
+      next.remove();
+    }
+  }
+
+  function toast(message, type) {
+    if (typeof showToast === "function") {
+      showToast(message, type || "success");
+      return;
+    }
+    alert(message);
+  }
+
+  async function sendV6(input, action) {
+    const deviceId = extractDeviceId(input);
+
+    if (!deviceId) {
+      toast("Device ID not found", "error");
+      return;
+    }
+
+    if (action === "remove" && !(await DashboardConfirm.show("Are you sure you want to remove this device?", { variant: "danger", confirmText: "Delete Device" }))) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/dashboard/final-devices-v6/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(action)}`, {
+        method: "POST",
+        headers: {
+          "X-Actor-Role": "system_owner",
+          "X-System-Owner-Token": "dev-system-owner-token"
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.detail || data.message || "Device action failed");
+      }
+
+      const row = findRow(deviceId);
+
+      if (action === "remove") {
+        removeRow(row);
+        toast("Device removed from system.");
+        return;
+      }
+
+      setStatusOnline(row);
+      setToggle(row, action !== "disable");
+
+      toast(`${action.toUpperCase()} completed. MQTT command prepared.`);
+    } catch (error) {
+      toast(error.message || "Device action failed", "error");
+    }
+  }
+
+  window.mockRemoveDevice = function (input) {
+    return sendV6(input, "remove");
+  };
+
+  window.mockToggleDeviceStatus = function (input) {
+    const deviceId = extractDeviceId(input);
+    const row = findRow(deviceId);
+    const enabled = row ? row.dataset.enabledState !== "disabled" : true;
+    return sendV6(deviceId, enabled ? "disable" : "enable");
+  };
+
+  window.d7m16SendRestartCommand = function (input) {
+    return sendV6(input, "restart");
+  };
+
+  window.restartDevice = function (input) {
+    return sendV6(input, "restart");
+  };
+
+  window.enableDevice = function (input) {
+    return sendV6(input, "enable");
+  };
+
+  window.disableDevice = function (input) {
+    return sendV6(input, "disable");
+  };
+
+  document.addEventListener("DOMContentLoaded", function () {
+    getRows().forEach(row => {
+      if (isAdvancedRow(row)) return;
+
+      const deviceId = extractDeviceId(row);
+      if (!deviceId) return;
+
+      row.dataset.deviceId = deviceId;
+      setStatusOnline(row);
+
+      const buttons = Array.from(row.querySelectorAll("button"));
+
+      buttons.forEach(button => {
+        const title = lower(button.title);
+        const html = lower(button.innerHTML);
+
+        if (title.includes("remove") || html.includes("ph-trash")) {
+          button.onclick = function (event) {
+            event.preventDefault();
+            return sendV6(row.dataset.deviceId, "remove");
+          };
+        }
+
+        if (title.includes("restart") || html.includes("ph-power")) {
+          button.onclick = function (event) {
+            event.preventDefault();
+            return sendV6(row.dataset.deviceId, "restart");
+          };
+        }
+      });
+
+      const enabled = row.dataset.enabledState !== "disabled";
+      setToggle(row, enabled);
+    });
+  });
+})();
+</script>
+<!-- D7M16_FINAL_QA_DEVICE_ACTION_V6_FRONTEND_END -->
+
+
+
+<!-- D7M16_DEVICE_ACTIONS_V6_FRONTEND_START -->
+<script>
+(function () {
+    function clean(value) {
+        return String(value || "").trim().replace(/\s+/g, "");
+    }
+
+    function toast(message) {
+        if (typeof showToast === "function") {
+            showToast(message);
+            return;
+        }
+        alert(message);
+    }
+
+    function extractDeviceId(input) {
+        if (typeof input === "string") return clean(input);
+        const row = input && input.closest ? input.closest("tr") : null;
+        if (!row) return "";
+        if (row.dataset.deviceId) return clean(row.dataset.deviceId);
+        const source = row.innerHTML + " " + row.textContent;
+        const match = source.match(/\b(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+\b/i);
+        return match ? clean(match[0].toUpperCase()) : "";
+    }
+
+    async function action(input, act) {
+        const deviceId = extractDeviceId(input);
+        if (!deviceId) {
+            toast("Device ID not found");
+            return;
+        }
+
+        if ((act === "remove" || act === "delete") && !(await DashboardConfirm.show("Are you sure you want to remove this device?", { variant: "danger", confirmText: "Delete Device" }))) {
+            return;
+        }
+
+        const res = await fetch(`/api/dashboard/final-devices-v6/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(act)}`, {
+            method: "POST",
+            headers: {
+                "X-Actor-Role": "system_owner",
+                "X-System-Owner-Token": "dev-system-owner-token"
+            }
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data.success === false) {
+            throw new Error(data.detail || data.message || "Device action failed");
+        }
+
+        toast(data.message || "Device action completed.");
+
+        if (act === "remove" || act === "delete") {
+            window.location.reload();
+            return;
+        }
+
+        setTimeout(() => window.location.reload(), 300);
+    }
+
+    window.d7m16SendRestartCommand = function (input) {
+        return action(input, "restart").catch(e => toast(e.message));
+    };
+
+    window.restartDevice = function (input) {
+        return action(input, "restart").catch(e => toast(e.message));
+    };
+
+    window.enableDevice = function (input) {
+        return action(input, "enable").catch(e => toast(e.message));
+    };
+
+    window.disableDevice = function (input) {
+        return action(input, "disable").catch(e => toast(e.message));
+    };
+
+    window.mockRestartDevice = function (input) {
+        return action(input, "restart").catch(e => toast(e.message));
+    };
+
+    window.mockRemoveDevice = function (input) {
+        return action(input, "remove").catch(e => toast(e.message));
+    };
+
+    window.mockToggleDeviceStatus = function (input) {
+        const row = input && input.closest ? input.closest("tr") : null;
+        const enabled = row ? row.dataset.enabledState !== "disabled" : true;
+        return action(input, enabled ? "disable" : "enable").catch(e => toast(e.message));
+    };
+})();
+</script>
+<!-- D7M16_DEVICE_ACTIONS_V6_FRONTEND_END -->
+
+
+<!-- D7M16_ROUND2_DEVICE_ACTION_FRONTEND_START -->
+<script>
+(function () {
+    "use strict";
+
+    const API = "/api/dashboard/d7r2-device-action";
+    const STORAGE_PREFIX = "d7r2-enabled-state:";
+
+    function clean(v) {
+        return String(v || "").trim();
+    }
+
+    function lower(v) {
+        return String(v || "").toLowerCase();
+    }
+
+    function showBlueToast(message) {
+        if (typeof window.showToast === "function") {
+            window.showToast(message, "success");
+            return;
+        }
+
+        let old = document.getElementById("d7r2-toast");
+        if (old) old.remove();
+
+        const box = document.createElement("div");
+        box.id = "d7r2-toast";
+        box.textContent = message;
+        box.style.position = "fixed";
+        box.style.right = "24px";
+        box.style.bottom = "24px";
+        box.style.zIndex = "999999";
+        box.style.background = "#3b82f6";
+        box.style.color = "#fff";
+        box.style.padding = "14px 22px";
+        box.style.borderRadius = "10px";
+        box.style.fontWeight = "800";
+        box.style.boxShadow = "0 14px 35px rgba(0,0,0,.35)";
+        document.body.appendChild(box);
+
+        setTimeout(() => box.remove(), 2600);
+    }
+
+    function isAdvancedRow(row) {
+        const t = lower(row ? row.textContent : "");
+        return (
+            t.includes("device ip") ||
+            t.includes("mac address") ||
+            t.includes("mqtt topic") ||
+            t.includes("camera stream url") ||
+            t.includes("camera capture url")
+        );
+    }
+
+    function rows() {
+        return Array.from(document.querySelectorAll("table tbody tr")).filter(row => !isAdvancedRow(row));
+    }
+
+    function parseDeviceId(row) {
+        if (!row) return "";
+
+        if (row.dataset.d7r2DeviceId) {
+            return row.dataset.d7r2DeviceId;
+        }
+
+        const source = `${row.innerHTML || ""} ${row.textContent || ""}`;
+        const match = source.match(/\b(?:DOOR|METER|CAM)-[A-Z0-9]+-\d+\b/i);
+
+        if (!match) return "";
+
+        const id = match[0].toUpperCase();
+        row.dataset.d7r2DeviceId = id;
+
+        return id;
+    }
+
+    function buttonAction(button) {
+        if (!button) return "";
+
+        const html = lower(button.innerHTML);
+        const title = lower(button.getAttribute("title") || "");
+        const text = lower(button.textContent || "");
+
+        if (html.includes("ph-trash") || title.includes("remove") || title.includes("delete") || text.includes("remove")) {
+            return "remove";
+        }
+
+        if (html.includes("ph-power") || title.includes("restart") || text.includes("restart")) {
+            return "restart";
+        }
+
+        if (html.includes("ph-pause") || title.includes("disable")) {
+            return "toggle";
+        }
+
+        if (html.includes("ph-play") || title.includes("enable")) {
+            return "toggle";
+        }
+
+        return "";
+    }
+
+    function findToggleButton(row) {
+        return Array.from(row.querySelectorAll("button")).find(btn => buttonAction(btn) === "toggle");
+    }
+
+    function renderToggle(row, enabled) {
+        const btn = findToggleButton(row);
+        if (!btn) return;
+
+        btn.innerHTML = enabled ? '<i class="ph ph-pause"></i>' : '<i class="ph ph-play"></i>';
+        btn.title = enabled ? "Disable Device" : "Enable Device";
+        btn.style.color = enabled ? "#f59e0b" : "#22c55e";
+        row.dataset.d7r2Enabled = enabled ? "1" : "0";
+    }
+
+    function getEnabled(row) {
+        const id = parseDeviceId(row);
+        const saved = localStorage.getItem(STORAGE_PREFIX + id);
+
+        if (saved === "0") return false;
+        if (saved === "1") return true;
+
+        const btn = findToggleButton(row);
+        const html = lower(btn ? btn.innerHTML : "");
+
+        if (html.includes("ph-play")) return false;
+
+        return true;
+    }
+
+    function persistEnabled(row, enabled) {
+        const id = parseDeviceId(row);
+        if (!id) return;
+
+        localStorage.setItem(STORAGE_PREFIX + id, enabled ? "1" : "0");
+        renderToggle(row, enabled);
+    }
+
+    function setOnlineVisual(row) {
+        const cells = Array.from(row.querySelectorAll("td"));
+        const statusCell = cells.find(td => lower(td.textContent).includes("online") || lower(td.textContent).includes("offline"));
+
+        if (!statusCell) return;
+
+        const badge = Array.from(statusCell.querySelectorAll("span, .badge")).find(el => {
+            const t = lower(el.textContent);
+            return t.includes("online") || t.includes("offline");
+        });
+
+        if (badge) {
+            badge.textContent = "ONLINE";
+            badge.classList.remove("badge-offline");
+            badge.classList.add("badge-success");
+            badge.style.background = "rgba(16,185,129,.15)";
+            badge.style.color = "#10b981";
+            badge.style.borderColor = "rgba(16,185,129,.25)";
+        }
+    }
+
+    async function runAction(row, action) {
+        const deviceId = parseDeviceId(row);
+
+        if (!deviceId) {
+            showBlueToast("Device ID not found");
+            return;
+        }
+
+        if (action === "toggle") {
+            action = getEnabled(row) ? "disable" : "enable";
+        }
+
+        if (action === "remove") {
+            const ok = await DashboardConfirm.show(`Remove device ${deviceId}?`, { variant: "danger", confirmText: "Delete Device" });
+            if (!ok) return;
+        }
+
+        const response = await fetch(`${API}/${encodeURIComponent(deviceId)}/${encodeURIComponent(action)}`, {
+            method: "POST",
+            headers: {
+                "X-Actor-Role": "system_owner",
+                "X-System-Owner-Token": "dev-system-owner-token"
+            }
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.detail || data.message || "Device action failed");
+        }
+
+        if (action === "remove") {
+            localStorage.removeItem(STORAGE_PREFIX + deviceId);
+
+            const next = row.nextElementSibling;
+            if (next && isAdvancedRow(next)) next.remove();
+
+            row.remove();
+            showBlueToast("REMOVE completed. MQTT published.");
+            return;
+        }
+
+        if (action === "disable") {
+            persistEnabled(row, false);
+        }
+
+        if (action === "enable") {
+            persistEnabled(row, true);
+        }
+
+        setOnlineVisual(row);
+        showBlueToast(`${action.toUpperCase()} completed. MQTT published.`);
+    }
+
+    function hardWireButtons() {
+        rows().forEach(row => {
+            const id = parseDeviceId(row);
+            if (!id) return;
+
+            setOnlineVisual(row);
+            renderToggle(row, getEnabled(row));
+
+            Array.from(row.querySelectorAll("button")).forEach(btn => {
+                const action = buttonAction(btn);
+                if (!action) return;
+
+                btn.removeAttribute("onclick");
+                btn.onclick = null;
+                btn.dataset.d7r2Action = action;
+            });
+        });
+    }
+
+    document.addEventListener("click", function (event) {
+        const btn = event.target.closest("button[data-d7r2-action]");
+        if (!btn) return;
+
+        const row = btn.closest("tr");
+        if (!row || isAdvancedRow(row)) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const action = btn.dataset.d7r2Action;
+
+        runAction(row, action).catch(error => {
+            console.error(error);
+            showBlueToast(error.message || "Device action failed");
+        });
+    }, true);
+
+    window.d7m16SendRestartCommand = function (input) {
+        const row = input && input.closest ? input.closest("tr") : rows().find(r => parseDeviceId(r) === clean(input).toUpperCase());
+        if (row) return runAction(row, "restart");
+    };
+
+    window.restartDevice = window.d7m16SendRestartCommand;
+    window.mockRestartDevice = window.d7m16SendRestartCommand;
+
+    window.mockToggleDeviceStatus = function (input) {
+        const row = rows().find(r => parseDeviceId(r) === clean(input).toUpperCase()) || (input && input.closest ? input.closest("tr") : null);
+        if (row) return runAction(row, "toggle");
+    };
+
+    window.enableDevice = function (input) {
+        const row = rows().find(r => parseDeviceId(r) === clean(input).toUpperCase()) || (input && input.closest ? input.closest("tr") : null);
+        if (row) return runAction(row, "enable");
+    };
+
+    window.disableDevice = function (input) {
+        const row = rows().find(r => parseDeviceId(r) === clean(input).toUpperCase()) || (input && input.closest ? input.closest("tr") : null);
+        if (row) return runAction(row, "disable");
+    };
+
+    window.mockRemoveDevice = function (input) {
+        const row = input && input.closest ? input.closest("tr") : rows().find(r => parseDeviceId(r) === clean(input).toUpperCase());
+        if (row) return runAction(row, "remove");
+    };
+
+    window.removeDevice = window.mockRemoveDevice;
+    window.deleteDevice = window.mockRemoveDevice;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        hardWireButtons();
+        setTimeout(hardWireButtons, 300);
+        setTimeout(hardWireButtons, 1000);
+        setTimeout(hardWireButtons, 2000);
+    });
+})();
+</script>
+<!-- D7M16_ROUND2_DEVICE_ACTION_FRONTEND_END -->
+
+{% endblock %}
+
+
+<!-- FINAL_TARGET_DATETIME_FIX_START -->
+<style>
+  .final-datetime-nowrap {
+    white-space: nowrap !important;
+    font-size: 0.88rem !important;
+    letter-spacing: 0 !important;
+  }
+</style>
+
+<script>
+(function () {
+  function pad2(v) {
+    return String(v).padStart(2, "0");
+  }
+
+  function formatDateTime(datePart, hourPart, minutePart, secondPart, suffixPart) {
+    let hour = parseInt(hourPart, 10);
+    const minute = pad2(minutePart || "00");
+    const second = pad2(secondPart || "00");
+
+    let suffix = suffixPart ? suffixPart.toUpperCase() : (hour >= 12 ? "PM" : "AM");
+
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+
+    return `${datePart}, ${pad2(hour)}:${minute}:${second} ${suffix}`;
+  }
+
+  function normalizeText(text) {
+    if (!text) return text;
+
+    let clean = String(text).replace(/\s+/g, " ").trim();
+
+    clean = clean.replace(
+      /(\d{4}-\d{2}-\d{2})\s*,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/gi,
+      function (_, datePart, hourPart, minutePart, secondPart, suffixPart) {
+        return formatDateTime(datePart, hourPart, minutePart, secondPart || "00", suffixPart);
+      }
+    );
+
+    return clean;
+  }
+
+  function isSmallDateTimeOnly(text) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    return /^(\d{4}-\d{2}-\d{2})\s*,?\s+\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/i.test(clean);
+  }
+
+  function fixDateTimeElements() {
+    const selectors = [
+      "td",
+      "span",
+      "small",
+      "strong",
+      ".value",
+      ".info-value",
+      ".meta-value",
+      ".device-value",
+      ".camera-value",
+      ".last-seen",
+      "[data-last-seen]",
+      "[data-created-at]",
+      "[data-registered-at]"
+    ];
+
+    document.querySelectorAll(selectors.join(",")).forEach(function (el) {
+      const text = el.textContent || "";
+      const compact = text.replace(/\s+/g, " ").trim();
+
+      if (!compact.includes("-") || !/\d{4}-\d{2}-\d{2}/.test(compact) || !/\d{1,2}:\d{2}/.test(compact)) {
+        return;
+      }
+
+      if (compact.length <= 80 || isSmallDateTimeOnly(compact)) {
+        const fixed = normalizeText(compact);
+        if (fixed !== compact) {
+          el.textContent = fixed;
+        }
+        el.classList.add("final-datetime-nowrap");
+      }
+    });
+
+    // إصلاح خاص لو التاريخ والوقت داخل نفس الكارد لكن ملتفين بسبب العرض
+    document.querySelectorAll("*").forEach(function (el) {
+      if (["SCRIPT", "STYLE", "INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON", "PRE", "CODE"].includes(el.tagName)) {
+        return;
+      }
+
+      if (el.children.length > 3) return;
+
+      const text = el.textContent || "";
+      const compact = text.replace(/\s+/g, " ").trim();
+
+      if (
+        compact.length <= 70 &&
+        /^(\d{4}-\d{2}-\d{2})\s*,?\s+\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?$/i.test(compact)
+      ) {
+        el.textContent = normalizeText(compact);
+        el.classList.add("final-datetime-nowrap");
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", fixDateTimeElements);
+  window.addEventListener("load", fixDateTimeElements);
+
+  const observer = new MutationObserver(function () {
+    clearTimeout(window.__finalDateTimeTimer);
+    window.__finalDateTimeTimer = setTimeout(fixDateTimeElements, 80);
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  fixDateTimeElements();
+})();
+</script>
+<!-- FINAL_TARGET_DATETIME_FIX_END -->
+
