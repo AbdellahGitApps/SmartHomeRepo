@@ -2,15 +2,20 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../services/backend_api_service.dart';
+import '../utils/date_formatter.dart';
+import '../config/backend_config.dart';
 
-class AppStateProvider with ChangeNotifier {
+class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
   final BackendApiService _api = BackendApiService();
+  final _secureStorage = const FlutterSecureStorage();
   List<Map<String, dynamic>> _localAppAccounts = [];
 
   AppStateProvider() {
     _loadSavedAccountState();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   ThemeMode _themeMode = ThemeMode.system;
@@ -41,6 +46,7 @@ class AppStateProvider with ChangeNotifier {
   String _apartmentNumber = '';
 
   bool _appLockEnabled = false;
+  bool _biometricAuthEnabled = false;
 
   bool _familyLoading = false;
   String? _familyError;
@@ -49,6 +55,7 @@ class AppStateProvider with ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   Locale get locale => _locale;
   bool get isLoggedIn => _isLoggedIn;
+  bool get biometricAuthEnabled => _biometricAuthEnabled;
   String _firstTwoWords(String value) {
     final clean = value.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (clean.isEmpty) return '';
@@ -107,6 +114,7 @@ class AppStateProvider with ChangeNotifier {
   String get homeDbId => _homeDbId;
   String get apartmentNumber => _apartmentNumber;
   bool get appLockEnabled => _appLockEnabled;
+  bool get isDeviceLinked => _homeCode.isNotEmpty && _adminName.isNotEmpty;
 
   bool get isAdmin => _userRole.toLowerCase() == 'admin';
   bool get isUser => _userRole.toLowerCase() == 'user';
@@ -198,7 +206,7 @@ class AppStateProvider with ChangeNotifier {
 
     if (!_isLoggedIn) return;
 
-    _accountStatusTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _accountStatusTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       checkCurrentAccountStatus();
     });
 
@@ -208,6 +216,15 @@ class AppStateProvider with ChangeNotifier {
   void _stopAccountStatusWatcher() {
     _accountStatusTimer?.cancel();
     _accountStatusTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _stopAccountStatusWatcher();
+    } else if (state == AppLifecycleState.resumed) {
+      _startAccountStatusWatcher();
+    }
   }
 
   bool _backendSaysAccountActive(Map<String, dynamic> response) {
@@ -318,13 +335,8 @@ class AppStateProvider with ChangeNotifier {
     }
   }
 
-  String _two(int value) => value.toString().padLeft(2, '0');
-
   String _formatDateTime(DateTime value) {
-    final hour12 = value.hour % 12 == 0 ? 12 : value.hour % 12;
-    final period = value.hour >= 12 ? 'PM' : 'AM';
-
-    return '${value.year}-${_two(value.month)}-${_two(value.day)} ${_two(hour12)}:${_two(value.minute)}:${_two(value.second)} $period';
+    return DateFormatter.format(value);
   }
 
   void touchLastUpdate() {
@@ -333,6 +345,14 @@ class AppStateProvider with ChangeNotifier {
 
   Future<void> _loadSavedAccountState() async {
     final prefs = await SharedPreferences.getInstance();
+
+    final isDarkMode = prefs.getBool('is_dark_mode') ?? true;
+    _themeMode = isDarkMode ? ThemeMode.dark : ThemeMode.light;
+
+    final langCode = prefs.getString('language_code') ?? 'en';
+    _locale = Locale(langCode);
+
+    _biometricAuthEnabled = prefs.getBool('biometric_auth_enabled') ?? false;
 
     final rawAccounts = prefs.getString('local_app_accounts');
     if (rawAccounts != null && rawAccounts.trim().isNotEmpty) {
@@ -351,15 +371,32 @@ class AppStateProvider with ChangeNotifier {
 
     _adminName = prefs.getString('admin_name') ?? '';
     _ownerName = prefs.getString('owner_name') ?? '';
-    _password = prefs.getString('admin_password') ?? '';
-    _doorPin = prefs.getString('door_pin') ?? '';
-    _cameraPin = prefs.getString('camera_pin') ?? '';
-    _userAccountPassword = prefs.getString('user_account_password') ?? '';
+    
+    // Load sensitive credentials from flutter_secure_storage
+    _password = await _secureStorage.read(key: 'admin_password') ?? '';
+    _doorPin = await _secureStorage.read(key: 'door_pin') ?? '';
+    _cameraPin = await _secureStorage.read(key: 'camera_pin') ?? '';
+    _userAccountPassword = await _secureStorage.read(key: 'user_account_password') ?? '';
+    
     _userAccountUsername = prefs.getString('user_account_username') ?? '';
     _homeCode = prefs.getString('home_code') ?? '';
     _homeId = prefs.getString('home_id') ?? _homeCode;
     _homeDbId = prefs.getString('home_db_id') ?? '';
     _apartmentNumber = prefs.getString('apartment_number') ?? '';
+    _serverIp = prefs.getString('server_ip') ?? '';
+    if (_serverIp.isEmpty) {
+      try {
+        final uri = Uri.parse(BackendConfig.defaultBaseUrl);
+        _serverIp = uri.host;
+      } catch (_) {
+        _serverIp = '127.0.0.1';
+      }
+    }
+    _cameraUrl = prefs.getString('camera_url') ?? 'http://$_serverIp:8080/video_feed';
+
+    if (_serverIp.isNotEmpty) {
+      BackendApiService().baseUrl = 'http://$_serverIp:8000';
+    }
 
     if (isAdmin || _userName.trim().isEmpty || _userName == '1') {
       _userName = displayName;
@@ -373,27 +410,40 @@ class AppStateProvider with ChangeNotifier {
 
     await prefs.setString('admin_name', _adminName);
     await prefs.setString('owner_name', _ownerName);
-    await prefs.setString('admin_password', _password);
-    await prefs.setString('door_pin', _doorPin);
-    await prefs.setString('camera_pin', _cameraPin);
-    await prefs.setString('user_account_password', _userAccountPassword);
+    
+    // Save sensitive credentials to flutter_secure_storage
+    await _secureStorage.write(key: 'admin_password', value: _password);
+    await _secureStorage.write(key: 'door_pin', value: _doorPin);
+    await _secureStorage.write(key: 'camera_pin', value: _cameraPin);
+    await _secureStorage.write(key: 'user_account_password', value: _userAccountPassword);
+    
     await prefs.setString('user_account_username', _userAccountUsername);
     await prefs.setString('home_code', _homeCode);
     await prefs.setString('home_id', _homeId);
     await prefs.setString('home_db_id', _homeDbId);
     await prefs.setString('apartment_number', _apartmentNumber);
+    await prefs.setString('server_ip', _serverIp);
+    await prefs.setString('camera_url', _cameraUrl);
   }
 
   void toggleTheme(bool isDark) {
     _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+    _saveThemeAndLanguage();
     touchLastUpdate();
     notifyListeners();
   }
 
   void switchLanguage(String languageCode) {
     _locale = Locale(languageCode);
+    _saveThemeAndLanguage();
     touchLastUpdate();
     notifyListeners();
+  }
+
+  Future<void> _saveThemeAndLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_dark_mode', _themeMode == ThemeMode.dark);
+    await prefs.setString('language_code', _locale.languageCode);
   }
 
   void updateName(String newName) {
@@ -560,26 +610,42 @@ class AppStateProvider with ChangeNotifier {
     String? cameraUrl,
     String? homeCode,
   }) {
-    if (serverIp != null) _serverIp = serverIp;
+    if (serverIp != null) {
+      _serverIp = serverIp;
+      BackendApiService().baseUrl = 'http://$serverIp:8000';
+    }
     if (cameraUrl != null) _cameraUrl = cameraUrl;
     if (homeCode != null) _homeCode = homeCode;
+    _saveAccountState();
     touchLastUpdate();
     notifyListeners();
   }
 
-  void updateSecuritySettings({String? pin, bool? appLock}) {
+  void updateSecuritySettings({String? pin, bool? appLock, bool? biometricAuth}) {
     if (pin != null && pin.trim().isNotEmpty) {
       _doorPin = pin.trim();
     }
     if (appLock != null) _appLockEnabled = appLock;
+    if (biometricAuth != null) {
+      _biometricAuthEnabled = biometricAuth;
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('biometric_auth_enabled', _biometricAuthEnabled);
+      });
+    }
     _saveAccountState();
     touchLastUpdate();
     notifyListeners();
   }
 
   void resetToDefaults() {
-    _serverIp = '192.168.1.100';
-    _cameraUrl = 'http://192.168.1.100:8080/video_feed';
+    try {
+      final uri = Uri.parse(BackendConfig.defaultBaseUrl);
+      _serverIp = uri.host;
+    } catch (_) {
+      _serverIp = '127.0.0.1';
+    }
+    _cameraUrl = 'http://$_serverIp:8080/video_feed';
+    BackendApiService().baseUrl = 'http://$_serverIp:8000';
     _homeCode = '';
     _homeDbId = '';
     _doorPin = '';
@@ -590,6 +656,7 @@ class AppStateProvider with ChangeNotifier {
     _password = '';
     _appLockEnabled = false;
     _activeAlertCount = 0;
+    _saveAccountState();
     touchLastUpdate();
     notifyListeners();
   }
@@ -754,6 +821,20 @@ class AppStateProvider with ChangeNotifier {
 
   String _readBackendError(dynamic error, String fallback) {
     final text = error.toString();
+    
+    final isNetworkError = text.contains('SocketException') ||
+        text.contains('HttpException') ||
+        text.contains('ClientException') ||
+        text.contains('TimeoutException') ||
+        text.toLowerCase().contains('failed host lookup') ||
+        text.toLowerCase().contains('connection refused') ||
+        text.toLowerCase().contains('connection timed out') ||
+        text.toLowerCase().contains('network is unreachable');
+        
+    if (isNetworkError) {
+      return 'Network connection failed. Please check your server address and network connection. Details: $text';
+    }
+
     final detailMatch = RegExp(r'"detail"\s*:\s*"([^"]+)"').firstMatch(text);
     if (detailMatch != null) {
       return detailMatch.group(1) ?? fallback;
@@ -1053,9 +1134,9 @@ class AppStateProvider with ChangeNotifier {
     int homeId,
     Map<String, String> remotePhotos,
   ) async {
-    for (final entry in _familyPhotoDataById.entries) {
+    final futures = _familyPhotoDataById.entries.map((entry) async {
       final photo = entry.value.trim();
-      if (photo.isEmpty || remotePhotos.containsKey(entry.key)) continue;
+      if (photo.isEmpty || remotePhotos.containsKey(entry.key)) return;
 
       try {
         await _api.saveFamilyMemberPhoto(
@@ -1064,7 +1145,9 @@ class AppStateProvider with ChangeNotifier {
           photoData: photo,
         );
       } catch (_) {}
-    }
+    });
+
+    await Future.wait(futures);
   }
 
   Future<void> loadFamilyMembers() async {
@@ -1397,6 +1480,7 @@ class AppStateProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stopAccountStatusWatcher();
     _api.close();
     super.dispose();
@@ -1430,23 +1514,11 @@ class FamilyMember {
     final raw = createdAt.trim().isNotEmpty
         ? createdAt.trim()
         : updatedAt.trim();
+    return _formatFamilyMemberDate(raw);
+  }
 
-    if (raw.isEmpty) {
-      return 'Not available';
-    }
-
-    DateTime? parsed = DateTime.tryParse(raw.replaceFirst(' ', 'T'));
-
-    if (parsed == null) {
-      return raw;
-    }
-
-    String two(int value) => value.toString().padLeft(2, '0');
-
-    final hour12 = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
-    final suffix = parsed.hour >= 12 ? 'PM' : 'AM';
-
-    return '${parsed.year}-${two(parsed.month)}-${two(parsed.day)}, $hour12:${two(parsed.minute)}:${two(parsed.second)} $suffix';
+  String _formatFamilyMemberDate(String raw) {
+    return DateFormatter.formatFamilyDate(raw);
   }
 
   FamilyMember copyWith({

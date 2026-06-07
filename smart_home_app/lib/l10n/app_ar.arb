@@ -166,5 +166,14 @@
   "decreaseComparedToWeek": "-{value}% انخفاض مقارنة بهذا الأسبوع",
   "increaseComparedToMonth": "+{value}% زيادة مقارنة بالشهر الماضي",
   "smartHome": "المنزل الذكي",
-  "appTagline": "آمن • متصل • ذكي"
+  "appTagline": "آمن • متصل • ذكي",
+  "phoneNumber": "رقم الهاتف",
+  "adminAccount": "حساب المسؤول",
+  "doorPin": "رمز الباب",
+  "changeDoorPin": "تغيير رمز الباب",
+  "changeCameraPin": "تغيير رمز الكاميرا",
+  "userAccount": "حساب المستخدم",
+  "forgotPassword": "هل نسيت كلمة المرور؟",
+  "recoveryCode": "رمز الاسترداد",
+  "newPassword": "كلمة المرور الجديدة"
 }

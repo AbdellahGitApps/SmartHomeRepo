@@ -17,7 +17,7 @@ class HomeDashboard extends StatefulWidget {
 }
 
 class _HomeDashboardState extends State<HomeDashboard>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
   late AnimationController _pulseController;
   late Animation<double> _headerFade;
@@ -61,6 +61,7 @@ class _HomeDashboardState extends State<HomeDashboard>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -122,21 +123,36 @@ class _HomeDashboardState extends State<HomeDashboard>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadHomeSummary();
-      _alertPollTimer?.cancel();
-      _alertPollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) {
-          _loadHomeSummary();
-        }
-      });
+      _startPollingTimer();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _alertPollTimer?.cancel();
     _controller.dispose();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  void _startPollingTimer() {
+    _alertPollTimer?.cancel();
+    _alertPollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        _loadHomeSummary();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _alertPollTimer?.cancel();
+      _alertPollTimer = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startPollingTimer();
+    }
   }
 
   Map<String, dynamic> _asMap(dynamic value) {

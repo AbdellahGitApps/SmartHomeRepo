@@ -191,5 +191,14 @@
   "appTagline": "Secure • Connected • Intelligent",
   "@appTitle": {
     "description": "The title of the application"
-  }
+  },
+  "phoneNumber": "Phone Number",
+  "adminAccount": "Admin Account",
+  "doorPin": "Door PIN",
+  "changeDoorPin": "Change Door PIN",
+  "changeCameraPin": "Change Camera PIN",
+  "userAccount": "User Account",
+  "forgotPassword": "Forgot Password?",
+  "recoveryCode": "Recovery Code",
+  "newPassword": "New Password"
 }

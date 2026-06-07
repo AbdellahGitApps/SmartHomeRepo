@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
 import '../services/backend_api_service.dart';
+import '../utils/date_formatter.dart';
 import '../widgets/add_member_bottom_sheet.dart';
 
 class AlertsScreen extends StatefulWidget {
@@ -182,12 +183,12 @@ class _AlertsScreenState extends State<AlertsScreen> {
     return parsed?.millisecondsSinceEpoch ?? 0;
   }
 
-  String _d7FormatAlertDateTime(DateTime value) {
-    final hour12 = value.hour % 12 == 0 ? 12 : value.hour % 12;
-    final period = value.hour >= 12 ? 'PM' : 'AM';
+  String _formatTime(DateTime value) {
+    return DateFormatter.format(value);
+  }
 
-    return '${value.year}-${_d7AlertTwo(value.month)}-${_d7AlertTwo(value.day)}, '
-        '${_d7AlertTwo(hour12)}:${_d7AlertTwo(value.minute)}:${_d7AlertTwo(value.second)} $period';
+  String _d7FormatAlertDateTime(DateTime value) {
+    return DateFormatter.formatWithComma(value);
   }
 
   String _d7AlertDisplayTime(Map<String, dynamic> alert) {
@@ -330,31 +331,24 @@ class _AlertsScreenState extends State<AlertsScreen> {
           status != 'deleted';
     }).toList();
 
-    for (final alert in activeAlerts) {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+
+    final futures = activeAlerts.map((alert) {
       final id = (alert['id'] ?? '').toString();
 
       if (id.isNotEmpty) {
-        await _api.resolveAppAlert(
+        return _api.resolveAppAlert(
           id,
-          homeId: Provider.of<AppStateProvider>(
-            context,
-            listen: false,
-          ).homeDbId,
-          homeCode: Provider.of<AppStateProvider>(
-            context,
-            listen: false,
-          ).homeCode,
-          adminLogin: Provider.of<AppStateProvider>(
-            context,
-            listen: false,
-          ).adminName,
-          viewerRole: Provider.of<AppStateProvider>(
-            context,
-            listen: false,
-          ).userRole,
+          homeId: appState.homeDbId,
+          homeCode: appState.homeCode,
+          adminLogin: appState.adminName,
+          viewerRole: appState.userRole,
         );
       }
-    }
+      return Future<Map<String, dynamic>>.value({});
+    }).toList();
+
+    await Future.wait(futures);
 
     if (!mounted) return;
 

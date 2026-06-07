@@ -22,19 +22,43 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
+  // Cache screens to avoid recreating them on every build
+  late final Widget _homeDashboard;
+  late final Widget _doorsScreen;
+  late final Widget _energyScreen;
+  late final Widget _alertsScreen;
+  late final Widget _cameraScreen;
+  late final Widget _familyScreen;
+  late final Widget _profileScreen;
+
+  @override
+  void initState() {
+    super.initState();
+    _homeDashboard = const HomeDashboard();
+    _doorsScreen = const DoorsScreen();
+    _energyScreen = const EnergyScreen();
+    _alertsScreen = const AlertsScreen();
+    _cameraScreen = const CameraScreen();
+    _familyScreen = const FamilyScreen();
+    _profileScreen = const ProfileScreen();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final appState = Provider.of<AppStateProvider>(context);
+    
+    // Select only the properties we care about to prevent unnecessary rebuilds
+    final canViewDoors = context.select<AppStateProvider, bool>((p) => p.canViewDoors);
+    final canViewFamily = context.select<AppStateProvider, bool>((p) => p.canViewFamily);
 
     final screens = <Widget>[
-      const HomeDashboard(),
-      if (appState.canViewDoors) const DoorsScreen(),
-      const EnergyScreen(),
-      const AlertsScreen(),
-      const CameraScreen(),
-      if (appState.canViewFamily) const FamilyScreen(),
-      const ProfileScreen(),
+      _homeDashboard,
+      if (canViewDoors) _doorsScreen,
+      _energyScreen,
+      _alertsScreen,
+      _cameraScreen,
+      if (canViewFamily) _familyScreen,
+      _profileScreen,
     ];
 
     final items = <BottomNavigationBarItem>[
@@ -42,7 +66,7 @@ class _MainLayoutState extends State<MainLayout> {
         icon: const Icon(LucideIcons.home, size: 20),
         label: l10n.home,
       ),
-      if (appState.canViewDoors)
+      if (canViewDoors)
         BottomNavigationBarItem(
           icon: const Icon(LucideIcons.doorClosed, size: 20),
           label: l10n.doors,
@@ -59,7 +83,7 @@ class _MainLayoutState extends State<MainLayout> {
         icon: const Icon(LucideIcons.camera, size: 20),
         label: l10n.camera,
       ),
-      if (appState.canViewFamily)
+      if (canViewFamily)
         BottomNavigationBarItem(
           icon: const Icon(LucideIcons.users, size: 20),
           label: l10n.family,

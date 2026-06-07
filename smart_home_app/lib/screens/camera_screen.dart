@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:smart_home_app/l10n/app_localizations.dart';
 import 'package:smart_home_app/providers/app_state_provider.dart';
 import 'package:smart_home_app/services/backend_api_service.dart';
+import '../utils/date_formatter.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -201,33 +202,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   String _formatTime(dynamic value) {
-    final raw = _text(value);
-
-    if (raw.isEmpty) return 'Not available';
-
-    DateTime? parsed = DateTime.tryParse(raw.replaceFirst(' ', 'T'));
-
-    if (parsed == null) {
-      final match = RegExp(
-        r'^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$',
-      ).firstMatch(raw);
-
-      if (match != null) {
-        final date = match.group(1)!;
-        final hour = match.group(2)!.padLeft(2, '0');
-        final minute = match.group(3)!;
-        final second = match.group(4) ?? '00';
-        parsed = DateTime.tryParse('${date}T$hour:$minute:$second');
-      }
-    }
-
-    if (parsed == null) return raw;
-
-    final hour12 = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
-    final suffix = parsed.hour >= 12 ? 'PM' : 'AM';
-
-    return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}, '
-        '$hour12:${parsed.minute.toString().padLeft(2, '0')}:${parsed.second.toString().padLeft(2, '0')} $suffix';
+    return DateFormatter.formatFamilyDate(_text(value));
   }
 
   String _imageUrl(String rawUrl, bool isFake) {

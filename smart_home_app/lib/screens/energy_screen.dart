@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/backend_api_service.dart';
+import '../utils/date_formatter.dart';
 import '../providers/app_state_provider.dart';
 import '../widgets/simple_energy_chart.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -292,30 +293,7 @@ class _EnergyScreenState extends State<EnergyScreen>
   }
 
   String _formatEnergyClock(dynamic value) {
-    final raw = value?.toString().trim();
-
-    if (raw == null || raw.isEmpty) {
-      return 'No backend reading yet';
-    }
-
-    DateTime? parsed = DateTime.tryParse(raw);
-
-    if (parsed == null && raw.contains(' ')) {
-      parsed = DateTime.tryParse(raw.replaceFirst(' ', 'T'));
-    }
-
-    if (parsed == null) {
-      return raw;
-    }
-
-    final local = parsed.toLocal();
-    final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
-    final hh = hour12.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    final ss = local.second.toString().padLeft(2, '0');
-    final period = local.hour >= 12 ? 'PM' : 'AM';
-
-    return '$hh:$mm:$ss $period';
+    return DateFormatter.formatTimeOnly(value?.toString());
   }
 
   double get _latestVoltage => _num(_latestEnergy?['voltage'], 220.0);

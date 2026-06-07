@@ -520,4 +520,31 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get appTagline => 'آمن • متصل • ذكي';
+
+  @override
+  String get phoneNumber => 'رقم الهاتف';
+
+  @override
+  String get adminAccount => 'حساب المسؤول';
+
+  @override
+  String get doorPin => 'رمز الباب';
+
+  @override
+  String get changeDoorPin => 'تغيير رمز الباب';
+
+  @override
+  String get changeCameraPin => 'تغيير رمز الكاميرا';
+
+  @override
+  String get userAccount => 'حساب المستخدم';
+
+  @override
+  String get forgotPassword => 'هل نسيت كلمة المرور؟';
+
+  @override
+  String get recoveryCode => 'رمز الاسترداد';
+
+  @override
+  String get newPassword => 'كلمة المرور الجديدة';
 }

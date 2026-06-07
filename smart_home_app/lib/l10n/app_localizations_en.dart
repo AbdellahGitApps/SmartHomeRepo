@@ -520,4 +520,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appTagline => 'Secure • Connected • Intelligent';
+
+  @override
+  String get phoneNumber => 'Phone Number';
+
+  @override
+  String get adminAccount => 'Admin Account';
+
+  @override
+  String get doorPin => 'Door PIN';
+
+  @override
+  String get changeDoorPin => 'Change Door PIN';
+
+  @override
+  String get changeCameraPin => 'Change Camera PIN';
+
+  @override
+  String get userAccount => 'User Account';
+
+  @override
+  String get forgotPassword => 'Forgot Password?';
+
+  @override
+  String get recoveryCode => 'Recovery Code';
+
+  @override
+  String get newPassword => 'New Password';
 }

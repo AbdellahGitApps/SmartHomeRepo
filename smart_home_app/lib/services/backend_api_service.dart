@@ -21,15 +21,26 @@ class BackendApiException implements Exception {
 }
 
 class BackendApiService {
-  BackendApiService({String? baseUrl, http.Client? client})
-    : baseUrl = (baseUrl ?? BackendConfig.defaultBaseUrl).replaceAll(
-        RegExp(r'/$'),
-        '',
-      ),
-      _client = client ?? http.Client();
+  static final BackendApiService _instance = BackendApiService._internal();
 
-  final String baseUrl;
+  factory BackendApiService({String? baseUrl, http.Client? client}) {
+    if (baseUrl != null) {
+      _instance.baseUrl = baseUrl;
+    }
+    return _instance;
+  }
+
+  BackendApiService._internal({http.Client? client})
+      : _client = client ?? http.Client(),
+        _baseUrl = BackendConfig.defaultBaseUrl.replaceAll(RegExp(r'/$'), '');
+
+  String _baseUrl;
   final http.Client _client;
+
+  String get baseUrl => _baseUrl;
+  set baseUrl(String value) {
+    _baseUrl = value.replaceAll(RegExp(r'/$'), '');
+  }
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {
     final cleanPath = path.startsWith('/') ? path : '/$path';
@@ -517,7 +528,7 @@ class BackendApiService {
   }
 
   void close() {
-    _client.close();
+    // Shared singleton instance client should not be closed.
   }
 
   // D7M16_REAL_ALERTS_LOG_DELETE_API_START

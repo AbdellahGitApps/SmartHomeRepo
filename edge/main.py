@@ -136,6 +136,21 @@ app = FastAPI(
 )
 
 
+@app.on_event("startup")
+def print_local_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        print("\n" + "="*60)
+        print(f"👉 LOCAL SERVER IP FOR MOBILE APP: {local_ip}")
+        print("="*60 + "\n")
+    except Exception:
+        pass
+
+
 # =========================
 # CORS
 # =========================
@@ -853,11 +868,15 @@ _ensure_system_logs_table()
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     logs = _get_security_logs()
-    return templates.TemplateResponse("logs.html", {
-        "request": request,
-        "logs": logs,
-        "security_logs": logs
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="logs.html",
+        context={
+            "request": request,
+            "logs": logs,
+            "security_logs": logs
+        }
+    )
 
 
 @app.get("/api/dashboard/logs")
@@ -938,8 +957,9 @@ def users_page(request: Request):
         print("USERS PAGE DB ERROR:", e)
 
     return template_engine.TemplateResponse(
-        "users.html",
-        {
+        request=request,
+        name="users.html",
+        context={
             "request": request,
             "users": users,
             "active_page": "users",
@@ -1432,6 +1452,7 @@ async def _d7m16_dashboard_login_page(request: _D7M16Request):
         return _D7M16RedirectResponse(url="/", status_code=303)
 
     return _D7M16_TEMPLATES.TemplateResponse(
+        request,
         "dashboard_login.html",
         {"request": request, "error": None},
     )
@@ -1453,6 +1474,7 @@ async def _d7m16_dashboard_login_submit(
         return response
 
     return _D7M16_TEMPLATES.TemplateResponse(
+        request,
         "dashboard_login.html",
         {"request": request, "error": "Invalid username or password"},
         status_code=401,
@@ -5935,17 +5957,20 @@ def _d7_app_validate_login(value):
     login = str(value or "").strip()
 
     if not login:
-        return False, "Username or Email is required."
+        return False, "Username, Phone Number, or Email is required."
 
     if "@" in login:
         if _d7_app_re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", login):
             return True, ""
         return False, "Invalid email format."
 
+    if _d7_app_re.match(r"^[0-9+]{4,15}$", login):
+        return True, ""
+
     if _d7_app_re.match(r"^[A-Za-z][A-Za-z0-9_]{2,30}$", login):
         return True, ""
 
-    return False, "Username must be English letters/numbers/underscore and start with a letter."
+    return False, "Login must be a valid Username, Phone Number, or Email address."
 
 
 def _d7_app_find_home_by_code(conn, home_code):
@@ -9482,6 +9507,7 @@ def d7m16_fake_unknown_face(payload: dict | None = _D7FakeBody(default=None)):
         home_id = str(home.get("id") or "")
         apartment = str(home.get("apartment_number") or "")
         camera_name = str(payload.get("camera_name") or "hhhh")
+        member_name = str(payload.get("member_name") or payload.get("name") or "Unknown person").strip()
         now = _d7_fake_now()
 
         try:

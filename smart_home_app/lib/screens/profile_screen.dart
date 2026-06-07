@@ -353,9 +353,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
 
-            _buildSection(
-              title: 'Admin Account',
-              icon: LucideIcons.user,
+            if (isAdmin) ...[
+              _buildSection(
+                title: 'Admin Account',
+                icon: LucideIcons.user,
               isDark: isDark,
               isEditing: isAdmin && _editAccount,
               showEditButton: isAdmin,
@@ -495,6 +496,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   isDark: isDark,
                 ),
                 const SizedBox(height: 12),
+                _buildSwitchTile(
+                  title: l10n.biometricAuth,
+                  value: appState.biometricAuthEnabled,
+                  onChanged: isAdmin && _editSecurity
+                      ? (val) => appState.updateSecuritySettings(biometricAuth: val)
+                      : null,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 12),
                 _buildTextField(
                   label: 'User Account',
                   controller: isAdmin
@@ -612,6 +622,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
             const SizedBox(height: 24),
+            ],
             _buildSection(
               title: l10n.appearance,
               icon: LucideIcons.palette,

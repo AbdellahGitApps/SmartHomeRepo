@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:smart_home_app/providers/app_state_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/backend_api_service.dart';
+import '../utils/date_formatter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class DoorsScreen extends StatefulWidget {
@@ -58,33 +59,7 @@ class _DoorsScreenState extends State<DoorsScreen>
   }
 
   String _formatLogTime(dynamic value) {
-    final raw = value?.toString().trim() ?? '';
-
-    if (raw.isEmpty) {
-      return '';
-    }
-
-    DateTime? parsed = DateTime.tryParse(raw);
-
-    if (parsed == null && raw.contains(' ')) {
-      parsed = DateTime.tryParse(raw.replaceFirst(' ', 'T'));
-    }
-
-    if (parsed == null) {
-      return raw;
-    }
-
-    final local = parsed.toLocal();
-    final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
-    final yy = local.year.toString().padLeft(4, '0');
-    final mo = local.month.toString().padLeft(2, '0');
-    final dd = local.day.toString().padLeft(2, '0');
-    final hh = hour12.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    final ss = local.second.toString().padLeft(2, '0');
-    final period = local.hour >= 12 ? 'PM' : 'AM';
-
-    return '$yy-$mo-$dd, $hh:$mm:$ss $period';
+    return DateFormatter.formatDoorsDate(value?.toString());
   }
 
   void _addAccessLog({required String doorKey, required bool granted}) {

@@ -1105,6 +1105,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Secure • Connected • Intelligent'**
   String get appTagline;
+
+  /// No description provided for @phoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone Number'**
+  String get phoneNumber;
+
+  /// No description provided for @adminAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin Account'**
+  String get adminAccount;
+
+  /// No description provided for @doorPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Door PIN'**
+  String get doorPin;
+
+  /// No description provided for @changeDoorPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Door PIN'**
+  String get changeDoorPin;
+
+  /// No description provided for @changeCameraPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Camera PIN'**
+  String get changeCameraPin;
+
+  /// No description provided for @userAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'User Account'**
+  String get userAccount;
+
+  /// No description provided for @forgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot Password?'**
+  String get forgotPassword;
+
+  /// No description provided for @recoveryCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery Code'**
+  String get recoveryCode;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New Password'**
+  String get newPassword;
 }
 
 class _AppLocalizationsDelegate

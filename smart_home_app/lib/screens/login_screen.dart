@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -37,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscureRecoveryNewPassword = true;
   bool _obscureRecoveryConfirmPassword = true;
   String? _errorMessage;
+  bool _isLoading = false;
 
   late final AnimationController _logoPulseController;
 
@@ -47,6 +51,68 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBiometricAutoLogin();
+    });
+  }
+
+  Future<void> _checkBiometricAutoLogin({bool manual = false}) async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    
+    // Only block auto-login if disabled. If manual, let them use it.
+    if (!manual && !appState.biometricAuthEnabled) {
+      return;
+    }
+
+    if ((_selectedMode == 0 && appState.password.isEmpty) || 
+        (_selectedMode == 1 && appState.userAccountPassword.isEmpty)) {
+      if (manual && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+            appState.locale.languageCode == 'ar'
+                ? 'يرجى تسجيل الدخول بكلمة المرور أولاً'
+                : 'Please login with password first.'
+          )),
+        );
+      }
+      return;
+    }
+
+    final success = await _authenticateWithBiometrics();
+    if (success && mounted) {
+      if (manual && !appState.biometricAuthEnabled) {
+         appState.updateSecuritySettings(biometricAuth: true);
+      }
+      if (_selectedMode == 0) {
+        _loginCtrl.text = appState.adminName;
+        _loginPasswordCtrl.text = appState.password;
+        _attemptAdminLogin();
+      } else {
+        _userLoginCtrl.text = appState.userAccountUsername;
+        _userPasswordCtrl.text = appState.userAccountPassword;
+        _attemptUserLogin();
+      }
+    }
+  }
+
+  Future<bool> _authenticateWithBiometrics() async {
+    final LocalAuthentication auth = LocalAuthentication();
+    try {
+      final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
+      final bool canAuthenticate =
+          canAuthenticateWithBiometrics || await auth.isDeviceSupported();
+
+      if (!canAuthenticate) return false;
+
+      return await auth.authenticate(
+        localizedReason: 'Please authenticate to log in',
+        biometricOnly: true,
+      );
+    } on PlatformException catch (_) {
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -67,11 +133,29 @@ class _LoginScreenState extends State<LoginScreen>
     required IconData icon,
     Widget? suffixIcon,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? Colors.white70 : Colors.black87;
+    final hintColor = isDark ? Colors.white54 : Colors.black54;
+    final borderColor = isDark ? Colors.white24 : Colors.black12;
+
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon),
+      labelStyle: TextStyle(color: hintColor),
+      floatingLabelStyle: const TextStyle(color: Color(0xFFF2BE2E)),
+      prefixIcon: Icon(icon, color: hintColor),
       suffixIcon: suffixIcon,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: borderColor),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFF2BE2E), width: 2),
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
@@ -102,29 +186,46 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _button(String text, VoidCallback onPressed) {
+  Widget _button(String text, VoidCallback? onPressed) {
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: _isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFF2BE2E),
           foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFF2BE2E).withOpacity(0.6),
+          disabledForegroundColor: Colors.white70,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           elevation: 0,
         ),
-        child: Text(
-          text,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                text,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
       ),
     );
   }
 
   Future<void> _attemptAdminSignIn() async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     final appState = Provider.of<AppStateProvider>(context, listen: false);
 
     final login = _signInLoginCtrl.text.trim();
@@ -140,14 +241,12 @@ class _LoginScreenState extends State<LoginScreen>
     if (!mounted) return;
 
     if (!ok) {
-      setState(
-        () => _errorMessage =
-            appState.lastAuthError ?? 'Could not register this account.',
-      );
+      setState(() {
+        _isLoading = false;
+        _errorMessage = appState.lastAuthError ?? 'Could not register this account.';
+      });
       return;
     }
-
-    setState(() => _errorMessage = null);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Account registered successfully')),
@@ -157,10 +256,27 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (!mounted) return;
 
-    await appState.loginAdminWithServer(login: login, password: password);
+    final loginOk = await appState.loginAdminWithServer(login: login, password: password);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        if (!loginOk) {
+          _errorMessage = appState.lastAuthError ?? 'Login failed after registration.';
+        } else {
+          _errorMessage = null;
+        }
+      });
+    }
   }
 
   Future<void> _attemptAdminLogin() async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     final appState = Provider.of<AppStateProvider>(context, listen: false);
 
     final ok = await appState.loginAdminWithServer(
@@ -170,22 +286,25 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (!mounted) return;
 
-    if (!ok) {
-      setState(() {
-        _failedAdminAttempts++;
-        _errorMessage =
-            appState.lastAuthError ?? 'Invalid username or password.';
-      });
-      return;
-    }
-
     setState(() {
-      _failedAdminAttempts = 0;
-      _errorMessage = null;
+      _isLoading = false;
+      if (!ok) {
+        _failedAdminAttempts++;
+        _errorMessage = appState.lastAuthError ?? 'Invalid username or password.';
+      } else {
+        _failedAdminAttempts = 0;
+        _errorMessage = null;
+      }
     });
   }
 
   Future<void> _attemptUserLogin() async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     final appState = Provider.of<AppStateProvider>(context, listen: false);
 
     final ok = await appState.loginUserWithServer(
@@ -195,15 +314,14 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (!mounted) return;
 
-    if (!ok) {
-      setState(
-        () =>
-            _errorMessage = appState.lastAuthError ?? 'Invalid user password.',
-      );
-      return;
-    }
-
-    setState(() => _errorMessage = null);
+    setState(() {
+      _isLoading = false;
+      if (!ok) {
+        _errorMessage = appState.lastAuthError ?? 'Invalid user password.';
+      } else {
+        _errorMessage = null;
+      }
+    });
   }
 
   Future<void> _showForgotPasswordDialog() async {
@@ -407,12 +525,68 @@ class _LoginScreenState extends State<LoginScreen>
     confirmPasswordCtrl.dispose();
   }
 
+  void _showServerIpDialog() {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final ipCtrl = TextEditingController(text: appState.serverIp);
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Server Settings'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enter the IP address of the backend server:',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ipCtrl,
+                style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
+                decoration: const InputDecoration(
+                  labelText: 'Server IP',
+                  hintText: 'e.g., 10.0.2.2 or 192.168.1.x',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newIp = ipCtrl.text.trim();
+                if (newIp.isNotEmpty) {
+                  appState.updateNetworkSettings(serverIp: newIp);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Server IP updated to: $newIp')),
+                    );
+                  }
+                }
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _toggleButton({
     required String label,
     required IconData icon,
     required bool selected,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -420,7 +594,9 @@ class _LoginScreenState extends State<LoginScreen>
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFF2BE2E) : const Color(0xFFF1F5F9),
+            color: selected
+                ? const Color(0xFFF2BE2E)
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9)),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -429,13 +605,17 @@ class _LoginScreenState extends State<LoginScreen>
               Icon(
                 icon,
                 size: 18,
-                color: selected ? Colors.white : Colors.grey[700],
+                color: selected
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : Colors.grey[700]),
               ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: selected ? Colors.white : Colors.grey[700],
+                  color: selected
+                      ? Colors.white
+                      : (isDark ? Colors.white70 : Colors.grey[700]),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -448,32 +628,29 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _adminSignInForm() {
     return Column(
+      key: const ValueKey('admin_sign_in_form'),
       children: [
         TextField(
           controller: _signInLoginCtrl,
-          obscureText: _obscureSignInPhone,
+          obscureText: false,
+          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
             label: 'Phone Number',
             icon: LucideIcons.user,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureSignInPhone ? LucideIcons.eyeOff : LucideIcons.eye,
-              ),
-              onPressed: () =>
-                  setState(() => _obscureSignInPhone = !_obscureSignInPhone),
-            ),
           ),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _signInPasswordCtrl,
           obscureText: _obscureSignInPassword,
+          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
             label: 'Password',
             icon: LucideIcons.lock,
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureSignInPassword ? LucideIcons.eyeOff : LucideIcons.eye,
+                color: Colors.black54,
               ),
               onPressed: () => setState(
                 () => _obscureSignInPassword = !_obscureSignInPassword,
@@ -484,18 +661,11 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 16),
         TextField(
           controller: _signInHomeCodeCtrl,
-          obscureText: _obscureSignInHomeCode,
+          obscureText: false,
+          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
             label: 'Home Code',
             icon: LucideIcons.home,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureSignInHomeCode ? LucideIcons.eyeOff : LucideIcons.eye,
-              ),
-              onPressed: () => setState(
-                () => _obscureSignInHomeCode = !_obscureSignInHomeCode,
-              ),
-            ),
           ),
           onSubmitted: (_) => _attemptAdminSignIn(),
         ),
@@ -508,32 +678,29 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _adminLoginForm() {
     return Column(
+      key: const ValueKey('admin_login_form'),
       children: [
         TextField(
           controller: _loginCtrl,
-          obscureText: _obscureLoginPhone,
+          obscureText: false,
+          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
             label: 'Phone Number',
             icon: LucideIcons.user,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureLoginPhone ? LucideIcons.eyeOff : LucideIcons.eye,
-              ),
-              onPressed: () =>
-                  setState(() => _obscureLoginPhone = !_obscureLoginPhone),
-            ),
           ),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _loginPasswordCtrl,
           obscureText: _obscureLoginPassword,
+          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
             label: 'Password',
             icon: LucideIcons.lock,
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureLoginPassword ? LucideIcons.eyeOff : LucideIcons.eye,
+                color: Colors.black54,
               ),
               onPressed: () => setState(
                 () => _obscureLoginPassword = !_obscureLoginPassword,
@@ -552,39 +719,42 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         const SizedBox(height: 20),
         _errorBox(),
-        _button('Sign In', _attemptAdminLogin),
+        _button(AppLocalizations.of(context)!.loginButton, _attemptAdminLogin),
+        const SizedBox(height: 16),
+        IconButton(
+          icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
+          onPressed: () => _checkBiometricAutoLogin(manual: true),
+          tooltip: 'Login with Biometrics',
+        ),
       ],
     );
   }
 
   Widget _userForm() {
     return Column(
+      key: const ValueKey('user_form'),
       children: [
         TextField(
           controller: _userLoginCtrl,
-          obscureText: _obscureUserLogin,
+          obscureText: false,
+          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
             label: 'Username',
             icon: LucideIcons.user,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureUserLogin ? LucideIcons.eyeOff : LucideIcons.eye,
-              ),
-              onPressed: () =>
-                  setState(() => _obscureUserLogin = !_obscureUserLogin),
-            ),
           ),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _userPasswordCtrl,
           obscureText: _obscureUserPassword,
+          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
             label: 'User Password',
             icon: LucideIcons.keyRound,
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureUserPassword ? LucideIcons.eyeOff : LucideIcons.eye,
+                color: Colors.black54,
               ),
               onPressed: () =>
                   setState(() => _obscureUserPassword = !_obscureUserPassword),
@@ -594,69 +764,18 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         const SizedBox(height: 20),
         _errorBox(),
-        _button('Enter as A User', _attemptUserLogin),
+        _button(AppLocalizations.of(context)!.enterAsUser, _attemptUserLogin),
+        const SizedBox(height: 16),
+        IconButton(
+          icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
+          onPressed: () => _checkBiometricAutoLogin(manual: true),
+          tooltip: 'Login with Biometrics',
+        ),
       ],
     );
   }
 
-  Widget _adminSection() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextButton(
-                onPressed: () => _setAdminSubMode(0),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Sign in (First login)',
-                    maxLines: 1,
-                    softWrap: false,
-                    style: TextStyle(
-                      color: _adminSubMode == 0
-                          ? const Color(0xFFF2BE2E)
-                          : Colors.grey,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: TextButton(
-                onPressed: () => _setAdminSubMode(1),
-                child: Text(
-                  'Login',
-                  style: TextStyle(
-                    color: _adminSubMode == 1
-                        ? const Color(0xFFF2BE2E)
-                        : Colors.grey,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        Container(
-          height: 2,
-          alignment: _adminSubMode == 0
-              ? Alignment.centerLeft
-              : Alignment.centerRight,
-          child: FractionallySizedBox(
-            widthFactor: 0.5,
-            child: Container(color: const Color(0xFFF2BE2E)),
-          ),
-        ),
-        const SizedBox(height: 20),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: _adminSubMode == 0 ? _adminSignInForm() : _adminLoginForm(),
-        ),
-      ],
-    );
-  }
+  // Admin Section removed as per new authentication flow
 
   void _clearAuthFields() {
     _signInLoginCtrl.clear();
@@ -766,8 +885,42 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppStateProvider>(context);
+    final isDark = appState.themeMode == ThemeMode.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(isDark ? LucideIcons.sun : LucideIcons.moon,
+                color: isDark ? Colors.white70 : Colors.grey),
+            onPressed: () => appState.toggleTheme(!isDark),
+          ),
+          TextButton(
+            onPressed: () {
+              appState.switchLanguage(
+                  appState.locale.languageCode == 'en' ? 'ar' : 'en');
+            },
+            child: Text(
+              appState.locale.languageCode.toUpperCase(),
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(LucideIcons.settings,
+                color: isDark ? Colors.white70 : Colors.grey),
+            onPressed: _showServerIpDialog,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -780,7 +933,7 @@ class _LoginScreenState extends State<LoginScreen>
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
@@ -792,30 +945,48 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   child: Column(
                     children: [
-                      Row(
-                        children: [
-                          _toggleButton(
-                            label: 'Admin',
-                            icon: LucideIcons.shield,
-                            selected: _selectedMode == 0,
-                            onTap: () => _setSelectedMode(0),
-                          ),
-                          const SizedBox(width: 8),
-                          _toggleButton(
-                            label: 'User',
-                            icon: LucideIcons.user,
-                            selected: _selectedMode == 1,
-                            onTap: () => _setSelectedMode(1),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: _selectedMode == 0
-                            ? _adminSection()
-                            : _userForm(),
-                      ),
+                      if (!appState.isDeviceLinked) ...[
+                        const Text(
+                          'First Login (New Device)',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Color(0xFFF2BE2E)),
+                        ),
+                        const SizedBox(height: 16),
+                        _adminSignInForm(),
+                      ] else ...[
+                        Row(
+                          children: [
+                            _toggleButton(
+                              label: 'Admin',
+                              icon: LucideIcons.shield,
+                              selected: _selectedMode == 0,
+                              onTap: () => _setSelectedMode(0),
+                            ),
+                            const SizedBox(width: 8),
+                            _toggleButton(
+                              label: 'User',
+                              icon: LucideIcons.user,
+                              selected: _selectedMode == 1,
+                              onTap: () => _setSelectedMode(1),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: _selectedMode == 0
+                              ? KeyedSubtree(
+                                  key: const ValueKey('admin_login_subtree'),
+                                  child: _adminLoginForm(),
+                                )
+                              : KeyedSubtree(
+                                  key: const ValueKey('user_form_subtree'),
+                                  child: _userForm(),
+                                ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
