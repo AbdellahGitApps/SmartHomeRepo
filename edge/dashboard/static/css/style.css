@@ -404,3 +404,12 @@ tbody tr:hover {
     display: block;
   }
 }
+
+ [ d i r = ' r t l ' ]   . t a b l e - c o n t a i n e r   { 
+         t r a n s f o r m :   s c a l e X ( - 1 ) ; 
+ } 
+ [ d i r = ' r t l ' ]   . t a b l e - c o n t a i n e r   t a b l e   { 
+         t r a n s f o r m :   s c a l e X ( - 1 ) ; 
+ } 
+  
+ 
