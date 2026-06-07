@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -14,11 +14,11 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/style.css?v=3">
+    <link rel="stylesheet" href="/static/css/style.css?v=4">
     <link rel="stylesheet" href="/static/css/dashboard_confirm_modal.css">
     
     <!-- i18n Dictionary -->
-    <script src="/static/js/i18n.js?v=3"></script>
+    <script src="/static/js/i18n.js?v=4"></script>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -264,51 +264,51 @@
 (function () {
     const dict = {
         ar: {
-            nav_dashboard: "ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…",
-            nav_create_home: "ط¥ظ†ط´ط§ط، ظ…ظ†ط²ظ„",
-            nav_devices: "ط§ظ„ط£ط¬ظ‡ط²ط©",
-            nav_cameras: "ط§ظ„ظƒط§ظ…ظٹط±ط§طھ",
-            nav_energy: "ط§ظ„ط·ط§ظ‚ط©",
-            nav_users: "ط§ظ„ظ…ط³طھط®ط¯ظ…ظˆظ†",
-            nav_status: "ط­ط§ظ„ط© ط§ظ„ظ†ط¸ط§ظ…",
-            nav_logs: "ط³ط¬ظ„ط§طھ ط§ظ„ط£ظ…ظ†",
-            server_online: "ط§ظ„ط³ظٹط±ظپط± Online",
+            nav_dashboard: "لوحة التحكم",
+            nav_create_home: "إنشاء منزل",
+            nav_devices: "الأجهزة",
+            nav_cameras: "الكاميرات",
+            nav_energy: "الطاقة",
+            nav_users: "المستخدمون",
+            nav_status: "حالة النظام",
+            nav_logs: "سجلات الأمن",
+            server_online: "السيرفر Online",
             system_admin: "System Owner",
-            homes_overview: "ظ†ط¸ط±ط© ط¹ط§ظ…ط© ط¹ظ„ظ‰ ط§ظ„ظ…ظ†ط§ط²ظ„",
-            homes_overview_desc: "ظ…ط±ط§ظ‚ط¨ط© ط§ظ„ظ…ظ†ط§ط²ظ„ ط§ظ„ظ…ط³ط¬ظ„ط© ظˆط­ط§ظ„ط© ط§ظ„ظ†ط¸ط§ظ…",
-            add_home: "ط¥ط¶ط§ظپط© ظ…ظ†ط²ظ„",
-            total_homes: "ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظ…ظ†ط§ط²ظ„",
-            total_devices: "ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ط£ط¬ظ‡ط²ط©",
-            online_devices: "ط§ظ„ط£ط¬ظ‡ط²ط© Online",
-            system_errors: "ط£ط®ط·ط§ط، ط§ظ„ظ†ط¸ط§ظ…",
-            registered_homes: "ط§ظ„ظ…ظ†ط§ط²ظ„ ط§ظ„ظ…ط³ط¬ظ„ط©",
-            create_home: "ط¥ظ†ط´ط§ط، ظ…ظ†ط²ظ„",
-            no_homes_found: "ظ„ط§ طھظˆط¬ط¯ ظ…ظ†ط§ط²ظ„ ظ…ط³ط¬ظ„ط©.",
-            apartment: "ط§ظ„ط´ظ‚ط©",
-            owner: "ط§ظ„ظ…ط§ظ„ظƒ",
+            homes_overview: "نظرة عامة على المنازل",
+            homes_overview_desc: "مراقبة المنازل المسجلة وحالة النظام",
+            add_home: "إضافة منزل",
+            total_homes: "إجمالي المنازل",
+            total_devices: "إجمالي الأجهزة",
+            online_devices: "الأجهزة Online",
+            system_errors: "أخطاء النظام",
+            registered_homes: "المنازل المسجلة",
+            create_home: "إنشاء منزل",
+            no_homes_found: "لا توجد منازل مسجلة.",
+            apartment: "الشقة",
+            owner: "المالك",
             home_id: "Home ID",
-            devices: "ط§ظ„ط£ط¬ظ‡ط²ط©",
-            members: "ط§ظ„ط£ظپط±ط§ط¯",
-            view_details: "ط¹ط±ط¶ ط§ظ„طھظپط§طµظٹظ„",
-            back_to_homes: "ط±ط¬ظˆط¹ ظ„ظ„ظ…ظ†ط§ط²ظ„",
-            edit_home: "طھط¹ط¯ظٹظ„ ط§ظ„ظ…ظ†ط²ظ„",
-            delete: "ط­ط°ظپ",
-            home_information: "ظ…ط¹ظ„ظˆظ…ط§طھ ط§ظ„ظ…ظ†ط²ظ„",
-            apartment_number_label: "ط±ظ‚ظ… ط§ظ„ط´ظ‚ط©:",
+            devices: "الأجهزة",
+            members: "الأفراد",
+            view_details: "عرض التفاصيل",
+            back_to_homes: "رجوع للمنازل",
+            edit_home: "تعديل المنزل",
+            delete: "حذف",
+            home_information: "معلومات المنزل",
+            apartment_number_label: "رقم الشقة:",
             home_id_label: "Home ID:",
             home_code_label: "Home Code:",
-            owner_name_label: "ط§ط³ظ… ط§ظ„ظ…ط§ظ„ظƒ:",
-            email_label: "ط§ظ„ط¨ط±ظٹط¯:",
-            registered_label: "طھط§ط±ظٹط® ط§ظ„طھط³ط¬ظٹظ„:",
-            devices_label: "ط§ظ„ط£ط¬ظ‡ط²ط©:",
-            members_label: "ط§ظ„ط£ظپط±ط§ط¯:",
-            door_status: "ط­ط§ظ„ط© ط§ظ„ط¨ط§ط¨",
-            energy_usage: "ط§ط³طھظ‡ظ„ط§ظƒ ط§ظ„ط·ط§ظ‚ط©",
-            recent_access_logs: "ط¢ط®ط± ط³ط¬ظ„ط§طھ ط§ظ„ظˆطµظˆظ„",
-            time: "ط§ظ„ظˆظ‚طھ",
-            event: "ط§ظ„ط­ط¯ط«",
-            details: "ط§ظ„طھظپط§طµظٹظ„",
-            view_all_logs: "ط¹ط±ط¶ ظƒظ„ ط§ظ„ط³ط¬ظ„ط§طھ"
+            owner_name_label: "اسم المالك:",
+            email_label: "البريد:",
+            registered_label: "تاريخ التسجيل:",
+            devices_label: "الأجهزة:",
+            members_label: "الأفراد:",
+            door_status: "حالة الباب",
+            energy_usage: "استهلاك الطاقة",
+            recent_access_logs: "آخر سجلات الوصول",
+            time: "الوقت",
+            event: "الحدث",
+            details: "التفاصيل",
+            view_all_logs: "عرض كل السجلات"
         },
         en: {}
     };
@@ -319,7 +319,11 @@
 
     window.d7T = function (key, fallback) {
         const lang = currentLang();
-        return (dict[lang] && dict[lang][key]) || fallback || key;
+        let val = dict[lang] && dict[lang][key];
+        if (!val && window.translations && window.translations[lang]) {
+            val = window.translations[lang][key];
+        }
+        return val || fallback || key;
     };
 
     function translatePage() {
@@ -343,6 +347,14 @@
                 el.textContent = value;
             }
         });
+        
+        document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+            const key = el.getAttribute("data-i18n-placeholder");
+            const value = window.d7T(key);
+            if (value) {
+                el.setAttribute("placeholder", value);
+            }
+        });
 
         const label = document.getElementById("langLabel");
         if (label) label.textContent = useArabic ? "EN" : "AR";
@@ -354,6 +366,26 @@
         translatePage();
         document.dispatchEvent(new CustomEvent("d7-language-changed"));
     };
+
+    // Auto-translate dynamically added elements
+    document.addEventListener("DOMContentLoaded", function() {
+        const observer = new MutationObserver(function(mutations) {
+            let shouldTranslate = false;
+            for (const m of mutations) {
+                if (m.addedNodes.length) {
+                    shouldTranslate = true;
+                    break;
+                }
+            }
+            if (shouldTranslate) {
+                // To avoid infinite loops from translatePage modifying text
+                observer.disconnect();
+                translatePage();
+                observer.observe(document.body, { childList: true, subtree: true });
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
 
     function findBellElement() {
         const icon = document.querySelector(".ph-bell, .ph-fill.ph-bell, .ph-bell-simple");
@@ -668,7 +700,7 @@
 
 <!-- D7M16_HEADER_FINAL_ONLY_START -->
 <style>
-/* ظٹط±ط¬ط¹ SERVER ONLINE طµط؛ظٹط± ظˆظ…ط±طھط¨ ظ…ط«ظ„ ط§ظ„ظ‚ط¯ظٹظ… */
+/* يرجع SERVER ONLINE صغير ومرتب مثل القديم */
 .d7m16-clean-server-pill {
     display: inline-flex !important;
     align-items: center !important;
@@ -714,7 +746,7 @@
     background: #ef4444 !important;
 }
 
-/* طھط«ط¨ظٹطھ ظٹظ…ظٹظ† ط§ظ„ظ‡ظٹط¯ط± ط¨ط¯ظˆظ† ط¥ظ†ط²ط§ظ„ Logout */
+/* تثبيت يمين الهيدر بدون إنزال Logout */
 .d7m16-header-host-final {
     position: relative !important;
     width: 100% !important;
@@ -914,7 +946,7 @@
         pill.classList.add("d7m16-clean-server-pill");
         pill.classList.toggle("d7m16-offline", isOffline);
 
-        // ط£ظ‡ظ… ط³ط·ط±: ظٹظ…ط³ط­ ط§ظ„ظ†طµ ط§ظ„ظ‚ط¯ظٹظ… ط¹ط´ط§ظ† ظ„ط§ ظٹطµظٹط± SERVER ONLINE SERVER ONLINE
+        // أهم سطر: يمسح النص القديم عشان لا يصير SERVER ONLINE SERVER ONLINE
         pill.innerHTML = "";
 
         const dot = document.createElement("span");
@@ -944,7 +976,7 @@
 
 <!-- D7M16_LOGOUT_VISIBLE_RIGHT_ONLY_START -->
 <style>
-/* ظپظ‚ط· Logout ظˆظٹظ…ظٹظ† ط§ظ„ظ‡ظٹط¯ط±. ظ„ط§ ظٹظ„ظ…ط³ Server Online ظˆظ„ط§ Devices ظˆظ„ط§ Logs. */
+/* فقط Logout ويمين الهيدر. لا يلمس Server Online ولا Devices ولا Logs. */
 .topbar {
     position: relative !important;
 }
@@ -1044,53 +1076,53 @@
     };
 
     const AR = {
-        nav_dashboard: "ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…",
-        nav_create_home: "ط¥ظ†ط´ط§ط، ظ…ظ†ط²ظ„",
-        nav_devices: "ط§ظ„ط£ط¬ظ‡ط²ط©",
-        nav_cameras: "ط§ظ„ظƒط§ظ…ظٹط±ط§طھ",
-        nav_energy: "ط§ظ„ط·ط§ظ‚ط©",
-        nav_users: "ط§ظ„ظ…ط³طھط®ط¯ظ…ظˆظ†",
-        nav_status: "ط­ط§ظ„ط© ط§ظ„ظ†ط¸ط§ظ…",
-        nav_logs: "ط³ط¬ظ„ط§طھ ط§ظ„ط£ظ…ظ†",
-        server_online: "ط§ظ„ط³ظٹط±ظپط± Online",
+        nav_dashboard: "لوحة التحكم",
+        nav_create_home: "إنشاء منزل",
+        nav_devices: "الأجهزة",
+        nav_cameras: "الكاميرات",
+        nav_energy: "الطاقة",
+        nav_users: "المستخدمون",
+        nav_status: "حالة النظام",
+        nav_logs: "سجلات الأمن",
+        server_online: "السيرفر Online",
         system_admin: "System Owner",
-        homes_overview: "ظ†ط¸ط±ط© ط¹ط§ظ…ط© ط¹ظ„ظ‰ ط§ظ„ظ…ظ†ط§ط²ظ„",
-        homes_overview_desc: "ظ…ط±ط§ظ‚ط¨ط© ط§ظ„ظ…ظ†ط§ط²ظ„ ط§ظ„ظ…ط³ط¬ظ„ط© ظˆط­ط§ظ„ط© ط§ظ„ظ†ط¸ط§ظ…",
-        add_home: "ط¥ط¶ط§ظپط© ظ…ظ†ط²ظ„",
-        total_homes: "ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظ…ظ†ط§ط²ظ„",
-        total_devices: "ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ط£ط¬ظ‡ط²ط©",
-        online_devices: "ط§ظ„ط£ط¬ظ‡ط²ط© Online",
-        active_devices: "ط§ظ„ط£ط¬ظ‡ط²ط© ط§ظ„ظ†ط´ط·ط©",
-        camera_devices: "ط£ط¬ظ‡ط²ط© ط§ظ„ظƒط§ظ…ظٹط±ط§",
-        system_errors: "ط£ط®ط·ط§ط، ط§ظ„ظ†ط¸ط§ظ…",
-        registered_homes: "ط§ظ„ظ…ظ†ط§ط²ظ„ ط§ظ„ظ…ط³ط¬ظ„ط©",
-        create_home: "ط¥ظ†ط´ط§ط، ظ…ظ†ط²ظ„",
-        no_homes_found: "ظ„ط§ طھظˆط¬ط¯ ظ…ظ†ط§ط²ظ„ ظ…ط³ط¬ظ„ط©.",
-        apartment: "ط§ظ„ط´ظ‚ط©",
-        owner: "ط§ظ„ظ…ط§ظ„ظƒ",
+        homes_overview: "نظرة عامة على المنازل",
+        homes_overview_desc: "مراقبة المنازل المسجلة وحالة النظام",
+        add_home: "إضافة منزل",
+        total_homes: "إجمالي المنازل",
+        total_devices: "إجمالي الأجهزة",
+        online_devices: "الأجهزة Online",
+        active_devices: "الأجهزة النشطة",
+        camera_devices: "أجهزة الكاميرا",
+        system_errors: "أخطاء النظام",
+        registered_homes: "المنازل المسجلة",
+        create_home: "إنشاء منزل",
+        no_homes_found: "لا توجد منازل مسجلة.",
+        apartment: "الشقة",
+        owner: "المالك",
         home_id: "Home ID",
-        devices: "ط§ظ„ط£ط¬ظ‡ط²ط©",
-        members: "ط§ظ„ط£ظپط±ط§ط¯",
-        view_details: "ط¹ط±ط¶ ط§ظ„طھظپط§طµظٹظ„",
-        back_to_homes: "ط±ط¬ظˆط¹ ظ„ظ„ظ…ظ†ط§ط²ظ„",
-        edit_home: "طھط¹ط¯ظٹظ„ ط§ظ„ظ…ظ†ط²ظ„",
-        delete: "ط­ط°ظپ",
-        home_information: "ظ…ط¹ظ„ظˆظ…ط§طھ ط§ظ„ظ…ظ†ط²ظ„",
-        apartment_number_label: "ط±ظ‚ظ… ط§ظ„ط´ظ‚ط©:",
+        devices: "الأجهزة",
+        members: "الأفراد",
+        view_details: "عرض التفاصيل",
+        back_to_homes: "رجوع للمنازل",
+        edit_home: "تعديل المنزل",
+        delete: "حذف",
+        home_information: "معلومات المنزل",
+        apartment_number_label: "رقم الشقة:",
         home_id_label: "Home ID:",
         home_code_label: "Home Code:",
-        owner_name_label: "ط§ط³ظ… ط§ظ„ظ…ط§ظ„ظƒ:",
-        email_label: "ط§ظ„ط¨ط±ظٹط¯:",
-        registered_label: "طھط§ط±ظٹط® ط§ظ„طھط³ط¬ظٹظ„:",
-        devices_label: "ط§ظ„ط£ط¬ظ‡ط²ط©:",
-        members_label: "ط§ظ„ط£ظپط±ط§ط¯:",
-        door_status: "ط­ط§ظ„ط© ط§ظ„ط¨ط§ط¨",
-        energy_usage: "ط§ط³طھظ‡ظ„ط§ظƒ ط§ظ„ط·ط§ظ‚ط©",
-        recent_access_logs: "ط¢ط®ط± ط³ط¬ظ„ط§طھ ط§ظ„ظˆطµظˆظ„",
-        time: "ط§ظ„ظˆظ‚طھ",
-        event: "ط§ظ„ط­ط¯ط«",
-        details: "ط§ظ„طھظپط§طµظٹظ„",
-        view_all_logs: "ط¹ط±ط¶ ظƒظ„ ط§ظ„ط³ط¬ظ„ط§طھ"
+        owner_name_label: "اسم المالك:",
+        email_label: "البريد:",
+        registered_label: "تاريخ التسجيل:",
+        devices_label: "الأجهزة:",
+        members_label: "الأفراد:",
+        door_status: "حالة الباب",
+        energy_usage: "استهلاك الطاقة",
+        recent_access_logs: "آخر سجلات الوصول",
+        time: "الوقت",
+        event: "الحدث",
+        details: "التفاصيل",
+        view_all_logs: "عرض كل السجلات"
     };
 
     function currentLang() {

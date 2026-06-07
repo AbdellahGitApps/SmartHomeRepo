@@ -4,14 +4,11 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Camera Monitoring</h1>
+        <h1 data-i18n="camera_monitoring">Camera Monitoring</h1>
         <p>Monitor smart door camera streams across registered homes</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline" onclick="window.location.reload()">
-            <i class="ph ph-arrows-clockwise"></i>
-            Refresh Status
-        </button>
+        <button class="btn btn-outline" onclick="window.location.reload()" data-i18n="refresh_status"><i class="ph ph-arrows-clockwise"></i> Refresh Status</button>
     </div>
 </div>
 
@@ -291,15 +288,15 @@
             </div>
 
             {% if camera.online %}
-            <span class="badge-camera badge-online">ONLINE</span>
+            <span class="badge-camera badge-online" data-i18n="status_online">ONLINE</span>
             {% else %}
-            <span class="badge-camera badge-offline">OFFLINE</span>
+            <span class="badge-camera badge-offline" data-i18n="badge_offline">OFFLINE</span>
             {% endif %}
         </div>
 
         <div class="camera-details-grid">
             <div class="camera-field">
-                <div class="camera-field-label">Apartment Number</div>
+                <div class="camera-field-label" data-i18n="apt_number_label">Apartment Number</div>
                 <div class="camera-field-value">{{ camera.apartment_number }}</div>
             </div>
 

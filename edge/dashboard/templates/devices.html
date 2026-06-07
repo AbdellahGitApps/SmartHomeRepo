@@ -254,9 +254,9 @@ window.d7m16SendRestartCommand = async function(input) {
                     </td>
                     <td>
                         {% if device.status == 'online' %}
-                        <span class="badge badge-success device-status-badge" data-device-id="{{ device.device_id }}">Online</span>
+                        <span class="badge badge-success device-status-badge" data-device-id="{{ device.device_id }}" data-i18n="status_online">Online</span>
                         {% else %}
-                        <span class="badge badge-offline device-status-badge" data-device-id="{{ device.device_id }}">Offline</span>
+                        <span class="badge badge-offline device-status-badge" data-device-id="{{ device.device_id }}" data-i18n="badge_offline">Offline</span>
                         {% endif %}
                     </td>
                     <td style="font-size: 0.9em; color: var(--text-secondary);">
@@ -686,8 +686,8 @@ window.d7m16SendRestartCommand = async function(input) {
     const isOnline = raw.includes("online");
 
     row.children[statusIdx].innerHTML = isOnline
-      ? badge("ONLINE", "phase10-status-badge phase10-online")
-      : badge("OFFLINE", "phase10-status-badge phase10-offline");
+      ? badge("<span data-i18n='status_online'><span data-i18n="status_online">Online</span></span>", "phase10-status-badge phase10-online")
+      : badge("<span data-i18n='badge_offline'><span data-i18n="status_offline">Offline</span></span>", "phase10-status-badge phase10-offline");
   }
 
   function renderEnabled(row, enabled) {
@@ -697,8 +697,8 @@ window.d7m16SendRestartCommand = async function(input) {
     row.dataset.enabledState = enabled ? "enabled" : "disabled";
 
     row.children[enabledIdx].innerHTML = enabled
-      ? badge("ENABLED", "phase10-enabled-badge phase10-enabled")
-      : badge("DISABLED", "phase10-enabled-badge phase10-disabled");
+      ? badge("<span data-i18n='btn_enable'>ENABLED</span>", "phase10-enabled-badge phase10-enabled")
+      : badge("<span data-i18n='btn_disable'>DISABLED</span>", "phase10-enabled-badge phase10-disabled");
   }
 
   function getInitialEnabled(row) {
@@ -730,7 +730,7 @@ window.d7m16SendRestartCommand = async function(input) {
 
     button.classList.remove("phase10-action-play", "phase10-action-pause");
     button.classList.add(enabled ? "phase10-action-pause" : "phase10-action-play");
-    button.title = enabled ? "Disable Device" : "Enable Device";
+    button.title = enabled ? window.d7T("btn_disable", "Disable Device") : window.d7T("btn_enable", "Enable Device");
     button.innerHTML = enabled ? '<i class="ph ph-pause"></i>' : '<i class="ph ph-play"></i>';
 
     button.onclick = function () {

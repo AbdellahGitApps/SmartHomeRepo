@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <div class="page-title">
-        <h1>Energy Monitoring</h1>
+        <h1 data-i18n="energy_monitoring">Energy Monitoring</h1>
         <p>Monitor electricity readings from registered energy devices</p>
     </div>
     <div class="header-actions">
@@ -151,7 +151,7 @@
             <i class="ph ph-lightning"></i>
         </div>
         <div>
-            <div class="label">Total Daily Usage</div>
+            <div class="label" data-i18n="total_daily_usage">Total Daily Usage</div>
             <div class="value" id="dailyUsageValue">-- kWh</div>
             <div class="sub" id="dailyUsageSub">Select an energy device</div>
         </div>
@@ -162,7 +162,7 @@
             <i class="ph ph-chart-line-up"></i>
         </div>
         <div>
-            <div class="label">Monthly Forecast</div>
+            <div class="label" data-i18n="monthly_forecast">Monthly Forecast</div>
             <div class="value" id="monthlyForecastValue">-- kWh</div>
             <div class="sub" id="monthlyForecastSub">Based on previous readings</div>
         </div>
@@ -191,7 +191,7 @@
     <div class="energy-devices-card">
         <h3 style="margin-bottom: 12px;">Latest Devices Readings</h3>
         <div id="energyDevicesList">
-            <div class="energy-empty">Loading energy devices...</div>
+            <div class="energy-empty"><span data-i18n="loading_energy">Loading energy devices...</span></div>
         </div>
     </div>
 </div>
@@ -242,7 +242,7 @@ function renderEnergyDevicesList() {
     const box = document.getElementById("energyDevicesList");
 
     if (!energyDevices.length) {
-        box.innerHTML = `<div class="energy-empty">No energy devices registered yet.</div>`;
+        box.innerHTML = `<div class="energy-empty"><span data-i18n="no_energy_devices">No energy devices registered yet.</span></div>`;
         return;
     }
 
@@ -392,7 +392,7 @@ function selectEnergyDevice(deviceId) {
 
 async function loadEnergyData() {
     const list = document.getElementById("energyDevicesList");
-    list.innerHTML = `<div class="energy-empty">Loading energy devices...</div>`;
+    list.innerHTML = `<div class="energy-empty"><span data-i18n="loading_energy">Loading energy devices...</span></div>`;
 
     try {
         const response = await fetch("/api/dashboard/energy-page-data-v2", { cache: "no-store" });
@@ -406,7 +406,7 @@ async function loadEnergyData() {
         drawEnergyChart();
     } catch (error) {
         console.error(error);
-        list.innerHTML = `<div class="energy-empty">Failed to load energy data.</div>`;
+        list.innerHTML = `<div class="energy-empty"><span data-i18n="failed_energy">Failed to load energy data.</span></div>`;
         renderEnergyCards();
         drawEnergyChart();
     }

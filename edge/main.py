@@ -135,6 +135,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
+from routers.dashboard import router as dashboard_router
+app.include_router(dashboard_router)
+
 
 @app.on_event("startup")
 def print_local_ip():
@@ -149,6 +152,18 @@ def print_local_ip():
         print("="*60 + "\n")
     except Exception:
         pass
+
+
+# =========================
+# GLOBAL UTF-8 MIDDLEWARE
+# =========================
+@app.middleware("http")
+async def force_utf8_response(request: Request, call_next):
+    response = await call_next(request)
+    ctype = response.headers.get("Content-Type", "")
+    if "application/json" in ctype and "charset" not in ctype.lower():
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+    return response
 
 
 # =========================
@@ -852,7 +867,7 @@ async def _security_log_device_commands(request: Request, call_next):
     return response
 
 
-@app.get("/api/dashboard/security-logs-data")
+@app.get("/api/dashboard/security-logs-data-old")
 def api_dashboard_security_logs_data(limit: int = 100):
     return {
         "success": True,
@@ -879,7 +894,7 @@ async def logs_page(request: Request):
     )
 
 
-@app.get("/api/dashboard/logs")
+@app.get("/api/dashboard/logs-old")
 async def api_dashboard_logs():
     logs = _get_security_logs()
     return {
@@ -1267,7 +1282,7 @@ def _d7_phase10_actor_role(request: _D7Phase10Request):
 
 
 
-@app.post("/api/dashboard/devices/{device_id}/actions/{action}")
+@app.post("/api/dashboard/devices/{device_id}/actions/{action}-old")
 def d7_phase10_dashboard_device_action(
     device_id: str,
     action: str,
@@ -1879,7 +1894,7 @@ def _d7_door_status_from_logs(logs):
 
     return {"status": "Unknown", "last_opened": "No door events yet"}
 
-@app.get("/api/dashboard/home-overview-data")
+@app.get("/api/dashboard/home-overview-data-old")
 def _d7m16_dashboard_home_overview_data():
     conn = _d7_conn()
     try:
@@ -1906,7 +1921,7 @@ def _d7m16_dashboard_home_overview_data():
     finally:
         conn.close()
 
-@app.get("/api/dashboard/home-details-data")
+@app.get("/api/dashboard/home-details-data-old")
 def _d7m16_dashboard_home_details_data(home_id: str):
     conn = _d7_conn()
     try:
@@ -1941,7 +1956,7 @@ def _d7m16_dashboard_home_details_data(home_id: str):
     finally:
         conn.close()
 
-@app.post("/api/dashboard/homes/{home_id}/edit")
+@app.post("/api/dashboard/homes/{home_id}/edit-old")
 async def _d7m16_dashboard_edit_home(home_id: int, request: _D7Request):
     payload = await request.json()
     conn = _d7_conn()
@@ -1985,7 +2000,7 @@ async def _d7m16_dashboard_edit_home(home_id: int, request: _D7Request):
     finally:
         conn.close()
 
-@app.post("/api/dashboard/homes/{home_id}/devices")
+@app.post("/api/dashboard/homes/{home_id}/devices-old")
 async def _d7m16_dashboard_add_device(home_id: int, request: _D7Request):
     payload = await request.json()
     conn = _d7_conn()
@@ -2128,7 +2143,7 @@ def _d7_device_home_value(device):
         pass
     return str(home)
 
-@app.post("/api/dashboard/final-devices/{device_id}/actions/{action}")
+@app.post("/api/dashboard/final-devices/{device_id}/actions/{action}-old")
 async def _d7m16_final_device_action(device_id: str, action: str, request: _D7DeviceRequest):
     action = action.lower().strip()
     if action not in {"enable", "disable", "restart", "remove"}:
@@ -2219,7 +2234,7 @@ async def _d7m16_final_device_action(device_id: str, action: str, request: _D7De
     finally:
         conn.close()
 
-@app.post("/api/dashboard/final-devices/normalize-demo-status")
+@app.post("/api/dashboard/final-devices/normalize-demo-status-old")
 def _d7m16_normalize_demo_device_status():
     conn = _d7_device_db()
     try:
@@ -2358,7 +2373,7 @@ def _d7_r3_log(conn, severity, actor, apartment, event_type, details, action_tak
         [row[c] for c in insert_cols],
     )
 
-@app.post("/api/dashboard/final-devices-v3/{device_key}/actions/{action}")
+@app.post("/api/dashboard/final-devices-v3/{device_key}/actions/{action}-old")
 def _d7m16_final_device_action_v3(device_key: str, action: str):
     action = action.lower().strip()
     if action not in {"enable", "disable", "restart", "remove", "delete"}:
@@ -2449,7 +2464,7 @@ def _d7m16_final_device_action_v3(device_key: str, action: str):
     finally:
         conn.close()
 
-@app.post("/api/dashboard/homes-v3/{home_key}/delete")
+@app.post("/api/dashboard/homes-v3/{home_key}/delete-old")
 def _d7m16_delete_home_v3(home_key: str):
     conn = _d7_r3_conn()
     try:
@@ -2650,7 +2665,7 @@ def _d7_fix4_log(conn, severity, actor, apartment, event_type, details, action_t
         [row[c] for c in insert_cols],
     )
 
-@app.post("/api/dashboard/final-devices-v4/{device_key}/actions/{action}")
+@app.post("/api/dashboard/final-devices-v4/{device_key}/actions/{action}-old")
 def _d7m16_final_device_action_v4(device_key: str, action: str):
     action = action.lower().strip()
     if action == "delete":
@@ -2739,7 +2754,7 @@ def _d7m16_final_device_action_v4(device_key: str, action: str):
     finally:
         conn.close()
 
-@app.post("/api/dashboard/homes-v4/{home_key}/delete")
+@app.post("/api/dashboard/homes-v4/{home_key}/delete-old")
 def _d7m16_delete_home_v4(home_key: str):
     conn = _d7_fix4_conn()
     try:
@@ -2854,7 +2869,7 @@ def _d7_delete5_cols(conn, table):
         return []
     return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
-@app.post("/api/dashboard/final-devices-v5/{device_key}/remove")
+@app.post("/api/dashboard/final-devices-v5/{device_key}/remove-old")
 def _d7m16_delete_device_v5(device_key: str):
     key = _d7_delete5_clean(device_key)
     total_deleted = 0
@@ -3056,7 +3071,7 @@ def _d7_v6_log_once(apartment, event_type, details, action_taken, severity):
     finally:
         conn.close()
 
-@app.post("/api/dashboard/final-devices-v6/{device_key}/actions/{action}")
+@app.post("/api/dashboard/final-devices-v6/{device_key}/actions/{action}-old")
 def _d7m16_final_device_action_v6(device_key: str, action: str):
     action = str(action or "").lower().strip()
     if action == "delete":
@@ -3331,7 +3346,7 @@ def _d7_v6_log_once(conn, severity, apartment, event_type, details, action_taken
             [row[c] for c in insert_cols]
         )
 
-@app.post("/api/dashboard/final-devices-v6/{device_key}/actions/{action}")
+@app.post("/api/dashboard/final-devices-v6/{device_key}/actions/{action}-old")
 def _d7m16_final_device_action_v6(device_key: str, action: str):
     action = str(action or "").strip().lower()
     if action == "delete":
@@ -3691,7 +3706,7 @@ def _d7_final_normalize_demo_devices():
     finally:
         conn.close()
 
-@app.get("/api/dashboard/final-qa/homes-lite")
+@app.get("/api/dashboard/final-qa/homes-lite-old")
 def _d7m16_final_homes_lite():
     conn = _d7_final_conn()
     try:
@@ -3714,7 +3729,7 @@ def _d7m16_final_homes_lite():
     finally:
         conn.close()
 
-@app.post("/api/dashboard/d7-final-device-action/{device_key}/{action}")
+@app.post("/api/dashboard/d7-final-device-action/{device_key}/{action}-old")
 def _d7m16_final_device_action(device_key: str, action: str):
     action = str(action or "").lower().strip()
 
@@ -4117,7 +4132,7 @@ def _d7r2_normalize_new_devices():
     finally:
         conn.close()
 
-@app.post("/api/dashboard/d7r2-device-action/{device_key}/{action}")
+@app.post("/api/dashboard/d7r2-device-action/{device_key}/{action}-old")
 def _d7m16_r2_device_action(device_key: str, action: str):
     action = str(action or "").lower().strip()
 
@@ -4539,7 +4554,7 @@ def _d7_energy_sort_newest_v2(rows):
         return dt or _d7_energy_datetime.min
     return sorted(rows, key=key, reverse=True)
 
-@app.get("/api/dashboard/energy-page-data-v2")
+@app.get("/api/dashboard/energy-page-data-v2-old")
 def _d7m16_energy_page_data_v2():
     db_path = _d7_energy_find_main_db_v2()
 
@@ -7617,7 +7632,7 @@ def _d7real_alert_item(conn, key, title, message, category, typ, severity, times
         item.update(extra)
     return item
 
-@app.delete("/api/dashboard/logs/{log_id}")
+@app.delete("/api/dashboard/logs/{log_id}-old")
 def d7real_delete_dashboard_log(log_id: int):
     conn = _d7real_conn()
     try:
@@ -7627,7 +7642,7 @@ def d7real_delete_dashboard_log(log_id: int):
     finally:
         conn.close()
 
-@app.delete("/api/dashboard/logs/bulk")
+@app.delete("/api/dashboard/logs/bulk-old")
 def d7real_delete_dashboard_logs_bulk(payload: dict = _D7RealBody(default_factory=dict)):
     date_filter = _d7real_s(payload.get("date", "all")).lower()
     event_filter = _d7real_s(payload.get("event_type", "all"))
@@ -8834,7 +8849,7 @@ def d7final_delete_door_logs_bulk(payload: dict = _D7FinalBody(default_factory=d
     finally:
         conn.close()
 
-@app.delete("/api/dashboard/logs-final/{log_id}")
+@app.delete("/api/dashboard/logs-final/{log_id}-old")
 def d7final_delete_dashboard_log(log_id: int):
     conn = _d7final_conn()
     try:
@@ -8845,7 +8860,7 @@ def d7final_delete_dashboard_log(log_id: int):
     finally:
         conn.close()
 
-@app.delete("/api/dashboard/logs-final/bulk")
+@app.delete("/api/dashboard/logs-final/bulk-old")
 def d7final_delete_dashboard_logs_bulk(payload: dict = _D7FinalBody(default_factory=dict)):
     conn = _d7final_conn()
     try:
@@ -9196,7 +9211,7 @@ def _d7_final_delete_by_id(con, table, log_id):
     cur = con.execute(f"DELETE FROM {table} WHERE {id_col} = ?", (str(log_id),))
     return cur.rowcount
 
-@app.delete("/api/dashboard/security-logs/{log_id}")
+@app.delete("/api/dashboard/security-logs/{log_id}-old")
 def d7m16_final_delete_dashboard_security_log(log_id: str):
     con = _d7_final_conn()
     try:
@@ -9206,7 +9221,7 @@ def d7m16_final_delete_dashboard_security_log(log_id: str):
     finally:
         con.close()
 
-@app.post("/api/dashboard/security-logs/delete-filtered")
+@app.post("/api/dashboard/security-logs/delete-filtered-old")
 def d7m16_final_delete_dashboard_security_logs_filtered(payload: dict = _D7FinalBody(default_factory=dict)):
     conn = _d7final_conn()
     try:
@@ -9283,7 +9298,7 @@ def d7m16_final_bulk_delete_app_door_access_logs(payload: dict = _D7FinalBody(de
 # D7M16_FINAL_DELETE_AND_ALERT_COUNT_PATCH_END
 
 # D7M16_FINAL_POST_DELETE_COMPAT_FIX_START
-@app.post("/api/dashboard/logs-final/bulk")
+@app.post("/api/dashboard/logs-final/bulk-old")
 def d7m16_post_dashboard_logs_final_bulk(payload: dict = _D7FinalBody(default_factory=dict)):
     return d7m16_final_delete_dashboard_security_logs_filtered(payload)
 

@@ -64,8 +64,8 @@ class _DeviceCardState extends State<DeviceCard>
                 : [
                     BoxShadow(
                       color: widget.device.isActive
-                          ? Theme.of(context).primaryColor.withOpacity(0.15)
-                          : Colors.black.withOpacity(0.04),
+                          ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
+                          : Colors.black.withValues(alpha: 0.04),
                       blurRadius: widget.device.isActive ? 20 : 10,
                       offset: const Offset(0, 4),
                     ),
@@ -85,7 +85,7 @@ class _DeviceCardState extends State<DeviceCard>
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: widget.device.isActive
-                          ? Theme.of(context).primaryColor.withOpacity(0.2)
+                          ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
                           : (isDark
                                 ? const Color(0xFF334155)
                                 : Colors.grey[100]),
@@ -118,7 +118,7 @@ class _DeviceCardState extends State<DeviceCard>
                       boxShadow: widget.device.isActive
                           ? [
                               BoxShadow(
-                                color: Colors.green.withOpacity(0.5),
+                                color: Colors.green.withValues(alpha: 0.5),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),

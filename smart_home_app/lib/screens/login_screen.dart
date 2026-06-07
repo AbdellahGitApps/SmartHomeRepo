@@ -32,10 +32,10 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscureSignInPassword = true;
   bool _obscureLoginPassword = true;
   bool _obscureUserPassword = true;
-  bool _obscureSignInPhone = true;
-  bool _obscureSignInHomeCode = true;
-  bool _obscureLoginPhone = true;
-  bool _obscureUserLogin = true;
+  final bool _obscureSignInPhone = true;
+  final bool _obscureSignInHomeCode = true;
+  final bool _obscureLoginPhone = true;
+  final bool _obscureUserLogin = true;
 
   bool _obscureRecoveryNewPassword = true;
   bool _obscureRecoveryConfirmPassword = true;

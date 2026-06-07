@@ -256,10 +256,13 @@ class AddMemberBottomSheet {
                                     );
                                   }
 
+                                  if (!context.mounted || !sheetContext.mounted) return;
+
                                   if (Navigator.canPop(sheetContext)) {
                                     Navigator.pop(sheetContext);
                                   }
                                 } catch (error) {
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text(error.toString())),
                                   );
@@ -431,7 +434,7 @@ class AddMemberBottomSheet {
                       if (orderedCameras.length > 1) ...[
                         const SizedBox(height: 10),
                         DropdownButtonFormField<CameraDescription>(
-                          value: selectedCamera,
+                          initialValue: selectedCamera,
                           isExpanded: true,
                           decoration: InputDecoration(
                             labelText: 'Camera',
@@ -550,11 +553,11 @@ class AddMemberBottomSheet {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: active
-              ? Colors.green.withOpacity(0.08)
-              : Colors.grey.withOpacity(0.04),
+              ? Colors.green.withValues(alpha: 0.08)
+              : Colors.grey.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: active ? Colors.green : Colors.grey.withOpacity(0.18),
+            color: active ? Colors.green : Colors.grey.withValues(alpha: 0.18),
           ),
         ),
         child: Column(

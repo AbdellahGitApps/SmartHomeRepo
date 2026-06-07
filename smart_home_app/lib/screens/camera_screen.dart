@@ -260,7 +260,7 @@ class _CameraScreenState extends State<CameraScreen>
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(l10n.cameraEvents),
         centerTitle: true,

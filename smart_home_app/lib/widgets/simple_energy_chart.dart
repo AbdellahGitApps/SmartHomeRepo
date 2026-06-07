@@ -155,7 +155,7 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
                                   Theme.of(context).primaryColor,
                                   Theme.of(
                                     context,
-                                  ).primaryColor.withOpacity(0.6),
+                                  ).primaryColor.withValues(alpha: 0.6),
                                 ],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
@@ -167,7 +167,7 @@ class _SimpleEnergyChartState extends State<SimpleEnergyChart>
                                   ? [
                                       BoxShadow(
                                         color: Theme.of(context).primaryColor
-                                            .withOpacity(
+                                            .withValues(alpha: 
                                               0.3 * barAnimation.value,
                                             ),
                                         blurRadius: 12,

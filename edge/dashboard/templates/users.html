@@ -276,36 +276,36 @@
 <div class="users-page">
   <div class="page-head">
     <div>
-      <h1 class="page-title">Users Management</h1>
-      <div class="page-subtitle">Manage System Owner and registered home owner accounts</div>
+      <h1 class="page-title" data-i18n="users_management">Users Management</h1>
+      <div class="page-subtitle" data-i18n="users_management_desc">Manage System Owneristrators and home owners</div>
     </div>
-    <button class="primary-btn" onclick="showDeferred()">+ Add User</button>
+    <button class="primary-btn" onclick="showDeferred()"><i class="ph ph-plus"></i> <span data-i18n="add_user">Add User</span></button>
   </div>
 
   <div class="panel">
     <div class="toolbar">
-      <input id="searchInput" class="field" type="search" name="d7_users_search_input" value="" autocomplete="new-password" placeholder="Search users by name or email..." oninput="this.dataset.userTyped = '1'; renderUsers()">
+      <input id="searchInput" class="field" type="search" name="d7_users_search_input" value="" autocomplete="new-password" placeholder="Search users by name or email..." data-i18n-placeholder="search_users" oninput="this.dataset.userTyped = '1'; renderUsers()">
       <select id="roleFilter" class="select" onchange="renderUsers()">
-        <option value="all">All Roles</option>
-        <option value="SYSTEM OWNER">System Owner</option>
-        <option value="HOME OWNER">Home Owner</option>
+        <option value="all" data-i18n="all_roles">All Roles</option>
+        <option value="SYSTEM OWNER" data-i18n="role_sysadmin">System Owner</option>
+        <option value="HOME OWNER" data-i18n="role_owner">Home Owner</option>
       </select>
     </div>
 
     <table>
       <thead>
         <tr>
-          <th>USER</th>
-          <th>ROLE</th>
-          <th>ASSOCIATED HOME</th>
-          <th>STATUS</th>
-          <th>LAST LOGIN</th>
-          <th>ACTIONS</th>
+          <th data-i18n="col_user">USER</th>
+          <th data-i18n="col_role">ROLE</th>
+          <th data-i18n="col_assoc_home">ASSOCIATED HOME</th>
+          <th data-i18n="status">STATUS</th>
+          <th data-i18n="col_last_login">LAST LOGIN</th>
+          <th data-i18n="col_actions">ACTIONS</th>
         </tr>
       </thead>
       <tbody id="usersBody">
         <tr>
-          <td colspan="6">Loading users...</td>
+          <td colspan="6"><span data-i18n="loading"><span data-i18n="loading_users">Loading users...</span></span></td>
         </tr>
       </tbody>
     </table>
@@ -314,11 +314,11 @@
 
 <div id="ownerModal" class="modal-backdrop">
   <div class="modal">
-    <h3>Edit System Owner</h3>
+    <h3><span data-i18n="edit_sysowner">Edit System Owner</span></h3>
 
     <div class="form-row">
       <label>Username</label>
-      <input id="ownerUsername" placeholder="system_owner">
+      <input id="ownerUsername" placeholder="system_owner" data-i18n-placeholder="system">
     </div>
 
     <div class="form-row">
@@ -396,7 +396,7 @@
     const body = document.getElementById("usersBody");
 
     if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="6">No users found.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="6"><span data-i18n="no_users">No users found.</span></td></tr>`;
       return;
     }
 
@@ -408,16 +408,19 @@
 
       let actions = "";
       if (u.kind === "system_owner") {
-        actions = `<button class="icon-btn" title="Edit System Owner" onclick="openOwnerModal()">✎</button>`;
+        actions = `<button class="icon-btn" title="${window.d7T('title_edit', 'Edit')}" onclick="openOwnerModal()">✎</button>`;
       } else {
         actions = `
           <button
             class="icon-btn toggle-btn ${active ? "" : "disabled"}"
-            title="${active ? "Disable account" : "Enable account"}"
+            title="${active ? window.d7T('title_disable', 'Disable') : window.d7T('title_enable', 'Enable')}"
             onclick="toggleHomeOwner('${u.id}')"
           >${active ? "⊘" : "✓"}</button>
         `;
       }
+
+      const statusKey = active ? "status_active" : "status_disabled";
+      const statusTextTrans = window.d7T(statusKey, statusText);
 
       return `
         <tr>
@@ -425,15 +428,15 @@
             <div class="user-cell">
               <div class="avatar">${initials(u.name)}</div>
               <div>
-                <div class="name">${u.name || "User"}</div>
+                <div class="name">${u.name || window.d7T('col_user', 'User')}</div>
                 <div class="email">${u.email || ""}</div>
               </div>
             </div>
           </td>
-          <td><span class="badge ${roleClass}">${u.role}</span></td>
+          <td><span class="badge ${roleClass}">${window.d7T(u.role === 'SYSTEM OWNER' ? 'role_sysadmin' : 'role_owner', u.role)}</span></td>
           <td>${u.associated_home || "--"}</td>
-          <td><span class="badge ${statusClass}">${statusText}</span></td>
-          <td>${u.last_login || "Not logged in yet"}</td>
+          <td><span class="badge ${statusClass}">${statusTextTrans}</span></td>
+          <td>${u.last_login || `<span data-i18n='never_logged_in'><span data-i18n="never_logged_in">Not logged in yet</span></span>`}</td>
           <td><div class="actions">${actions}</div></td>
         </tr>
       `;

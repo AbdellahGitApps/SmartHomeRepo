@@ -436,7 +436,7 @@ class _DoorsScreenState extends State<DoorsScreen>
   Widget _buildAccessLogFilters(BuildContext context, bool isDark) {
     Widget dateFilter() {
       return DropdownButtonFormField<String>(
-        value: _accessLogDates.contains(_selectedAccessDate)
+        initialValue: _accessLogDates.contains(_selectedAccessDate)
             ? _selectedAccessDate
             : 'all',
         isExpanded: true,
@@ -466,7 +466,7 @@ class _DoorsScreenState extends State<DoorsScreen>
 
     Widget actorFilter() {
       return DropdownButtonFormField<String>(
-        value: _accessLogActors.contains(_selectedAccessActor)
+        initialValue: _accessLogActors.contains(_selectedAccessActor)
             ? _selectedAccessActor
             : 'all',
         isExpanded: true,

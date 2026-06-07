@@ -647,7 +647,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Switch(
                         value: appState.themeMode == ThemeMode.dark,
                         onChanged: (val) => appState.toggleTheme(val),
-                        activeColor: Theme.of(context).primaryColor,
+                        activeThumbColor: Theme.of(context).primaryColor,
                       ),
                       Icon(
                         LucideIcons.moon,
@@ -988,7 +988,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Theme.of(context).primaryColor,
+            activeThumbColor: Theme.of(context).primaryColor,
           ),
         ],
       ),

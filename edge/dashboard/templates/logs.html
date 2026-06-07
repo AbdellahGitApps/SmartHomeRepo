@@ -307,42 +307,38 @@ document.addEventListener("DOMContentLoaded", function () {
 
 <div class="page-header">
     <div class="page-title">
-        <h1>Security Logs</h1>
+        <h1 data-i18n="security_logs">Security Logs</h1>
         <p>Review access and security events across registered homes</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-outline" onclick="loadLogs()">
-            <i class="ph ph-arrows-clockwise"></i> Refresh
-        </button>
+        <button class="btn btn-outline" onclick="loadLogs()" data-i18n="btn_refresh"><i class="ph ph-arrows-clockwise"></i> Refresh</button>
         <button class="btn btn-outline" style="color:#ef4444;border-color:#ef4444;" onclick="deleteFilteredLogsFinal()">
-            <i class="ph ph-trash"></i> Delete Filtered
+            <i class="ph ph-trash"></i> <span data-i18n="delete_filtered">Delete Filtered</span>
         </button>
-        <button class="btn btn-outline" onclick="exportLogsCsv()">
-            <i class="ph ph-download"></i> Export CSV
-        </button>
+        <button class="btn btn-outline" onclick="exportLogsCsv()" data-i18n="export_csv"><i class="ph ph-download"></i> Export CSV</button>
     </div>
 </div>
 
 <div class="glass-card">
     <div style="display: grid; grid-template-columns: 1fr 180px 180px 210px 180px; gap: 14px; margin-bottom: 20px;">
-        <input id="logSearch" class="form-control" placeholder="Search events...">
+        <input id="logSearch" class="form-control" placeholder="Search events..." data-i18n-placeholder="search_events">
 
         <select id="dateFilter" class="form-control">
-            <option value="">All Dates</option>
+            <option value=""><span data-i18n="all_dates">All Dates</span></option>
         </select>
 
         <select id="actorFilter" class="form-control">
             <option value="">All Actors</option>
-            <option value="System Owner">System Owner</option>
+            <option value="System Owner" data-i18n="role_sysadmin">System Owner</option>
             <option value="Admin App">Admin App</option>
             <option value="Server">Server</option>
         </select>
 
         <select id="eventFilter" class="form-control">
-            <option value="">All Events</option>
+            <option value="" data-i18n="all_events">All Events</option>
             <option value="Smart Door Command">Smart Door Command</option>
             <option value="Smart Door Event">Smart Door Event</option>
-            <option value="Face Recognition">Face Recognition</option>
+            <option value="Face Recognition" data-i18n="face_recognition">Face Recognition</option>
             <option value="Energy Monitor Command">Energy Monitor Command</option>
             <option value="Energy Warning">Energy Warning</option>
             <option value="Family Management">Family Management</option>
@@ -351,11 +347,11 @@ document.addEventListener("DOMContentLoaded", function () {
         </select>
 
         <select id="severityFilter" class="form-control">
-            <option value="">All Severities</option>
-            <option value="INFO">INFO</option>
-            <option value="WARNING">WARNING</option>
+            <option value="" data-i18n="all_severities">All Severities</option>
+            <option value="INFO" data-i18n="badge_info">INFO</option>
+            <option value="WARNING" data-i18n="badge_warning">WARNING</option>
             <option value="ERROR">ERROR</option>
-            <option value="CRITICAL">CRITICAL</option>
+            <option value="CRITICAL" data-i18n="badge_critical">CRITICAL</option>
         </select>
     </div>
 
@@ -363,20 +359,20 @@ document.addEventListener("DOMContentLoaded", function () {
             <thead>
                 <tr>
                     <th style="width:42px;">#</th>
-                    <th style="white-space:nowrap; min-width:245px; width:245px;">Timestamp</th>
-                    <th>Severity</th>
+                    <th style="white-space:nowrap; min-width:245px; width:245px;" data-i18n="timestamp">Timestamp</th>
+                    <th data-i18n="severity">Severity</th>
                     <th>Actor</th>
-                    <th>Apartment Number</th>
-                    <th>Event Type</th>
-                    <th>Details</th>
-                    <th>Action Taken</th>
-                    <th>Delete</th>
+                    <th data-i18n="apt_number_label">Apartment Number</th>
+                    <th data-i18n="event_type">Event Type</th>
+                    <th data-i18n="details">Details</th>
+                    <th data-i18n="action_taken">Action Taken</th>
+                    <th data-i18n="delete">Delete</th>
                 </tr>
             </thead>
             <tbody id="logsTableBody">
                 <tr>
                     <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:24px;">
-                        Loading logs...
+                        <span data-i18n="loading_logs">Loading logs...</span>
                     </td>
                 </tr>
             </tbody>
@@ -406,10 +402,10 @@ function severityBadge(severity) {
     }
 
     if (value === "WARNING") {
-        return `<span class="badge badge-warning">WARNING</span>`;
+        return `<span class="badge badge-warning" data-i18n="badge_warning">WARNING</span>`;
     }
 
-    return `<span class="badge badge-success">INFO</span>`;
+    return `<span class="badge badge-success" data-i18n="badge_info">INFO</span>`;
 }
 
 function parseLogDate(value) {
@@ -785,7 +781,7 @@ function buildDateFilter() {
             .filter(Boolean)
     )).sort((a, b) => b.localeCompare(a));
 
-    select.innerHTML = `<option value="">All Dates</option>` + dates.map((date) => {
+    select.innerHTML = `<option value=""><span data-i18n="all_dates">All Dates</span></option>` + dates.map((date) => {
         return `<option value="${date}">${date}</option>`;
     }).join("");
 
@@ -893,7 +889,7 @@ async function loadLogs() {
     tbody.innerHTML = `
         <tr>
             <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:24px;">
-                Loading logs...
+                <span data-i18n="loading_logs">Loading logs...</span>
             </td>
         </tr>
     `;
@@ -1081,7 +1077,7 @@ document.addEventListener("DOMContentLoaded", () => {
       tbody.innerHTML = `
         <tr>
           <td colspan="9" style="text-align:center; color:var(--text-secondary); padding:24px;">
-            Loading logs...
+            <span data-i18n="loading_logs">Loading logs...</span>
           </td>
         </tr>
       `;
@@ -1460,7 +1456,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const btn = document.createElement("button");
         btn.id = "d7DeleteFilteredLogsBtn";
         btn.className = "d7-log-delete-filtered-btn";
-        btn.innerHTML = '<i class="ph ph-trash"></i> Delete Filtered';
+        btn.innerHTML = '<i class="ph ph-trash"></i> <span data-i18n="delete_filtered">Delete Filtered</span>';
         btn.addEventListener("click", async function () {
             const payload = {
                 date: valueOf("dateFilter"),

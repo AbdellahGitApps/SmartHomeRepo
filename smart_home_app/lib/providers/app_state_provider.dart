@@ -786,7 +786,7 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
         if (parsedHomeId == null) {
           _homeId = _homeDbId;
         } else {
-          _homeId = 'HOME-' + parsedHomeId.toString().padLeft(3, '0');
+          _homeId = 'HOME-${parsedHomeId.toString().padLeft(3, '0')}';
         }
       }
 
@@ -1552,13 +1552,15 @@ class FamilyMember {
         if (value is num) return value != 0;
 
         final text = value?.toString().toLowerCase();
-        if (text == 'true' || text == '1' || text == 'yes' || text == 'enabled')
+        if (text == 'true' || text == '1' || text == 'yes' || text == 'enabled') {
           return true;
+        }
         if (text == 'false' ||
             text == '0' ||
             text == 'no' ||
-            text == 'disabled')
+            text == 'disabled') {
           return false;
+        }
       }
 
       return fallback;

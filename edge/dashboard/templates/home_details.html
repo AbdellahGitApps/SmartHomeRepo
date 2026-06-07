@@ -126,7 +126,7 @@
                         </thead>
                         <tbody id="recentLogsBody">
                             <tr>
-                                <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 18px;">Loading logs...</td>
+                                <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 18px;"><span data-i18n="loading_logs">Loading logs...</span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -144,23 +144,23 @@
 
 <div id="editHomeModal" style="position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2,6,23,.72); z-index: 99999;">
     <div class="glass-card" style="width: min(620px, 92vw);">
-        <h3 style="margin-bottom: 16px;">Edit Home</h3>
+        <h3 style="margin-bottom: 16px;" data-i18n="edit_home">Edit Home</h3>
         <input type="hidden" id="editHomeRawId">
 
         <div style="display: grid; gap: 12px;">
-            <label>Apartment Number</label>
+            <label data-i18n="apt_number_label">Apartment Number</label>
             <input id="editApartmentNumber" class="form-control" type="text">
 
-            <label>Owner Name</label>
+            <label data-i18n="owner_name">Owner Name</label>
             <input id="editOwnerName" class="form-control" type="text">
 
-            <label>Owner Email</label>
+            <label data-i18n="owner_email">Owner Email</label>
             <input id="editOwnerEmail" class="form-control" type="email">
 
             <hr style="border:0; border-top:1px solid var(--glass-border); margin: 10px 0;">
 
-            <h4>Add Device</h4>
-            <input id="newDeviceName" class="form-control" type="text" placeholder="Device Name">
+            <h4 data-i18n="add_device">Add Device</h4>
+            <input id="newDeviceName" class="form-control" type="text" placeholder="Device Name" data-i18n-placeholder="col_device_name">
             <select id="newDeviceType" class="form-control">
                 <option value="smart_door">smart_door</option>
                 <option value="energy_monitor">energy_monitor</option>
@@ -302,7 +302,7 @@ function renderDevices(devices) {
     container.innerHTML = '';
 
     if (!devices || devices.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-secondary);">No devices registered for this home.</p>';
+        container.innerHTML = '<p style="color: var(--text-secondary);"><span data-i18n="no_home_devices">No devices registered for this home.</span></p>';
         return;
     }
 

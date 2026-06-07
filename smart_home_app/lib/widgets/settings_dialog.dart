@@ -38,7 +38,7 @@ class SettingsDialog extends StatelessWidget {
                   Switch(
                     value: appState.themeMode == ThemeMode.dark,
                     onChanged: (val) => appState.toggleTheme(val),
-                    activeColor: Theme.of(context).primaryColor,
+                    activeThumbColor: Theme.of(context).primaryColor,
                   ),
                   Text(l10n.darkMode),
                 ],
@@ -69,7 +69,7 @@ class SettingsDialog extends StatelessWidget {
                     Set<WidgetState> states,
                   ) {
                     if (states.contains(WidgetState.selected)) {
-                      return Theme.of(context).primaryColor.withOpacity(0.2);
+                      return Theme.of(context).primaryColor.withValues(alpha: 0.2);
                     }
                     return Colors.transparent;
                   }),
