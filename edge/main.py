@@ -18,7 +18,7 @@ import json
 import math
 import re
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -423,9 +423,40 @@ def _d7_create_home_validate_unique_owner_phone(phone: str, exclude_home_id=None
         from fastapi import HTTPException
         raise HTTPException(status_code=409, detail="Owner Phone is already used by another home.")
 
+import smtplib
+from email.mime.text import MIMEText
+
+def send_home_code_email(email_address: str, home_code: str):
+    try:
+        if not email_address or "@" not in email_address:
+            return
+
+        subject = "Your Home Code"
+        body = f"Your Home Code is: {home_code}"
+
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = "smarthomeappust@gmail.com"
+        msg["To"] = email_address
+
+        smtp_host = "smtp.gmail.com"
+        smtp_port = 587
+        smtp_user = "smarthomeappust@gmail.com"
+        smtp_pass = "cizm sowk rgvf pbnd"
+
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+
+        server.send_message(msg)
+
+        server.quit()
+
+    except Exception as e:
+        print("[EMAIL ERROR]", e)
 
 @app.post("/create-home")
-def create_home_endpoint(payload: HomeCreateRequest, db: Session = Depends(get_db)):
+def create_home_endpoint(payload: HomeCreateRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     
     try:
         clean_owner_phone = _d7_create_home_clean_phone(payload.owner_phone)
@@ -459,6 +490,10 @@ def create_home_endpoint(payload: HomeCreateRequest, db: Session = Depends(get_d
                     "device_token": db_device.device_token,
                 }
             )
+
+        # Send the home code via email in the background
+        if payload.owner_email:
+            background_tasks.add_task(send_home_code_email, payload.owner_email, db_home.home_code)
 
         return {
             "success": True,

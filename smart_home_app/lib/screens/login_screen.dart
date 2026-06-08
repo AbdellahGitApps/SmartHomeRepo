@@ -37,8 +37,6 @@ class _LoginScreenState extends State<LoginScreen>
   final bool _obscureLoginPhone = true;
   final bool _obscureUserLogin = true;
 
-  bool _obscureRecoveryNewPassword = true;
-  bool _obscureRecoveryConfirmPassword = true;
   String? _errorMessage;
   bool _isLoading = false;
 
@@ -325,204 +323,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _showForgotPasswordDialog() async {
-    final appState = Provider.of<AppStateProvider>(context, listen: false);
-
-    final phoneCtrl = TextEditingController();
-    final otpCtrl = TextEditingController();
-    final newPasswordCtrl = TextEditingController();
-    final confirmPasswordCtrl = TextEditingController();
-
-    bool otpRequested = false;
-    String? dialogError;
-    String? dialogInfo;
-
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> requestCode() async {
-              final ok = await appState.requestPasswordRecoveryCode(
-                phoneCtrl.text.trim(),
-              );
-
-              if (!context.mounted) return;
-
-              if (!ok) {
-                setDialogState(() {
-                  dialogError =
-                      appState.lastAuthError ??
-                      'Could not generate recovery code.';
-                  dialogInfo = null;
-                });
-                return;
-              }
-
-              setDialogState(() {
-                otpRequested = true;
-                dialogError = null;
-                dialogInfo = 'Recovery code generated in Security Logs.';
-              });
-            }
-
-            Future<void> resetPassword() async {
-              if (newPasswordCtrl.text.trim() !=
-                  confirmPasswordCtrl.text.trim()) {
-                setDialogState(() {
-                  dialogError = 'Password confirmation does not match.';
-                  dialogInfo = null;
-                });
-                return;
-              }
-
-              final ok = await appState.resetPasswordWithRecoveryCode(
-                phone: phoneCtrl.text.trim(),
-                otp: otpCtrl.text.trim(),
-                newPassword: newPasswordCtrl.text.trim(),
-              );
-
-              if (!context.mounted) return;
-
-              if (!ok) {
-                setDialogState(() {
-                  dialogError =
-                      appState.lastAuthError ?? 'Could not reset password.';
-                  dialogInfo = null;
-                });
-                return;
-              }
-
-              Navigator.of(dialogContext).pop();
-
-              if (!mounted) return;
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Password reset successfully')),
-              );
-            }
-
-            return AlertDialog(
-              title: const Text('Forgot Password'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (dialogError != null)
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          dialogError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    if (dialogInfo != null)
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          dialogInfo!,
-                          style: const TextStyle(color: Colors.green),
-                        ),
-                      ),
-                    TextField(
-                      controller: phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Owner Phone',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                      ),
-                    ),
-                    if (otpRequested) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: otpCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Recovery Code',
-                          prefixIcon: Icon(Icons.password_outlined),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: newPasswordCtrl,
-                        obscureText: _obscureRecoveryNewPassword,
-                        decoration: InputDecoration(
-                          labelText: 'New Password',
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureRecoveryNewPassword
-                                  ? LucideIcons.eyeOff
-                                  : LucideIcons.eye,
-                            ),
-                            onPressed: () {
-                              setDialogState(() {
-                                _obscureRecoveryNewPassword =
-                                    !_obscureRecoveryNewPassword;
-                              });
-                            },
-                          ),
-                          prefixIcon: Icon(Icons.lock_outline),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: confirmPasswordCtrl,
-                        obscureText: _obscureRecoveryConfirmPassword,
-                        decoration: InputDecoration(
-                          labelText: 'Confirm Password',
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureRecoveryConfirmPassword
-                                  ? LucideIcons.eyeOff
-                                  : LucideIcons.eye,
-                            ),
-                            onPressed: () {
-                              setDialogState(() {
-                                _obscureRecoveryConfirmPassword =
-                                    !_obscureRecoveryConfirmPassword;
-                              });
-                            },
-                          ),
-                          prefixIcon: Icon(Icons.lock_reset_outlined),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: otpRequested ? resetPassword : requestCode,
-                  child: Text(
-                    otpRequested ? 'Reset Password' : 'Generate Code',
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => const _ForgotPasswordDialog(),
     );
-
-    phoneCtrl.dispose();
-    otpCtrl.dispose();
-    newPasswordCtrl.dispose();
-    confirmPasswordCtrl.dispose();
   }
 
   void _showServerIpDialog() {
@@ -995,6 +799,215 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ForgotPasswordDialog extends StatefulWidget {
+  const _ForgotPasswordDialog();
+
+  @override
+  State<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  late final TextEditingController phoneCtrl;
+  late final TextEditingController otpCtrl;
+  late final TextEditingController newPasswordCtrl;
+  late final TextEditingController confirmPasswordCtrl;
+
+  bool otpRequested = false;
+  String? dialogError;
+  String? dialogInfo;
+  bool _obscureRecoveryNewPassword = true;
+  bool _obscureRecoveryConfirmPassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    phoneCtrl = TextEditingController();
+    otpCtrl = TextEditingController();
+    newPasswordCtrl = TextEditingController();
+    confirmPasswordCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    phoneCtrl.dispose();
+    otpCtrl.dispose();
+    newPasswordCtrl.dispose();
+    confirmPasswordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> requestCode() async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    final ok = await appState.requestPasswordRecoveryCode(
+      phoneCtrl.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (!ok) {
+      setState(() {
+        dialogError = appState.lastAuthError ?? 'Could not generate recovery code.';
+        dialogInfo = null;
+      });
+      return;
+    }
+
+    setState(() {
+      otpRequested = true;
+      dialogError = null;
+      dialogInfo = 'Recovery code generated in Security Logs.';
+    });
+  }
+
+  Future<void> resetPassword() async {
+    final appState = Provider.of<AppStateProvider>(context, listen: false);
+    if (newPasswordCtrl.text.trim() != confirmPasswordCtrl.text.trim()) {
+      setState(() {
+        dialogError = 'Password confirmation does not match.';
+        dialogInfo = null;
+      });
+      return;
+    }
+
+    final ok = await appState.resetPasswordWithRecoveryCode(
+      phone: phoneCtrl.text.trim(),
+      otp: otpCtrl.text.trim(),
+      newPassword: newPasswordCtrl.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (!ok) {
+      setState(() {
+        dialogError = appState.lastAuthError ?? 'Could not reset password.';
+        dialogInfo = null;
+      });
+      return;
+    }
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(content: Text('Password reset successfully')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Forgot Password'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dialogError != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  dialogError!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            if (dialogInfo != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  dialogInfo!,
+                  style: const TextStyle(color: Colors.green),
+                ),
+              ),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Owner Phone',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+            ),
+            if (otpRequested) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: otpCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Recovery Code',
+                  prefixIcon: Icon(Icons.password_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPasswordCtrl,
+                obscureText: _obscureRecoveryNewPassword,
+                decoration: InputDecoration(
+                  labelText: 'New Password',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureRecoveryNewPassword
+                          ? LucideIcons.eyeOff
+                          : LucideIcons.eye,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureRecoveryNewPassword = !_obscureRecoveryNewPassword;
+                      });
+                    },
+                  ),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPasswordCtrl,
+                obscureText: _obscureRecoveryConfirmPassword,
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureRecoveryConfirmPassword
+                          ? LucideIcons.eyeOff
+                          : LucideIcons.eye,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureRecoveryConfirmPassword = !_obscureRecoveryConfirmPassword;
+                      });
+                    },
+                  ),
+                  prefixIcon: const Icon(Icons.lock_reset_outlined),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: otpRequested ? resetPassword : requestCode,
+          child: Text(
+            otpRequested ? 'Reset Password' : 'Generate Code',
+          ),
+        ),
+      ],
     );
   }
 }
