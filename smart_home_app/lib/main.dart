@@ -7,6 +7,7 @@ import 'theme/app_theme.dart';
 import 'providers/app_state_provider.dart';
 import 'screens/main_layout.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(
@@ -38,7 +39,7 @@ class SmartHomeApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [Locale('en'), Locale('ar')],
-          home: appState.isLoggedIn ? const MainLayout() : const LoginScreen(),
+          home: const SplashScreen(),
         );
       },
     );
