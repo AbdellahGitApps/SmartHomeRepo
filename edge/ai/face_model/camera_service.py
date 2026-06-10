@@ -3,14 +3,15 @@ import os
 import cv2
 from datetime import datetime
 
-from app.core.config import (
+from ai.core.config import (
     SNAPSHOTS_DIR,
     KNOWN_COOLDOWN_SEC,
     UNKNOWN_COOLDOWN_SEC,
     UNKNOWN_CONFIRM_COUNT,
 )
-from app.core.db import SessionLocal
-from app.core.models import FaceEvent
+
+from ai.core.db import SessionLocal
+from ai.core.models import FaceEvent
 
 from .face_detector import FaceDetector, preprocess_for_arcface
 from .face_embedder import FaceEmbedder

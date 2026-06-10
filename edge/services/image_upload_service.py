@@ -11,13 +11,25 @@ from database.models.home import Home
 from database.repositories.device_repository import DeviceRepository
 
 
-def process_uploaded_image(image_path: str, device_id: str, home_id: int):
-    """
-    FUTURE INTEGRATION HOOK: Face Recognition
-    TODO: Add Face Recognition engine call to check for recognized members.
-    """
-    # TODO: Implement Face Recognition integration in future phase
-    pass
+from services.face_ai_service import FaceAIService
+
+_face_ai = FaceAIService()
+
+def process_uploaded_image(
+    image_path: str,
+    device_id: str,
+    home_id: int
+):
+    result = _face_ai.recognize_image(image_path)
+
+    print(
+        f"[FACE AI] "
+        f"device={device_id} "
+        f"home={home_id} "
+        f"result={result}"
+    )
+
+    return result
 
 
 def publish_device_event(device_id: str, event_type: str, payload: dict):

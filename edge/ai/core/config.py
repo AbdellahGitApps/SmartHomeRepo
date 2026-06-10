@@ -1,31 +1,23 @@
-from pathlib import Path
-import os
+from config.settings import settings
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-DB_URL = "sqlite:///./smart_home_models.db"
+BASE_DIR = settings.STORAGE_DIR.parent
 
-STORAGE_DIR = BASE_DIR / "storage"
+STORAGE_DIR = settings.STORAGE_DIR
 
-# ===== Face storage =====
-FACE_STORAGE_DIR = STORAGE_DIR / "face"
-SNAPSHOTS_DIR = FACE_STORAGE_DIR / "snapshots"
-PERSONS_DIR = FACE_STORAGE_DIR / "persons"
-FACE_MODELS_DIR = FACE_STORAGE_DIR / "models"
-FACE_ONNX_PATH = FACE_MODELS_DIR / "arcface.onnx"
+FACE_STORAGE_DIR = settings.FACE_STORAGE_DIR
+FACE_MODELS_DIR = settings.FACE_MODELS_DIR
+FACE_ONNX_PATH = settings.FACE_ONNX_PATH
 
-# ===== Energy storage =====
-ENERGY_STORAGE_DIR = STORAGE_DIR / "energy"
-ENERGY_DATASETS_DIR = ENERGY_STORAGE_DIR / "datasets"
-ENERGY_MODELS_DIR = ENERGY_STORAGE_DIR / "models"
+ENERGY_STORAGE_DIR = settings.ENERGY_STORAGE_DIR
+ENERGY_DATASETS_DIR = settings.ENERGY_DATASETS_DIR
+ENERGY_MODELS_DIR = settings.ENERGY_MODELS_DIR
 
-ENERGY_RAW_DATA_PATH = ENERGY_DATASETS_DIR / "household_power_consumption.txt"
-ENERGY_DAILY_DATA_PATH = ENERGY_DATASETS_DIR / "daily_energy.csv"
-ENERGY_MODEL_PATH = ENERGY_MODELS_DIR / "energy_forecast_model.pkl"
-ENERGY_FEATURES_PATH = ENERGY_MODELS_DIR / "energy_feature_columns.json"
+ENERGY_MODEL_PATH = settings.ENERGY_MODEL_PATH
+ENERGY_FEATURES_PATH = settings.ENERGY_FEATURES_PATH
 
-# ===== Face config =====
-SIM_THRESHOLD = float(os.getenv("SIM_THRESHOLD", "0.60"))
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "change-me-strong-token")
-KNOWN_COOLDOWN_SEC = 5
-UNKNOWN_COOLDOWN_SEC = 10
-UNKNOWN_CONFIRM_COUNT = 3
+SIM_THRESHOLD = settings.SIM_THRESHOLD
+ADMIN_TOKEN = settings.ADMIN_TOKEN
+
+KNOWN_COOLDOWN_SEC = settings.KNOWN_COOLDOWN_SEC
+UNKNOWN_COOLDOWN_SEC = settings.UNKNOWN_COOLDOWN_SEC
+UNKNOWN_CONFIRM_COUNT = settings.UNKNOWN_CONFIRM_COUNT

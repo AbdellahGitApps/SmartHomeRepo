@@ -4,7 +4,7 @@ import numpy as np
 
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from app.core.config import ENERGY_MODEL_PATH, ENERGY_FEATURES_PATH
+from config.settings import settings
 
 def mean_absolute_percentage_error_safe(y_true, y_pred):
     y_true = np.array(y_true, dtype=float)
@@ -88,9 +88,9 @@ def train_energy_model(feature_df):
         "test_size": int(len(X_test)),
     }
 
-    joblib.dump(model, ENERGY_MODEL_PATH)
+    joblib.dump(model, settings.ENERGY_MODEL_PATH)
 
-    with open(ENERGY_FEATURES_PATH, "w", encoding="utf-8") as f:
+    with open(settings.ENERGY_FEATURES_PATH, "w", encoding="utf-8") as f:
         json.dump(feature_columns, f, ensure_ascii=False, indent=2)
 
     return model, metrics

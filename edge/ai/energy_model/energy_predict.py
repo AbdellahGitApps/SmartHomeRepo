@@ -1,13 +1,13 @@
 import json
 import joblib
 import pandas as pd
-from app.core.config import ENERGY_MODEL_PATH, ENERGY_FEATURES_PATH
+from config.settings import settings
 from .energy_features import build_energy_features
 from .energy_weekly import convert_daily_to_weekly
 
 def load_energy_model():
-    model = joblib.load(ENERGY_MODEL_PATH)
-    with open(ENERGY_FEATURES_PATH, "r", encoding="utf-8") as f:
+    model = joblib.load(settings.ENERGY_MODEL_PATH)
+    with open(settings.ENERGY_FEATURES_PATH, "r", encoding="utf-8") as f:
         feature_columns = json.load(f)
     return model, feature_columns
 
@@ -38,7 +38,7 @@ def forecast_next_weeks(daily_df: pd.DataFrame, weeks: int = 4) -> pd.DataFrame:
         next_input["is_weekend"] = int(next_date.dayofweek in [4, 5])
 
         # circular features
-        import numpy as np
+        
         next_input["dow_sin"] = np.sin(2 * np.pi * next_input["day_of_week"] / 7)
         next_input["dow_cos"] = np.cos(2 * np.pi * next_input["day_of_week"] / 7)
         next_input["month_sin"] = np.sin(2 * np.pi * next_input["month"] / 12)
