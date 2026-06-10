@@ -1,7 +1,9 @@
 import time
 import logging
+
 # pyrefly: ignore [missing-import]
 import paho.mqtt.client as mqtt
+
 from typing import Callable, Dict
 
 from .config import MQTTConfig
@@ -17,10 +19,16 @@ class MQTTClient:
     """
 
     def __init__(self):
-        self.client = mqtt.Client(client_id=MQTTConfig.CLIENT_ID)
+
+        self.client = mqtt.Client(
+            client_id=MQTTConfig.CLIENT_ID
+        )
 
         # Optional authentication
-        if MQTTConfig.USERNAME and MQTTConfig.PASSWORD:
+        if (
+            MQTTConfig.USERNAME
+            and MQTTConfig.PASSWORD
+        ):
             self.client.username_pw_set(
                 MQTTConfig.USERNAME,
                 MQTTConfig.PASSWORD
@@ -40,114 +48,247 @@ class MQTTClient:
     # CONNECTION EVENTS
     # =========================
 
-    def _on_connect(self, client, userdata, flags, rc):
+    def _on_connect(
+        self,
+        client,
+        userdata,
+        flags,
+        rc
+    ):
         if rc == 0:
+
             self._connected = True
+
             logger.info(
                 f"Connected to MQTT Broker at "
-                f"{MQTTConfig.BROKER_HOST}:{MQTTConfig.BROKER_PORT}"
+                f"{MQTTConfig.BROKER_HOST}:"
+                f"{MQTTConfig.BROKER_PORT}"
             )
 
             # Resubscribe after reconnect
             for topic in self.callbacks.keys():
+
                 self.client.subscribe(topic)
-                logger.info(f"Subscribed: {topic}")
+
+                logger.info(
+                    f"Subscribed: {topic}"
+                )
 
         else:
-            logger.error(f"MQTT connection failed with code {rc}")
 
-    def _on_disconnect(self, client, userdata, rc):
+            logger.error(
+                f"MQTT connection failed "
+                f"with code {rc}"
+            )
+
+    def _on_disconnect(
+        self,
+        client,
+        userdata,
+        rc
+    ):
         self._connected = False
-        logger.warning(f"MQTT disconnected (code {rc})")
+
+        logger.warning(
+            f"MQTT disconnected "
+            f"(code {rc})"
+        )
 
         if rc != 0:
-            logger.info("Auto-reconnecting...")
+
+            logger.info(
+                "Auto-reconnecting..."
+            )
+
             self._reconnect()
 
-    def _on_message(self, client, userdata, msg):
+    def _on_message(
+        self,
+        client,
+        userdata,
+        msg
+    ):
         topic = msg.topic
-        payload = msg.payload.decode("utf-8")
 
-        logger.debug(f"[MQTT] {topic} → {payload}")
+        payload = msg.payload.decode(
+            "utf-8"
+        )
+
+        logger.debug(
+            f"[MQTT] {topic} → {payload}"
+        )
 
         # Direct match
         if topic in self.callbacks:
+
             try:
-                self.callbacks[topic](topic, payload)
+
+                self.callbacks[topic](
+                    topic,
+                    payload
+                )
+
             except Exception as e:
-                logger.error(f"Handler error ({topic}): {e}")
+
+                logger.error(
+                    f"Handler error "
+                    f"({topic}): {e}"
+                )
+
             return
 
         # Wildcard match
-        for sub_topic, callback in self.callbacks.items():
-            if mqtt.topic_matches_sub(sub_topic, topic):
+        for (
+            sub_topic,
+            callback
+        ) in self.callbacks.items():
+
+            if mqtt.topic_matches_sub(
+                sub_topic,
+                topic
+            ):
+
                 try:
-                    callback(topic, payload)
+
+                    callback(
+                        topic,
+                        payload
+                    )
+
                 except Exception as e:
-                    logger.error(f"Wildcard handler error ({topic}): {e}")
+
+                    logger.error(
+                        f"Wildcard handler error "
+                        f"({topic}): {e}"
+                    )
 
     # =========================
     # CORE FUNCTIONS
     # =========================
 
     def connect(self):
+
         try:
-            logger.info("Connecting to MQTT broker...")
+
+            logger.info(
+                "Connecting to MQTT broker..."
+            )
+
             self.client.connect(
                 MQTTConfig.BROKER_HOST,
                 MQTTConfig.BROKER_PORT,
                 MQTTConfig.KEEPALIVE
             )
+
             self.client.loop_start()
 
         except Exception as e:
-            logger.error(f"MQTT connection error: {e}")
+
+            logger.error(
+                f"MQTT connection error: {e}"
+            )
+
             self._reconnect()
 
     def _reconnect(self):
+
         while True:
+
             try:
-                time.sleep(MQTTConfig.RECONNECT_DELAY)
+
+                time.sleep(
+                    MQTTConfig.RECONNECT_DELAY
+                )
+
                 self.client.reconnect()
-                logger.info("Reconnected successfully")
+
+                logger.info(
+                    "Reconnected successfully"
+                )
+
                 break
+
             except Exception as e:
-                logger.error(f"Reconnect failed: {e}")
+
+                logger.error(
+                    f"Reconnect failed: {e}"
+                )
 
     def disconnect(self):
+
         self.client.loop_stop()
+
         self.client.disconnect()
+
         self._connected = False
-        logger.info("MQTT disconnected cleanly")
+
+        logger.info(
+            "MQTT disconnected cleanly"
+        )
 
     # =========================
     # SUBSCRIBE / PUBLISH
     # =========================
 
-    def subscribe(self, topic: str, callback: Callable):
+    def subscribe(
+        self,
+        topic: str,
+        callback: Callable
+    ):
         self.callbacks[topic] = callback
 
         if self._connected:
+
             self.client.subscribe(topic)
-            logger.info(f"Subscribed to {topic}")
+
+            logger.info(
+                f"Subscribed to {topic}"
+            )
 
     def subscribe_all(self):
         """
         Placeholder for future topic grouping system
         (used by main.py)
         """
-        logger.info("subscribe_all() called - implement in routes/handlers")
 
-    def publish(self, topic: str, payload: str, qos: int = 0, retain: bool = False):
+        logger.info(
+            "subscribe_all() called - "
+            "implement in routes/handlers"
+        )
+
+    def publish(
+        self,
+        topic: str,
+        payload: str,
+        qos: int = 0,
+        retain: bool = False
+    ):
+
         if self._connected:
-            self.client.publish(topic, payload, qos, retain)
-            logger.debug(f"Published → {topic}: {payload}")
+
+            self.client.publish(
+                topic,
+                payload,
+                qos,
+                retain
+            )
+
+            logger.info(
+                f"Published → "
+                f"{topic}: {payload}"
+            )
+
         else:
-            logger.error("Publish failed: MQTT not connected")
+
+            logger.error(
+                "Publish failed: "
+                "MQTT not connected"
+            )
 
     # =========================
     # STATUS
     # =========================
 
     def is_connected(self) -> bool:
+
         return self._connected

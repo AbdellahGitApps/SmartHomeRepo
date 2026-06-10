@@ -269,16 +269,28 @@ app.include_router(dashboard_router)
 
 
 @app.on_event("startup")
-def print_local_ip():
+def startup_event():
+
     import socket
+
+    try:
+        start_mqtt()
+
+        print("[MQTT] Startup completed")
+
+    except Exception as exc:
+        print(f"[MQTT ERROR] {exc}")
+
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         local_ip = s.getsockname()[0]
         s.close()
-        print("\n" + "="*60)
+
+        print("\n" + "=" * 60)
         print(f"👉 LOCAL SERVER IP FOR MOBILE APP: {local_ip}")
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
+
     except Exception:
         pass
 
