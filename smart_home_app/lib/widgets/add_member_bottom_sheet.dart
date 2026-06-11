@@ -411,104 +411,109 @@ class AddMemberBottomSheet {
                     color: isDark ? const Color(0xFF1E293B) : Colors.white,
                     borderRadius: BorderRadius.circular(22),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Capture Face',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Capture Face',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            icon: const Icon(Icons.close),
+                            IconButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                        if (orderedCameras.length > 1) ...[
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<CameraDescription>(
+                            initialValue: selectedCamera,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Camera',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            items: orderedCameras.map((camera) {
+                              final label = camera.name.trim().isEmpty
+                                  ? 'Camera'
+                                  : camera.name;
+                              return DropdownMenuItem(
+                                value: camera,
+                                child: Text(label),
+                              );
+                            }).toList(),
+                            onChanged: switchingCamera
+                                ? null
+                                : (camera) {
+                                    if (camera != null) {
+                                      switchCamera(camera);
+                                    }
+                                  },
                           ),
                         ],
-                      ),
-                      if (orderedCameras.length > 1) ...[
-                        const SizedBox(height: 10),
-                        DropdownButtonFormField<CameraDescription>(
-                          initialValue: selectedCamera,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: 'Camera',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            height: 360,
+                            width: double.infinity,
+                            color: Colors.black,
+                            child:
+                                ready &&
+                                    controller != null &&
+                                    controller!.value.isInitialized
+                                ? CameraPreview(controller!)
+                                : const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                          ),
+                        ),
+                        if (cameraError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            cameraError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
                             ),
                           ),
-                          items: orderedCameras.map((camera) {
-                            final label = camera.name.trim().isEmpty
-                                ? 'Camera'
-                                : camera.name;
-                            return DropdownMenuItem(
-                              value: camera,
-                              child: Text(label),
-                            );
-                          }).toList(),
-                          onChanged: switchingCamera
-                              ? null
-                              : (camera) {
-                                  if (camera != null) {
-                                    switchCamera(camera);
-                                  }
-                                },
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          height: 360,
+                        ],
+                        const SizedBox(height: 16),
+                        SizedBox(
                           width: double.infinity,
-                          color: Colors.black,
-                          child: ready
-                              ? CameraPreview(controller!)
-                              : const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                        ),
-                      ),
-                      if (cameraError != null) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          cameraError!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(LucideIcons.camera),
+                            label: const Text('Capture'),
+                            onPressed: ready
+                                ? () async {
+                                    try {
+                                      final image = await controller!
+                                          .takePicture();
+                                      if (dialogContext.mounted) {
+                                        Navigator.pop(dialogContext, image);
+                                      }
+                                    } catch (error) {
+                                      cameraError = error.toString();
+                                      if (dialogContext.mounted) {
+                                        setDialogState(() {});
+                                      }
+                                    }
+                                  }
+                                : null,
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          icon: const Icon(LucideIcons.camera),
-                          label: const Text('Capture'),
-                          onPressed: ready
-                              ? () async {
-                                  try {
-                                    final image = await controller!
-                                        .takePicture();
-                                    if (dialogContext.mounted) {
-                                      Navigator.pop(dialogContext, image);
-                                    }
-                                  } catch (error) {
-                                    cameraError = error.toString();
-                                    if (dialogContext.mounted) {
-                                      setDialogState(() {});
-                                    }
-                                  }
-                                }
-                              : null,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -518,6 +523,7 @@ class AddMemberBottomSheet {
       );
 
       await controller?.dispose();
+      controller = null;
 
       if (capturedImage == null) return null;
 
@@ -525,6 +531,7 @@ class AddMemberBottomSheet {
       return 'data:image/jpeg;base64,${base64Encode(bytes)}';
     } catch (error) {
       await controller?.dispose();
+      controller = null;
 
       if (context.mounted) {
         ScaffoldMessenger.of(
