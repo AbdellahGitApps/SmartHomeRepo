@@ -19,6 +19,8 @@ class FamilyMemberCreate(BaseModel):
     enabled: bool = True
     notes: Optional[str] = None
 
+    face_image_data: Optional[str] = None
+
 
 class FamilyMemberUpdate(BaseModel):
     home_id: Optional[int] = None
@@ -27,6 +29,8 @@ class FamilyMemberUpdate(BaseModel):
     face_enrolled: Optional[bool] = None
     enabled: Optional[bool] = None
     notes: Optional[str] = None
+
+    face_image_data: Optional[str] = None
 
 
 def _db_path() -> Path:
@@ -288,9 +292,28 @@ def list_family_members(home_id: Optional[int] = None, include_disabled: bool = 
 
 @router.post("/api/family/members")
 def create_family_member(payload: FamilyMemberCreate, request: Request):
+
     name = (payload.name or "").strip()
+
+    print("\n" + "=" * 80)
+    print("CREATE FAMILY MEMBER REQUEST")
+    print("=" * 80)
+    print("NAME:", name)
+    print("FACE ENROLLED:", payload.face_enrolled)
+
+    if payload.face_image_data:
+        print("FACE IMAGE RECEIVED: YES")
+        print("IMAGE SIZE:", len(payload.face_image_data))
+    else:
+        print("FACE IMAGE RECEIVED: NO")
+
+    print("=" * 80 + "\n")
+
     if not name:
-        raise HTTPException(status_code=400, detail="Member name is required.")
+        raise HTTPException(
+            status_code=400,
+            detail="Member name is required."
+        )
 
     role = _family_role(payload.role)
     now = _now()
@@ -324,7 +347,10 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
             now,
         ))
 
-        member_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        member_id = conn.execute(
+            "SELECT last_insert_rowid() AS id"
+        ).fetchone()["id"]
+
         row = _get_member(conn, member_id)
 
         if face_enrolled:

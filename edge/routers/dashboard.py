@@ -367,23 +367,64 @@ def normalize_demo_status(conn: sqlite3.Connection = Depends(get_db_connection))
 @router.post("/homes-v4/{home_key}/delete")
 def delete_home_route(home_key: str, conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
-    
-    # 1. Resolve exact home ID to ensure we delete relations using the correct integer ID
-    home = cur.execute("SELECT id FROM homes WHERE id = ? OR home_code = ?", (home_key, home_key)).fetchone()
+
+    home = cur.execute(
+        "SELECT id FROM homes WHERE id = ? OR home_code = ?",
+        (home_key, home_key)
+    ).fetchone()
+
     if not home:
         return {"success": False, "message": "Home not found"}
-        
+
     actual_home_id = home[0]
-    
-    # 2. Delete child dependencies first to respect FOREIGN KEY constraints
-    cur.execute("DELETE FROM devices WHERE home_id = ?", (actual_home_id,))
-    
-    # Optional cleanup for tables that don't have strict FKs but are still children
+
+    # Delete child records first
+    cur.execute(
+        "DELETE FROM devices WHERE home_id = ?",
+        (actual_home_id,)
+    )
+
     try:
-        cur.execute("DELETE FROM family_members WHERE home_id = ?", (actual_home_id,))
-        cur.execute("DELETE FROM door_events WHERE home_id = ?", (actual_home_id,))
+        cur.execute(
+            "DELETE FROM family_members WHERE home_id = ?",
+            (actual_home_id,)
+        )
+
+        cur.execute(
+            "DELETE FROM door_events WHERE home_id = ?",
+            (actual_home_id,)
+        )
+
+        cur.execute(
+            "DELETE FROM face_events WHERE home_id = ?",
+            (actual_home_id,)
+        )
+
+        cur.execute(
+            "DELETE FROM persons WHERE home_id = ?",
+            (actual_home_id,)
+        )
+
+        cur.execute(
+            "DELETE FROM energy_readings WHERE home_id = ?",
+            (actual_home_id,)
+        )
+
     except sqlite3.OperationalError:
         pass
+
+    # Finally delete the home
+    cur.execute(
+        "DELETE FROM homes WHERE id = ?",
+        (actual_home_id,)
+    )
+
+    conn.commit()
+
+    return {
+        "success": True,
+        "message": "Home deleted successfully"
+    }
         
     # 3. Finally, delete the parent
     cur.execute("DELETE FROM homes WHERE id = ?", (actual_home_id,))

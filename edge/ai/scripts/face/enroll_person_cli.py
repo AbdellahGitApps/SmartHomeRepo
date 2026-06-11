@@ -31,7 +31,11 @@ def main():
     role = input("Role (resident/friend/blocked) [resident]: ").strip() or "resident"
 
     print("Stand in front of the camera for 7 seconds. Move your head slightly...")
-    vectors, face_images = collect_embeddings_from_camera(seconds=7, max_samples=12)
+    enroll_from_image(
+    image_bytes,
+    name,
+    role
+)
 
     if len(vectors) < 5:
         print("Not enough good samples. Improve lighting / get closer.")
