@@ -290,6 +290,11 @@ class BackendApiService {
     bool enabled = true,
     String? notes,
     String? faceImageData,
+    String? accessType,
+    String? validFrom,
+    String? validTo,
+    String? timeStart,
+    String? timeEnd,
   }) {
     return _post(
       '/api/family/members',
@@ -302,6 +307,11 @@ class BackendApiService {
         if (notes != null) 'notes': notes,
         if (faceImageData != null && faceImageData.trim().isNotEmpty)
           'face_image_data': faceImageData.trim(),
+        if (accessType != null) 'access_type': accessType,
+        if (validFrom != null) 'valid_from': validFrom,
+        if (validTo != null) 'valid_to': validTo,
+        if (timeStart != null) 'time_start': timeStart,
+        if (timeEnd != null) 'time_end': timeEnd,
       },
     );
   }
@@ -315,6 +325,11 @@ class BackendApiService {
     required int homeId,
     String? notes,
     String? faceImageData,
+    String? accessType,
+    String? validFrom,
+    String? validTo,
+    String? timeStart,
+    String? timeEnd,
   }) {
     return _patch(
       '/api/family/members/$id',
@@ -327,6 +342,11 @@ class BackendApiService {
         if (notes != null) 'notes': notes,
         if (faceImageData != null && faceImageData.trim().isNotEmpty)
           'face_image_data': faceImageData.trim(),
+        if (accessType != null) 'access_type': accessType,
+        if (validFrom != null) 'valid_from': validFrom,
+        if (validTo != null) 'valid_to': validTo,
+        if (timeStart != null) 'time_start': timeStart,
+        if (timeEnd != null) 'time_end': timeEnd,
       },
     );
   }

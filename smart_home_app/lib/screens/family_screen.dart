@@ -17,6 +17,8 @@ class FamilyScreen extends StatefulWidget {
 }
 
 class _FamilyScreenState extends State<FamilyScreen> {
+  String _searchQuery = '';
+
   Uint8List? _decodeMemberPhoto(String data) {
     final clean = data.trim();
     if (clean.isEmpty) return null;
@@ -145,26 +147,18 @@ class _FamilyScreenState extends State<FamilyScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final canManage = appState.canManageFamily;
 
+    final filteredMembers = appState.familyMembers.where((m) {
+      if (_searchQuery.trim().isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return m.name.toLowerCase().contains(q) || m.role.toLowerCase().contains(q);
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.family),
         elevation: 0,
         centerTitle: true,
         actions: [
-          if (canManage && appState.familyMembers.isNotEmpty)
-            TextButton.icon(
-              onPressed: appState.familyLoading
-                  ? null
-                  : () => _confirmDeleteAllFamilyMembers(context, appState),
-              icon: const Icon(LucideIcons.trash2, color: Colors.red, size: 18),
-              label: const Text(
-                'Delete All',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: appState.familyLoading
@@ -210,20 +204,44 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   Center(child: Text('No family members from backend yet')),
                 ],
               )
-            : ListView.separated(
-                padding: const EdgeInsets.all(24),
-                itemCount: appState.familyMembers.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final member = appState.familyMembers[index];
-                  return _buildMemberCard(
-                    context,
-                    member,
-                    l10n,
-                    isDark,
-                    canManage,
-                  );
-                },
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search by name or role...',
+                        prefixIcon: const Icon(LucideIcons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      ),
+                      onChanged: (val) {
+                        setState(() {
+                          _searchQuery = val;
+                        });
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(24),
+                      itemCount: filteredMembers.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final member = filteredMembers[index];
+                        return _buildMemberCard(
+                          context,
+                          member,
+                          l10n,
+                          isDark,
+                          canManage,
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
       ),
       floatingActionButton: canManage
@@ -256,6 +274,64 @@ class _FamilyScreenState extends State<FamilyScreen> {
     bool isDark,
     bool canManage,
   ) {
+    Widget _buildAccessPolicySubtitle(FamilyMember m) {
+      if (m.role == 'Blocked') {
+        return const Row(
+          children: [
+            Icon(LucideIcons.ban, size: 12, color: Colors.red),
+            SizedBox(width: 4),
+            Text('Access Denied', style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.bold)),
+          ],
+        );
+      }
+
+      if (m.accessType == 'Scheduled') {
+        final timeStr = (m.timeStart != null && m.timeEnd != null && m.timeStart!.isNotEmpty && m.timeEnd!.isNotEmpty) 
+            ? '${m.timeStart} - ${m.timeEnd}' 
+            : 'Not set';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(LucideIcons.clock, size: 12, color: Colors.blue),
+                SizedBox(width: 4),
+                Text('Scheduled Access', style: TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(timeStr, style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        );
+      }
+
+      if (m.accessType == 'Temporary') {
+        final dateStr = (m.validTo != null && m.validTo!.isNotEmpty) ? 'Until ${m.validTo}' : 'Not set';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(LucideIcons.calendar, size: 12, color: Colors.orange),
+                SizedBox(width: 4),
+                Text('Temporary Access', style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(dateStr, style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        );
+      }
+
+      return const Row(
+        children: [
+          Icon(LucideIcons.checkCircle2, size: 12, color: Colors.green),
+          SizedBox(width: 4),
+          Text('Always Access', style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
+        ],
+      );
+    }
+
     Widget memberInfo({required bool compact}) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,9 +356,11 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   ),
                 ),
                 Text(
-                  'Family',
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                  member.role,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
+                const SizedBox(height: 4),
+                _buildAccessPolicySubtitle(member),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 10,
@@ -294,7 +372,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           ? LucideIcons.checkCircle2
                           : LucideIcons.alertCircle,
                       text: member.faceEnrolled
-                          ? l10n.faceEnrolled
+                          ? '${l10n.faceEnrolled} (${member.faceCount})'
                           : l10n.noFace,
                       color: member.faceEnrolled ? Colors.green : Colors.orange,
                     ),
@@ -457,39 +535,6 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           context,
                           listen: false,
                         ).toggleFamilyMemberStatus(member.id);
-                      },
-                    ),
-                    actionButton(
-                      icon: LucideIcons.trash2,
-                      label: l10n.delete,
-                      color: Colors.red,
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: Text(l10n.deleteMember),
-                            content: Text(l10n.removeMemberPrompt(member.name)),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                child: Text(l10n.cancel),
-                              ),
-                              TextButton(
-                                onPressed: () async {
-                                  await Provider.of<AppStateProvider>(
-                                    context,
-                                    listen: false,
-                                  ).deleteFamilyMember(member.id);
-                                  if (ctx.mounted) Navigator.pop(ctx);
-                                },
-                                child: Text(
-                                  l10n.delete,
-                                  style: const TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
                       },
                     ),
                   ],

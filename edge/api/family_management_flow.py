@@ -18,6 +18,11 @@ class FamilyMemberCreate(BaseModel):
     face_enrolled: bool = False
     enabled: bool = True
     notes: Optional[str] = None
+    access_type: str = "Always"
+    valid_from: Optional[str] = None
+    valid_to: Optional[str] = None
+    time_start: Optional[str] = None
+    time_end: Optional[str] = None
 
     face_image_data: Optional[str] = None
 
@@ -29,6 +34,11 @@ class FamilyMemberUpdate(BaseModel):
     face_enrolled: Optional[bool] = None
     enabled: Optional[bool] = None
     notes: Optional[str] = None
+    access_type: Optional[str] = None
+    valid_from: Optional[str] = None
+    valid_to: Optional[str] = None
+    time_start: Optional[str] = None
+    time_end: Optional[str] = None
 
     face_image_data: Optional[str] = None
 
@@ -86,6 +96,11 @@ def _ensure_family_table(conn):
         "enabled": "INTEGER DEFAULT 1",
         "person_id": "INTEGER",
         "notes": "TEXT",
+        "access_type": "TEXT DEFAULT 'Always'",
+        "valid_from": "TEXT",
+        "valid_to": "TEXT",
+        "time_start": "TEXT",
+        "time_end": "TEXT",
         "created_at": "TEXT",
         "updated_at": "TEXT",
     }
@@ -158,6 +173,20 @@ def _home_apartment(conn, home_id):
 
 
 def _family_role(value):
+    if not value:
+        return "Family"
+    
+    valid_roles = {"Owner", "Family", "Guest", "Worker", "Child", "Blocked"}
+    
+    # Exact match
+    if value in valid_roles:
+        return value
+        
+    # Case-insensitive match
+    for role in valid_roles:
+        if str(value).lower() == role.lower():
+            return role
+            
     return "Family"
 
 
@@ -178,18 +207,25 @@ def _bool(value, default=False):
     return default
 
 
-def _member_dict(row):
+def _member_dict(row, face_count=0):
     data = dict(row)
     return {
         **data,
         "id": str(data.get("id") or ""),
         "raw_id": data.get("id"),
         "name": str(data.get("name") or "Unknown"),
-        "role": "Family",
+        "role": data.get("role") or "Family",
         "face_enrolled": _bool(data.get("face_enrolled")),
         "faceEnrolled": _bool(data.get("face_enrolled")),
+        "face_count": face_count,
+        "faceCount": face_count,
         "enabled": _bool(data.get("enabled"), True),
         "isEnabled": _bool(data.get("enabled"), True),
+        "access_type": data.get("access_type") or "Always",
+        "valid_from": data.get("valid_from"),
+        "valid_to": data.get("valid_to"),
+        "time_start": data.get("time_start"),
+        "time_end": data.get("time_end"),
         "created_at": data.get("created_at") or "",
         "createdAt": data.get("created_at") or "",
         "updated_at": data.get("updated_at") or "",
@@ -283,10 +319,30 @@ def list_family_members(home_id: Optional[int] = None, include_disabled: bool = 
         query += " ORDER BY COALESCE(created_at, updated_at, '') DESC, id DESC"
 
         rows = conn.execute(query, params).fetchall()
+        
+        # Get face counts for enrolled members
+        person_ids = [r["person_id"] for r in rows if r["person_id"]]
+        face_counts = {}
+        if person_ids:
+            try:
+                from api.face_recognition_flow import _connect_model_db
+                model_conn = _connect_model_db()
+                placeholders = ",".join("?" * len(person_ids))
+                count_rows = model_conn.execute(f"SELECT person_id, COUNT(*) as c FROM face_embeddings WHERE person_id IN ({placeholders}) GROUP BY person_id", person_ids).fetchall()
+                face_counts = {r["person_id"]: r["c"] for r in count_rows}
+                model_conn.close()
+            except Exception:
+                pass
+
+        members = []
+        for row in rows:
+            data = dict(row)
+            count = face_counts.get(data.get("person_id"), 1 if _bool(data.get("face_enrolled")) else 0)
+            members.append(_member_dict(row, count))
 
         return {
             "success": True,
-            "members": [_member_dict(row) for row in rows],
+            "members": members,
         }
 
 
@@ -318,8 +374,93 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
     role = _family_role(payload.role)
     now = _now()
     home_id = payload.home_id or 1
-    face_enrolled = 1 if payload.face_enrolled else 0
     enabled = 1 if payload.enabled else 0
+
+    person_id = None
+    if payload.face_image_data:
+        import base64
+        import numpy as np
+        import cv2
+        import json
+        from api.face_recognition_flow import (
+            _ensure_face_tables,
+            _connect_model_db,
+            _preprocess_face,
+            _extract_embedding,
+            _now_iso
+        )
+
+        try:
+            print("[FACE] Decoding base64 image...")
+            b64_str = payload.face_image_data
+            if b64_str.startswith("data:image"):
+                b64_str = b64_str.split(",", 1)[1]
+            image_bytes = base64.b64decode(b64_str)
+            print("[FACE] Base64 decoded successfully.")
+            
+            data = np.frombuffer(image_bytes, dtype=np.uint8)
+            frame = cv2.imdecode(data, cv2.IMREAD_COLOR)
+            
+            if frame is None:
+                raise ValueError("Could not decode image format.")
+            
+            print("[FACE] Detecting face using Haar cascades...")
+            cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+            detector = cv2.CascadeClassifier(cascade_path)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = detector.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(80, 80),
+            )
+            
+            num_faces = len(faces)
+            print(f"[FACE] Number of faces detected: {num_faces}")
+            
+            if num_faces == 0:
+                raise ValueError("No face detected in the image.")
+            if num_faces > 1:
+                raise ValueError(f"Multiple faces ({num_faces}) detected. Please provide an image with exactly one face.")
+            
+            print("[FACE] Preprocessing face and extracting embedding...")
+            box = faces[0]
+            face_img = _preprocess_face(frame, box)
+            embedding = _extract_embedding(face_img)
+            print(f"[FACE] Embedding extracted successfully (Dimension: {len(embedding)}).")
+            
+            model_conn = _connect_model_db()
+            try:
+                _ensure_face_tables(model_conn)
+                cur = model_conn.cursor()
+                
+                print("[FACE] Creating person record...")
+                cur.execute("INSERT INTO persons (name, role, created_at) VALUES (?, ?, ?)", 
+                            (name, role, _now_iso()))
+                person_id = cur.lastrowid
+                print(f"[FACE] Person created with ID: {person_id}")
+                
+                print("[FACE] Saving embedding...")
+                emb_json = json.dumps(embedding)
+                cur.execute("INSERT INTO face_embeddings (person_id, embedding_json, created_at) VALUES (?, ?, ?)",
+                            (person_id, emb_json, _now_iso()))
+                
+                model_conn.commit()
+                print("[FACE] Registration completed successfully in face_embeddings.")
+            except Exception as e:
+                model_conn.rollback()
+                raise ValueError(f"Database insertion failed: {str(e)}")
+            finally:
+                model_conn.close()
+                
+        except Exception as e:
+            print(f"[FACE ERROR] {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=str(e)
+            )
+
+    face_enrolled = 1 if person_id is not None else (1 if payload.face_enrolled else 0)
 
     with _conn() as conn:
         _ensure_family_table(conn)
@@ -331,18 +472,30 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
                 role,
                 face_enrolled,
                 enabled,
+                person_id,
                 notes,
+                access_type,
+                valid_from,
+                valid_to,
+                time_start,
+                time_end,
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             home_id,
             name,
             role,
             face_enrolled,
             enabled,
+            person_id,
             payload.notes or "",
+            payload.access_type or "Always",
+            payload.valid_from,
+            payload.valid_to,
+            payload.time_start,
+            payload.time_end,
             now,
             now,
         ))
@@ -374,7 +527,7 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
         return {
             "success": True,
             "message": "Family member created successfully",
-            "member": _member_dict(row),
+            "member": _member_dict(row, 1 if person_id else 0),
         }
 
 
@@ -388,11 +541,90 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
         if not name:
             raise HTTPException(status_code=400, detail="Member name is required.")
 
-        role = "Family"
-        face_enrolled = old["face_enrolled"] if payload.face_enrolled is None else (1 if payload.face_enrolled else 0)
+        role = _family_role(payload.role) if payload.role is not None else old["role"]
         enabled = old["enabled"] if payload.enabled is None else (1 if payload.enabled else 0)
         home_id = payload.home_id if payload.home_id is not None else old["home_id"]
         notes = payload.notes if payload.notes is not None else old["notes"]
+        
+        person_id = dict(old).get("person_id")
+        
+        if payload.face_image_data:
+            import base64
+            import numpy as np
+            import cv2
+            import json
+            from api.face_recognition_flow import (
+                _ensure_face_tables,
+                _connect_model_db,
+                _preprocess_face,
+                _extract_embedding,
+                _now_iso
+            )
+            
+            try:
+                print("[FACE UPDATE] Decoding base64 image...")
+                b64_str = payload.face_image_data
+                if b64_str.startswith("data:image"):
+                    b64_str = b64_str.split(",", 1)[1]
+                image_bytes = base64.b64decode(b64_str)
+                
+                data = np.frombuffer(image_bytes, dtype=np.uint8)
+                frame = cv2.imdecode(data, cv2.IMREAD_COLOR)
+                
+                if frame is None:
+                    raise ValueError("Could not decode image format.")
+                
+                cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+                detector = cv2.CascadeClassifier(cascade_path)
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                faces = detector.detectMultiScale(
+                    gray,
+                    scaleFactor=1.1,
+                    minNeighbors=5,
+                    minSize=(80, 80),
+                )
+                
+                num_faces = len(faces)
+                if num_faces == 0:
+                    raise ValueError("No face detected in the image.")
+                if num_faces > 1:
+                    raise ValueError(f"Multiple faces ({num_faces}) detected. Please provide an image with exactly one face.")
+                
+                box = faces[0]
+                face_img = _preprocess_face(frame, box)
+                embedding = _extract_embedding(face_img)
+                
+                model_conn = _connect_model_db()
+                try:
+                    _ensure_face_tables(model_conn)
+                    cur = model_conn.cursor()
+                    
+                    if person_id is None:
+                        cur.execute("INSERT INTO persons (name, role, created_at) VALUES (?, ?, ?)", 
+                                    (name, role, _now_iso()))
+                        person_id = cur.lastrowid
+                    
+                    emb_json = json.dumps(embedding)
+                    cur.execute("INSERT INTO face_embeddings (person_id, embedding_json, created_at) VALUES (?, ?, ?)",
+                                (person_id, emb_json, _now_iso()))
+                    
+                    model_conn.commit()
+                except Exception as e:
+                    model_conn.rollback()
+                    raise ValueError(f"Database insertion failed: {str(e)}")
+                finally:
+                    model_conn.close()
+                    
+            except Exception as e:
+                print(f"[FACE ERROR] {str(e)}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(e)
+                )
+                
+            face_enrolled = 1
+        else:
+            face_enrolled = old["face_enrolled"] if payload.face_enrolled is None else (1 if payload.face_enrolled else 0)
 
         conn.execute("""
             UPDATE family_members
@@ -401,7 +633,13 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
                 role = ?,
                 face_enrolled = ?,
                 enabled = ?,
+                person_id = ?,
                 notes = ?,
+                access_type = ?,
+                valid_from = ?,
+                valid_to = ?,
+                time_start = ?,
+                time_end = ?,
                 updated_at = ?
             WHERE id = ?
         """, (
@@ -410,7 +648,13 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
             role,
             face_enrolled,
             enabled,
+            person_id,
             notes or "",
+            payload.access_type if payload.access_type is not None else old["access_type"],
+            payload.valid_from if payload.valid_from is not None else dict(old).get("valid_from"),
+            payload.valid_to if payload.valid_to is not None else dict(old).get("valid_to"),
+            payload.time_start if payload.time_start is not None else dict(old).get("time_start"),
+            payload.time_end if payload.time_end is not None else dict(old).get("time_end"),
             _now(),
             member_id,
         ))
@@ -427,11 +671,24 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
         )
 
         conn.commit()
+        
+        # Determine face count
+        face_count = 1 if face_enrolled else 0
+        if person_id:
+            try:
+                from api.face_recognition_flow import _connect_model_db
+                model_conn = _connect_model_db()
+                c = model_conn.execute("SELECT COUNT(*) as c FROM face_embeddings WHERE person_id = ?", (person_id,)).fetchone()
+                if c:
+                    face_count = c["c"]
+                model_conn.close()
+            except Exception:
+                pass
 
         return {
             "success": True,
             "message": "Family member updated successfully",
-            "member": _member_dict(row),
+            "member": _member_dict(row, face_count),
         }
 
 

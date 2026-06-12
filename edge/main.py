@@ -6862,16 +6862,17 @@ def d7m16_app_home_summary(home_id=None, home_code=None, admin_login=None):
                 params.append(apartment_number)
 
             if where_parts:
-                latest_energy = conn.execute(
-                    f"""
-                    SELECT *
-                    FROM energy_readings
-                    WHERE {' OR '.join(where_parts)}
-                    ORDER BY COALESCE(timestamp, created_at) DESC, id DESC
-                    LIMIT 1
-                    """,
-                    params,
-                ).fetchone()
+
+              latest_energy = conn.execute(
+    f"""
+    SELECT *
+    FROM energy_readings
+    WHERE {' OR '.join(where_parts)}
+    ORDER BY id DESC
+    LIMIT 1
+    """,
+    params,
+).fetchone()
 
         latest_energy_dict = row_to_dict(latest_energy) or {}
 

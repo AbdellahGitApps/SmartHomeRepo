@@ -1215,6 +1215,11 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
     String role,
     bool faceEnrolled, {
     String? faceImageData,
+    String? accessType,
+    String? validFrom,
+    String? validTo,
+    String? timeStart,
+    String? timeEnd,
   }) async {
     if (!canManageFamily) return;
 
@@ -1228,6 +1233,11 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
       faceEnrolled: faceEnrolled,
       enabled: true,
       faceImageData: faceImageData,
+      accessType: accessType,
+      validFrom: validFrom,
+      validTo: validTo,
+      timeStart: timeStart,
+      timeEnd: timeEnd,
     );
 
     final member = response['member'];
@@ -1290,6 +1300,11 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
     String role,
     bool faceEnrolled, {
     String? faceImageData,
+    String? accessType,
+    String? validFrom,
+    String? validTo,
+    String? timeStart,
+    String? timeEnd,
   }) async {
     if (!canManageFamily) return;
 
@@ -1314,6 +1329,11 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
       faceEnrolled: faceEnrolled,
       enabled: oldMember.isEnabled,
       faceImageData: faceImageData,
+      accessType: accessType,
+      validFrom: validFrom,
+      validTo: validTo,
+      timeStart: timeStart,
+      timeEnd: timeEnd,
     );
 
     final member = response['member'];
@@ -1492,8 +1512,14 @@ class FamilyMember {
   final String name;
   final String role;
   final bool faceEnrolled;
+  final int faceCount;
   final String photoData;
   final bool isEnabled;
+  final String accessType;
+  final String? validFrom;
+  final String? validTo;
+  final String? timeStart;
+  final String? timeEnd;
   final String createdAt;
   final String updatedAt;
 
@@ -1502,8 +1528,14 @@ class FamilyMember {
     required this.name,
     required this.role,
     required this.faceEnrolled,
+    this.faceCount = 0,
     this.photoData = '',
     this.isEnabled = true,
+    this.accessType = 'Always',
+    this.validFrom,
+    this.validTo,
+    this.timeStart,
+    this.timeEnd,
     this.createdAt = '',
     this.updatedAt = '',
   });
@@ -1526,7 +1558,13 @@ class FamilyMember {
     String? name,
     String? role,
     bool? faceEnrolled,
+    int? faceCount,
     bool? isEnabled,
+    String? accessType,
+    String? validFrom,
+    String? validTo,
+    String? timeStart,
+    String? timeEnd,
     String? createdAt,
     String? updatedAt,
     String? photoData,
@@ -1536,7 +1574,13 @@ class FamilyMember {
       name: name ?? this.name,
       role: role ?? this.role,
       faceEnrolled: faceEnrolled ?? this.faceEnrolled,
+      faceCount: faceCount ?? this.faceCount,
       isEnabled: isEnabled ?? this.isEnabled,
+      accessType: accessType ?? this.accessType,
+      validFrom: validFrom ?? this.validFrom,
+      validTo: validTo ?? this.validTo,
+      timeStart: timeStart ?? this.timeStart,
+      timeEnd: timeEnd ?? this.timeEnd,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       photoData: photoData ?? this.photoData,
@@ -1569,8 +1613,9 @@ class FamilyMember {
     return FamilyMember(
       id: (json['id'] ?? json['raw_id'] ?? '').toString(),
       name: (json['name'] ?? 'Unknown').toString(),
-      role: 'Family',
+      role: (json['role'] ?? 'Family').toString(),
       faceEnrolled: readBool(['faceEnrolled', 'face_enrolled']),
+      faceCount: int.tryParse((json['faceCount'] ?? json['face_count'] ?? 0).toString()) ?? 0,
       photoData:
           (json['photoData'] ??
                   json['photo_data'] ??
@@ -1578,6 +1623,11 @@ class FamilyMember {
                   '')
               .toString(),
       isEnabled: readBool(['isEnabled', 'enabled'], fallback: true),
+      accessType: (json['access_type'] ?? 'Always').toString(),
+      validFrom: json['valid_from']?.toString(),
+      validTo: json['valid_to']?.toString(),
+      timeStart: json['time_start']?.toString(),
+      timeEnd: json['time_end']?.toString(),
       createdAt: (json['createdAt'] ?? json['created_at'] ?? '').toString(),
       updatedAt: (json['updatedAt'] ?? json['updated_at'] ?? '').toString(),
     );
