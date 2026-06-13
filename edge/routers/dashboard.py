@@ -383,12 +383,17 @@ def delete_home_route(home_key: str, conn: sqlite3.Connection = Depends(get_db_c
         "DELETE FROM devices WHERE home_id = ?",
         (actual_home_id,)
     )
+    conn.commit()
 
     try:
-        cur.execute(
-            "DELETE FROM family_members WHERE home_id = ?",
-            (actual_home_id,)
-        )
+        from database.connection.database import SessionLocal
+        from database.models.family import FamilyMember
+        db = SessionLocal()
+        try:
+            db.query(FamilyMember).filter(FamilyMember.home_id == actual_home_id).delete(synchronize_session=False)
+            db.commit()
+        finally:
+            db.close()
 
         cur.execute(
             "DELETE FROM door_events WHERE home_id = ?",

@@ -3,6 +3,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import sqlite3
+from database.connection.database import SessionLocal
+from database.models.family import FamilyMember
+from sqlalchemy import desc, func
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -72,45 +75,7 @@ def _cols(conn, table):
     return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
 
 
-def _ensure_family_table(conn):
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS family_members (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            home_id INTEGER DEFAULT 1,
-            name TEXT NOT NULL,
-            role TEXT DEFAULT 'Family',
-            face_enrolled INTEGER DEFAULT 0,
-            enabled INTEGER DEFAULT 1,
-            person_id INTEGER,
-            notes TEXT,
-            created_at TEXT,
-            updated_at TEXT
-        )
-    """)
 
-    needed = {
-        "home_id": "INTEGER DEFAULT 1",
-        "name": "TEXT",
-        "role": "TEXT DEFAULT 'Family'",
-        "face_enrolled": "INTEGER DEFAULT 0",
-        "enabled": "INTEGER DEFAULT 1",
-        "person_id": "INTEGER",
-        "notes": "TEXT",
-        "access_type": "TEXT DEFAULT 'Always'",
-        "valid_from": "TEXT",
-        "valid_to": "TEXT",
-        "time_start": "TEXT",
-        "time_end": "TEXT",
-        "created_at": "TEXT",
-        "updated_at": "TEXT",
-    }
-
-    cols = _cols(conn, "family_members")
-    for col, col_type in needed.items():
-        if col not in cols:
-            conn.execute(f"ALTER TABLE family_members ADD COLUMN {col} {col_type}")
-
-    conn.commit()
 
 
 def _ensure_logs_table(conn):
@@ -234,15 +199,34 @@ def _member_dict(row, face_count=0):
 
 
 def _get_member(conn, member_id):
-    row = conn.execute(
-        "SELECT * FROM family_members WHERE CAST(id AS TEXT) = CAST(? AS TEXT) LIMIT 1",
-        (str(member_id),),
-    ).fetchone()
-
-    if not row:
-        raise HTTPException(status_code=404, detail=f"Family member not found: {member_id}")
-
-    return row
+    db = SessionLocal()
+    try:
+        member = db.query(FamilyMember).filter(FamilyMember.id == int(member_id)).first()
+        if not member:
+            raise HTTPException(status_code=404, detail=f"Family member not found: {member_id}")
+        
+        # Return a dict to preserve compatibility with existing write operations
+        # that treat the return value as a sqlite3.Row
+        from datetime import datetime
+        return {
+            "id": member.id,
+            "home_id": member.home_id,
+            "name": member.name,
+            "role": member.role,
+            "face_enrolled": 1 if member.face_enrolled else 0,
+            "enabled": 1 if member.enabled else 0,
+            "person_id": member.person_id,
+            "notes": member.notes,
+            "access_type": member.access_type,
+            "valid_from": member.valid_from,
+            "valid_to": member.valid_to,
+            "time_start": member.time_start,
+            "time_end": member.time_end,
+            "created_at": member.created_at.strftime("%Y-%m-%d %H:%M:%S") if isinstance(member.created_at, datetime) else member.created_at,
+            "updated_at": member.updated_at.strftime("%Y-%m-%d %H:%M:%S") if isinstance(member.updated_at, datetime) else member.updated_at,
+        }
+    finally:
+        db.close()
 
 
 def _log_family_action(conn, *, home_id, member_name, severity, details, action_taken):
@@ -287,11 +271,11 @@ def _log_family_action(conn, *, home_id, member_name, severity, details, action_
 
 @router.get("/api/family/status")
 def family_status():
-    with _conn() as conn:
-        _ensure_family_table(conn)
-        total = conn.execute("SELECT COUNT(*) AS c FROM family_members").fetchone()["c"]
-        enabled = conn.execute("SELECT COUNT(*) AS c FROM family_members WHERE enabled = 1").fetchone()["c"]
-        disabled = conn.execute("SELECT COUNT(*) AS c FROM family_members WHERE enabled = 0").fetchone()["c"]
+    db = SessionLocal()
+    try:
+        total = db.query(FamilyMember).count()
+        enabled = db.query(FamilyMember).filter(FamilyMember.enabled == True).count()
+        disabled = db.query(FamilyMember).filter(FamilyMember.enabled == False).count()
 
         return {
             "success": True,
@@ -299,26 +283,46 @@ def family_status():
             "enabled": enabled,
             "disabled": disabled,
         }
+    finally:
+        db.close()
 
 
 @router.get("/api/family/members")
 def list_family_members(home_id: Optional[int] = None, include_disabled: bool = True):
-    with _conn() as conn:
-        _ensure_family_table(conn)
-
-        params = []
-        query = "SELECT * FROM family_members WHERE 1=1"
+    db = SessionLocal()
+    try:
+        query = db.query(FamilyMember)
 
         if home_id is not None:
-            query += " AND CAST(home_id AS TEXT) = CAST(? AS TEXT)"
-            params.append(str(home_id))
+            query = query.filter(FamilyMember.home_id == home_id)
 
         if not include_disabled:
-            query += " AND enabled = 1"
+            query = query.filter(FamilyMember.enabled == True)
 
-        query += " ORDER BY COALESCE(created_at, updated_at, '') DESC, id DESC"
+        query = query.order_by(desc(func.coalesce(FamilyMember.created_at, FamilyMember.updated_at, '')), desc(FamilyMember.id))
 
-        rows = conn.execute(query, params).fetchall()
+        orm_rows = query.all()
+        
+        from datetime import datetime
+        rows = []
+        for member in orm_rows:
+            rows.append({
+                "id": member.id,
+                "home_id": member.home_id,
+                "name": member.name,
+                "role": member.role,
+                "face_enrolled": 1 if member.face_enrolled else 0,
+                "enabled": 1 if member.enabled else 0,
+                "person_id": member.person_id,
+                "notes": member.notes,
+                "access_type": member.access_type,
+                "valid_from": member.valid_from,
+                "valid_to": member.valid_to,
+                "time_start": member.time_start,
+                "time_end": member.time_end,
+                "created_at": member.created_at.strftime("%Y-%m-%d %H:%M:%S") if isinstance(member.created_at, datetime) else member.created_at,
+                "updated_at": member.updated_at.strftime("%Y-%m-%d %H:%M:%S") if isinstance(member.updated_at, datetime) else member.updated_at,
+            })
         
         # Get face counts for enrolled members
         person_ids = [r["person_id"] for r in rows if r["person_id"]]
@@ -344,6 +348,8 @@ def list_family_members(home_id: Optional[int] = None, include_disabled: bool = 
             "success": True,
             "members": members,
         }
+    finally:
+        db.close()
 
 
 @router.post("/api/family/members")
@@ -455,7 +461,6 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
                 # COPY TO MAIN DATABASE USED BY RECOGNITION
                 # ==================================================
                 try:
-                    from database.connection.database import SessionLocal
                     from database.models.ai_face import Person, FaceEmbedding
 
                 
@@ -513,46 +518,33 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
     face_enrolled = 1 if person_id is not None else (1 if payload.face_enrolled else 0)
 
     with _conn() as conn:
-        _ensure_family_table(conn)
-
-        conn.execute("""
-            INSERT INTO family_members (
-                home_id,
-                name,
-                role,
-                face_enrolled,
-                enabled,
-                person_id,
-                notes,
-                access_type,
-                valid_from,
-                valid_to,
-                time_start,
-                time_end,
-                created_at,
-                updated_at
+        
+        db = SessionLocal()
+        try:
+            from database.models.family import FamilyMember
+            from datetime import datetime
+            new_member = FamilyMember(
+                home_id=home_id,
+                name=name,
+                role=role,
+                face_enrolled=bool(face_enrolled),
+                enabled=bool(enabled),
+                person_id=person_id,
+                notes=payload.notes or "",
+                access_type=payload.access_type or "Always",
+                valid_from=payload.valid_from,
+                valid_to=payload.valid_to,
+                time_start=payload.time_start,
+                time_end=payload.time_end,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            home_id,
-            name,
-            role,
-            face_enrolled,
-            enabled,
-            person_id,
-            payload.notes or "",
-            payload.access_type or "Always",
-            payload.valid_from,
-            payload.valid_to,
-            payload.time_start,
-            payload.time_end,
-            now,
-            now,
-        ))
-
-        member_id = conn.execute(
-            "SELECT last_insert_rowid() AS id"
-        ).fetchone()["id"]
+            db.add(new_member)
+            db.flush()
+            member_id = new_member.id
+            db.commit()
+        finally:
+            db.close()
 
         row = _get_member(conn, member_id)
 
@@ -584,7 +576,6 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
 @router.patch("/api/family/members/{member_id}")
 def update_family_member(member_id: int, payload: FamilyMemberUpdate):
     with _conn() as conn:
-        _ensure_family_table(conn)
         old = _get_member(conn, member_id)
 
         name = (payload.name if payload.name is not None else old["name"]).strip()
@@ -676,38 +667,27 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
         else:
             face_enrolled = old["face_enrolled"] if payload.face_enrolled is None else (1 if payload.face_enrolled else 0)
 
-        conn.execute("""
-            UPDATE family_members
-            SET home_id = ?,
-                name = ?,
-                role = ?,
-                face_enrolled = ?,
-                enabled = ?,
-                person_id = ?,
-                notes = ?,
-                access_type = ?,
-                valid_from = ?,
-                valid_to = ?,
-                time_start = ?,
-                time_end = ?,
-                updated_at = ?
-            WHERE id = ?
-        """, (
-            home_id,
-            name,
-            role,
-            face_enrolled,
-            enabled,
-            person_id,
-            notes or "",
-            payload.access_type if payload.access_type is not None else old["access_type"],
-            payload.valid_from if payload.valid_from is not None else dict(old).get("valid_from"),
-            payload.valid_to if payload.valid_to is not None else dict(old).get("valid_to"),
-            payload.time_start if payload.time_start is not None else dict(old).get("time_start"),
-            payload.time_end if payload.time_end is not None else dict(old).get("time_end"),
-            _now(),
-            member_id,
-        ))
+        db = SessionLocal()
+        try:
+            member = db.query(FamilyMember).filter(FamilyMember.id == member_id).first()
+            if member:
+                member.home_id = home_id
+                member.name = name
+                member.role = role
+                member.face_enrolled = bool(face_enrolled)
+                member.enabled = bool(enabled)
+                member.person_id = person_id
+                member.notes = notes or ""
+                member.access_type = payload.access_type if payload.access_type is not None else old["access_type"]
+                member.valid_from = payload.valid_from if payload.valid_from is not None else dict(old).get("valid_from")
+                member.valid_to = payload.valid_to if payload.valid_to is not None else dict(old).get("valid_to")
+                member.time_start = payload.time_start if payload.time_start is not None else dict(old).get("time_start")
+                member.time_end = payload.time_end if payload.time_end is not None else dict(old).get("time_end")
+                from datetime import datetime
+                member.updated_at = datetime.now()
+                db.commit()
+        finally:
+            db.close()
 
         row = _get_member(conn, member_id)
 
@@ -745,13 +725,18 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
 @router.patch("/api/family/members/{member_id}/enable")
 def enable_family_member(member_id: int):
     with _conn() as conn:
-        _ensure_family_table(conn)
         row = _get_member(conn, member_id)
 
-        conn.execute(
-            "UPDATE family_members SET enabled = 1, updated_at = ? WHERE id = ?",
-            (_now(), member_id),
-        )
+        db = SessionLocal()
+        try:
+            member = db.query(FamilyMember).filter(FamilyMember.id == member_id).first()
+            if member:
+                member.enabled = True
+                from datetime import datetime
+                member.updated_at = datetime.now()
+                db.commit()
+        finally:
+            db.close()
 
         row = _get_member(conn, member_id)
 
@@ -776,13 +761,18 @@ def enable_family_member(member_id: int):
 @router.patch("/api/family/members/{member_id}/disable")
 def disable_family_member(member_id: int):
     with _conn() as conn:
-        _ensure_family_table(conn)
         row = _get_member(conn, member_id)
 
-        conn.execute(
-            "UPDATE family_members SET enabled = 0, updated_at = ? WHERE id = ?",
-            (_now(), member_id),
-        )
+        db = SessionLocal()
+        try:
+            member = db.query(FamilyMember).filter(FamilyMember.id == member_id).first()
+            if member:
+                member.enabled = False
+                from datetime import datetime
+                member.updated_at = datetime.now()
+                db.commit()
+        finally:
+            db.close()
 
         row = _get_member(conn, member_id)
 
@@ -812,19 +802,17 @@ def clear_family_members(home_id: Optional[int] = None):
         raise HTTPException(status_code=400, detail="home_id is required.")
 
     with _conn() as conn:
-        _ensure_family_table(conn)
 
-        rows = conn.execute(
-            "SELECT * FROM family_members WHERE CAST(home_id AS TEXT) = CAST(? AS TEXT)",
-            (str(home_id),),
-        ).fetchall()
-
-        count = len(rows)
-
-        conn.execute(
-            "DELETE FROM family_members WHERE CAST(home_id AS TEXT) = CAST(? AS TEXT)",
-            (str(home_id),),
-        )
+        db = SessionLocal()
+        try:
+            from database.models.family import FamilyMember
+            rows = db.query(FamilyMember).filter(FamilyMember.home_id == home_id).all()
+            count = len(rows)
+            for member in rows:
+                db.delete(member)
+            db.commit()
+        finally:
+            db.close()
 
         _log_family_action(
             conn,
@@ -847,10 +835,17 @@ def clear_family_members(home_id: Optional[int] = None):
 @router.delete("/api/family/members/{member_id}")
 def delete_family_member(member_id: int):
     with _conn() as conn:
-        _ensure_family_table(conn)
         row = _get_member(conn, member_id)
 
-        conn.execute("DELETE FROM family_members WHERE id = ?", (member_id,))
+        db = SessionLocal()
+        try:
+            from database.models.family import FamilyMember
+            member = db.query(FamilyMember).filter(FamilyMember.id == member_id).first()
+            if member:
+                db.delete(member)
+                db.commit()
+        finally:
+            db.close()
 
         _log_family_action(
             conn,

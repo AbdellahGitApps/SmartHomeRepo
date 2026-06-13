@@ -12,3 +12,5 @@ from database.models.ai_energy import (
     EnergyForecast,
     EnergyInsight,
 )
+
+from database.models.family import FamilyMember

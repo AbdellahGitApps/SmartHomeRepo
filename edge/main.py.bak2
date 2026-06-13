@@ -3,6 +3,15 @@ from fastapi.responses import HTMLResponse
 import asyncio
 from fastapi import Request
 
+try:
+    try:
+        from database.migrations import run_startup_migrations
+    except ImportError:
+        from edge.database.migrations import run_startup_migrations
+
+    run_startup_migrations()
+except Exception as migration_error:
+    print(f"[MIGRATION WARNING] {migration_error}")
 
 from datetime import datetime, timedelta
 import json
@@ -39,6 +48,7 @@ from database.connection.database import Base, engine
 from database.models.home import Home
 from database.models.device import Device
 
+Base.metadata.create_all(bind=engine)
 
 def init_database_tables():
     import sqlite3
@@ -89,6 +99,38 @@ def init_database_tables():
                 cur.execute(f"ALTER TABLE system_logs ADD COLUMN {col} {col_type}")
         print("[DB INIT] system_logs verified")
 
+        # 2. family_members
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_id INTEGER DEFAULT 1,
+                name TEXT NOT NULL,
+                role TEXT DEFAULT 'Family',
+                face_enrolled INTEGER DEFAULT 0,
+                enabled INTEGER DEFAULT 1,
+                person_id INTEGER,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+        existing_cols = {row[1] for row in cur.execute("PRAGMA table_info(family_members)").fetchall()}
+        family_members_needed = {
+            "home_id": "INTEGER DEFAULT 1",
+            "name": "TEXT",
+            "role": "TEXT DEFAULT 'Family'",
+            "face_enrolled": "INTEGER DEFAULT 0",
+            "enabled": "INTEGER DEFAULT 1",
+            "person_id": "INTEGER",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT"
+        }
+        for col, col_type in family_members_needed.items():
+            if col not in existing_cols:
+                cur.execute(f"ALTER TABLE family_members ADD COLUMN {col} {col_type}")
+        print("[DB INIT] family_members verified")
+
         # 3. door_events
         cur.execute("""
             CREATE TABLE IF NOT EXISTS door_events (
@@ -135,6 +177,7 @@ def init_database_tables():
     finally:
         conn.close()
 
+init_database_tables()
 
 # =========================
 # APP INIT
@@ -211,6 +254,7 @@ def _d7m16_normalize_bad_datetime_values_once():
     except Exception as exc:
         print("D7M16 datetime cleanup skipped:", exc)
 
+_d7m16_normalize_bad_datetime_values_once()
 # D7M16_INVALID_DATETIME_DB_SAFETY_END
 
 
@@ -226,43 +270,6 @@ app.include_router(dashboard_router)
 
 @app.on_event("startup")
 def startup_event():
-    # --- RELOCATED DATABASE BOOTSTRAP START ---
-    try:
-        from database.migrations import run_startup_migrations
-    except ImportError:
-        from edge.database.migrations import run_startup_migrations
-
-    try:
-        run_startup_migrations()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] run_startup_migrations failed: {e}")
-
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] create_all failed: {e}")
-
-    try:
-        init_database_tables()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] init_database_tables failed: {e}")
-
-    try:
-        _d7m16_normalize_bad_datetime_values_once()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] datetime normalization failed: {e}")
-
-    try:
-        _ensure_system_logs_table()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] ensure_system_logs_table failed: {e}")
-
-    try:
-        _d7_cleanup_duplicate_app_security_logs_once()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] cleanup_duplicate_logs failed: {e}")
-    # --- RELOCATED DATABASE BOOTSTRAP END ---
-
 
     import socket
 
@@ -945,6 +952,40 @@ def _insert_security_log(severity, home, event_type, details, action_taken):
     conn.close()
 
 
+def _get_security_logs(limit=200):
+    _ensure_system_logs_table()
+
+    conn = sqlite3.connect(_security_db_path())
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    rows = cur.execute("""
+        SELECT id, timestamp, severity, home, event_type, details, action_taken
+        FROM system_logs
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,)).fetchall()
+
+    conn.close()
+
+    logs = []
+
+    for row in rows:
+        severity = (row["severity"] or "info").lower()
+
+        logs.append({
+            "id": row["id"],
+            "timestamp": row["timestamp"],
+            "timestamp_label": _format_security_time(row["timestamp"]),
+            "severity": severity,
+            "severity_label": severity.upper(),
+            "home": row["home"] or "System",
+            "event_type": row["event_type"] or "System Event",
+            "details": row["details"] or "",
+            "action_taken": row["action_taken"] or ""
+        })
+
+    return logs
 
 
 def _extract_device_action_from_path(path_value):
@@ -1006,8 +1047,15 @@ async def _security_log_device_commands(request: Request, call_next):
     return response
 
 
+@app.get("/api/dashboard/security-logs-data-old")
+def api_dashboard_security_logs_data(limit: int = 100):
+    return {
+        "success": True,
+        "logs": _get_security_logs(limit)
+    }
 
 
+_ensure_system_logs_table()
 
 # D7M16_SECURITY_LOGS_UNIFIED_END
 
@@ -1743,10 +1791,18 @@ def _d7_home_code(home):
         return str(code)
     return f"HOME-{_d7_padded_apt(home)}"
 
+def _d7_home_name(home):
+    name = _d7_val(home, "name", "home_name", default=None)
+    if name:
+        return str(name)
+    apt = _d7_apartment(home)
+    return f"Apartment {apt}" if apt not in (None, "") else _d7_home_code(home)
 
 def _d7_device_id(device):
     return _d7_s(_d7_val(device, "device_id", "id", default=""))
 
+def _d7_device_name(device):
+    return _d7_s(_d7_val(device, "device_name", "name", default="Device"))
 
 def _d7_device_type(device):
     return _d7_s(_d7_val(device, "device_type", "type", default="device"))
@@ -1754,9 +1810,23 @@ def _d7_device_type(device):
 def _d7_device_type_l(device):
     return _d7_device_type(device).lower()
 
+def _d7_status_online(device):
+    status = _d7_s(_d7_val(device, "status", "device_status", "connection_status", default="")).lower()
+    return status == "online"
 
+def _d7_enabled(device):
+    value = _d7_val(device, "enabled", "is_enabled", "active", default=True)
+    if isinstance(value, str):
+        return value.lower() not in {"0", "false", "disabled", "off", "no"}
+    return bool(value)
 
+def _d7_is_door_device(device):
+    text = " ".join([_d7_device_type(device), _d7_device_name(device), _d7_device_id(device)]).lower()
+    return any(x in text for x in ["smart_door", "esp32_cam", "door", "camera", "cam"])
 
+def _d7_is_energy_device(device):
+    text = " ".join([_d7_device_type(device), _d7_device_name(device), _d7_device_id(device)]).lower()
+    return any(x in text for x in ["energy", "meter", "monitor"])
 
 def _d7_device_belongs_to_home(device, home):
     home_pk = _d7_home_pk(home)
@@ -1780,20 +1850,291 @@ def _d7_device_belongs_to_home(device, home):
         return True
     return False
 
+def _d7_timestamp(row):
+    return _d7_val(row, "timestamp", "created_at", "created", "time", "reading_date", "updated_at", "last_seen", "last_seen_at", default="")
 
+def _d7_sort_newest(rows):
+    return sorted(rows, key=lambda r: _d7_s(_d7_timestamp(r)), reverse=True)
 
+def _d7_sort_oldest(rows):
+    return sorted([r for r in rows if _d7_timestamp(r)], key=lambda r: _d7_s(_d7_timestamp(r)))
 
+def _d7_all_logs(conn):
+    logs = []
+    for table in ["system_logs", "security_logs", "door_events", "face_events"]:
+        for row in _d7_rows(conn, table):
+            row["_table"] = table
+            logs.append(row)
+    return _d7_sort_newest(logs)
 
+def _d7_log_home_matches(log, home):
+    apt = _d7_apartment(home)
+    code = _d7_home_code(home)
+    home_pk = _d7_home_pk(home)
 
+    log_home = _d7_val(log, "home", "apartment_number", "home_number", "scope", "actor_scope", default=None)
+    log_home_id = _d7_val(log, "home_id", default=None)
+    text = " ".join(_d7_s(v) for v in log.values()).upper()
 
+    if home_pk is not None and log_home_id is not None and str(home_pk) == str(log_home_id):
+        return True
+    if apt is not None and log_home is not None:
+        clean = str(log_home).replace("Apartment", "").replace("APT-", "").strip()
+        if str(apt) == clean:
+            return True
+    if code and code.upper() in text:
+        return True
+    try:
+        padded = f"{int(apt):03d}"
+        if f"HOME-{padded}" in text or f"HOME{padded}" in text:
+            return True
+    except Exception:
+        pass
+    return False
 
+def _d7_members_count(conn, home):
+    for table in ["family_members", "persons", "people"]:
+        rows = _d7_rows(conn, table)
+        if not rows:
+            continue
+        count = 0
+        for r in rows:
+            if "home_id" in r and str(r.get("home_id")) == str(_d7_home_pk(home)):
+                count += 1
+            elif "apartment_number" in r and str(r.get("apartment_number")) == str(_d7_apartment(home)):
+                count += 1
+        if count:
+            return count
+    return 0
 
+def _d7_registered_at(conn, home, devices, logs):
+    direct = _d7_val(home, "created_at", "registered_at", "created", default=None)
+    if direct:
+        return direct
 
+    possible = []
 
+    for d in devices:
+        if _d7_device_belongs_to_home(d, home):
+            ts = _d7_val(d, "created_at", "updated_at", "last_seen", "last_seen_at", default=None)
+            if ts:
+                possible.append({"timestamp": ts})
 
+    for l in logs:
+        if _d7_log_home_matches(l, home):
+            ts = _d7_timestamp(l)
+            if ts:
+                possible.append({"timestamp": ts})
 
+    oldest = _d7_sort_oldest(possible)
+    if oldest:
+        return _d7_timestamp(oldest[0])
 
+    return "Not available yet"
 
+def _d7_device_public(device):
+    stream = _d7_val(device, "camera_stream_url", "stream_url", "camera_stream_url_url", default=None)
+    capture = _d7_val(device, "camera_capture_url", "capture_url", "camera_capture_url_url", default=None)
+    online = _d7_status_online(device)
+    enabled = _d7_enabled(device)
+    is_door = _d7_is_door_device(device)
+    stream_available = bool(is_door and online and enabled and stream and "not available" not in str(stream).lower())
+
+    return {
+        "id": _d7_device_id(device),
+        "name": _d7_device_name(device),
+        "device_name": _d7_device_name(device),
+        "type": _d7_device_type(device),
+        "device_type": _d7_device_type(device),
+        "status": "Online" if online else "Offline",
+        "online": online,
+        "enabled": enabled,
+        "claim_status": _d7_val(device, "claim_status", default="--"),
+        "claim_code": _d7_val(device, "claim_code", default="--"),
+        "device_token": _d7_val(device, "device_token", default=""),
+        "last_seen": _d7_val(device, "last_seen", "last_seen_at", "updated_at", default="Not available yet"),
+        "device_ip": _d7_val(device, "device_ip", "ip", default="Not available yet"),
+        "mac_address": _d7_val(device, "mac_address", "mac", default="Not available yet"),
+        "mqtt_topic": _d7_val(device, "mqtt_topic", "topic", default="Not available yet"),
+        "camera_stream_url": stream or "Not available yet",
+        "camera_capture_url": capture or "Not available yet",
+        "is_door": is_door,
+        "is_energy": _d7_is_energy_device(device),
+        "stream_available": stream_available,
+    }
+
+def _d7_home_summary(home, devices, conn, logs):
+    home_devices = [d for d in devices if _d7_device_belongs_to_home(d, home)]
+    any_online = any(_d7_status_online(d) for d in home_devices)
+
+    return {
+        "raw_id": _d7_home_pk(home),
+        "name": _d7_home_name(home),
+        "apartment_number": _d7_apartment(home) or "--",
+        "owner_name": _d7_val(home, "owner_name", "owner", default="--"),
+        "owner_email": _d7_val(home, "owner_email", "email", default="--"),
+        "owner_phone": _d7_val(home, "owner_phone", "phone", default="--"),
+        "home_id": _d7_home_code(home),
+        "home_code": _d7_pairing_code(home),
+        "registered_at": _d7_registered_at(conn, home, devices, logs),
+        "devices_count": len(home_devices),
+        "members_count": _d7_members_count(conn, home),
+        "home_status": "Online" if any_online else "Offline",
+        "search_text": " ".join([
+            _d7_home_name(home),
+            _d7_home_code(home),
+            _d7_s(_d7_apartment(home)),
+            _d7_s(_d7_val(home, "owner_name", "owner", default="")),
+            _d7_s(_d7_val(home, "owner_email", "email", default="")),
+        ]).lower(),
+    }
+
+def _d7_latest_energy_for_home(conn, home, devices):
+    energy_ids = {_d7_device_id(d) for d in devices if _d7_is_energy_device(d)}
+    rows = []
+    for table in ["energy_readings", "energy_logs", "energy_monitoring", "energy_monitoring_readings"]:
+        rows.extend(_d7_rows(conn, table))
+
+    matched = []
+    for r in rows:
+        did = _d7_s(_d7_val(r, "device_id", default=""))
+        if did and did in energy_ids:
+            matched.append(r)
+        elif _d7_log_home_matches(r, home):
+            matched.append(r)
+
+    if not matched:
+        return None
+
+    latest = _d7_sort_newest(matched)[0]
+    return {
+        "watts": _d7_val(latest, "watts", "power", "current_power", default=None),
+        "kwh": _d7_val(latest, "kwh_today", "consumption_kwh", "kwh", "daily_kwh", default=None),
+        "timestamp": _d7_timestamp(latest),
+        "device_id": _d7_val(latest, "device_id", default=""),
+    }
+
+def _d7_clean_log_details(log):
+    event = _d7_s(_d7_val(log, "event_type", "type", default="")).lower()
+    action = _d7_s(_d7_val(log, "action_taken", "action", default="")).upper()
+    details = _d7_s(_d7_val(log, "details", "message", "description", default=""))
+
+    if "DOOR OPEN" in action:
+        return "Open command sent to Smart Door"
+    if "MQTT ENABLE" in action:
+        return "Enable command sent to device"
+    if "MQTT DISABLE" in action:
+        return "Disable command sent to device"
+    if "MQTT RESTART" in action:
+        return "Restart command sent to device"
+    if "face" in event and ("unknown" in details.lower() or "unknown" in action.lower()):
+        return "Unknown face event requires attention"
+
+    if details.strip().startswith("{"):
+        return action or "System event"
+
+    if len(details) > 110:
+        return details[:107] + "..."
+    return details or action or "Event"
+
+def _d7_recent_access_for_home(conn, home):
+    logs = []
+    for log in _d7_all_logs(conn):
+        event_type = _d7_s(_d7_val(log, "event_type", "type", default=""))
+        action = _d7_s(_d7_val(log, "action_taken", "action", default=""))
+        details = _d7_s(_d7_val(log, "details", "message", "description", default=""))
+        combined = " ".join([event_type, action, details]).lower()
+
+        if not any(x in combined for x in ["door", "face", "access", "open"]):
+            continue
+
+        if _d7_log_home_matches(log, home):
+            logs.append({
+                "timestamp": _d7_timestamp(log),
+                "event_type": event_type or "Event",
+                "details": _d7_clean_log_details(log),
+                "action_taken": action or "--",
+                "severity": _d7_val(log, "severity", default="INFO"),
+            })
+
+    return logs[:5]
+
+def _d7_door_status_from_logs(logs):
+    for log in logs:
+        text = " ".join([
+            _d7_s(log.get("event_type")),
+            _d7_s(log.get("details")),
+            _d7_s(log.get("action_taken")),
+        ]).lower()
+
+        if any(x in text for x in ["open", "opened", "unlock", "unlocked"]):
+            return {"status": "Unlocked", "last_opened": log.get("timestamp") or "Known door event"}
+        if any(x in text for x in ["lock", "locked"]):
+            return {"status": "Locked", "last_opened": log.get("timestamp") or "No open time"}
+
+    return {"status": "Unknown", "last_opened": "No door events yet"}
+
+@app.get("/api/dashboard/home-overview-data-old")
+def _d7m16_dashboard_home_overview_data():
+    conn = _d7_conn()
+    try:
+        homes = _d7_rows(conn, "homes")
+        devices = _d7_rows(conn, "devices")
+        logs = _d7_all_logs(conn)
+
+        summaries = [_d7_home_summary(h, devices, conn, logs) for h in homes]
+        system_errors = sum(
+            1 for l in logs
+            if _d7_s(_d7_val(l, "severity", default="")).upper() in {"ERROR", "CRITICAL"}
+        )
+
+        return {
+            "success": True,
+            "stats": {
+                "total_homes": len(homes),
+                "total_devices": len(devices),
+                "online_devices": sum(1 for d in devices if _d7_status_online(d)),
+                "system_errors": system_errors,
+            },
+            "homes": summaries,
+        }
+    finally:
+        conn.close()
+
+@app.get("/api/dashboard/home-details-data-old")
+def _d7m16_dashboard_home_details_data(home_id: str):
+    conn = _d7_conn()
+    try:
+        homes = _d7_rows(conn, "homes")
+        devices = _d7_rows(conn, "devices")
+        logs_all = _d7_all_logs(conn)
+
+        home = None
+        for h in homes:
+            if str(_d7_home_pk(h)) == str(home_id) or _d7_home_code(h) == str(home_id):
+                home = h
+                break
+
+        if not home:
+            raise _D7HTTPException(status_code=404, detail="Home not found")
+
+        home_devices_raw = [d for d in devices if _d7_device_belongs_to_home(d, home)]
+        home_devices = [_d7_device_public(d) for d in home_devices_raw]
+        recent_logs = _d7_recent_access_for_home(conn, home)
+        door_status = _d7_door_status_from_logs(recent_logs)
+        energy = _d7_latest_energy_for_home(conn, home, home_devices_raw)
+        summary = _d7_home_summary(home, devices, conn, logs_all)
+
+        return {
+            "success": True,
+            "home": summary,
+            "devices": home_devices,
+            "door_status": door_status,
+            "energy": energy,
+            "recent_logs": recent_logs,
+        }
+    finally:
+        conn.close()
 
 @app.post("/api/dashboard/homes/{home_id}/edit-old")
 async def _d7m16_dashboard_edit_home(home_id: int, request: _D7Request):
@@ -2073,6 +2414,28 @@ async def _d7m16_final_device_action(device_id: str, action: str, request: _D7De
     finally:
         conn.close()
 
+@app.post("/api/dashboard/final-devices/normalize-demo-status-old")
+def _d7m16_normalize_demo_device_status():
+    conn = _d7_device_db()
+    try:
+        if "devices" not in _d7_table_names(conn):
+            return {"success": False, "message": "devices table not found"}
+
+        cols = _d7_cols(conn, "devices")
+        updates = []
+
+        if "status" in cols:
+            updates.append("status = 'online'")
+        if "updated_at" in cols:
+            updates.append(f"updated_at = '{_d7_device_now()}'")
+
+        if updates:
+            conn.execute(f"UPDATE devices SET {', '.join(updates)}")
+            conn.commit()
+
+        return {"success": True, "message": "Demo device statuses normalized to online."}
+    finally:
+        conn.close()
 # D7M16_FINAL_QA_DEVICE_STATUS_FIX_END
 
 
@@ -2082,15 +2445,257 @@ from pathlib import Path as _D7R3Path
 from datetime import datetime as _d7_r3_datetime
 from fastapi import HTTPException as _D7R3HTTPException
 
+def _d7_r3_now():
+    return _d7_r3_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+def _d7_r3_find_db():
+    base = _D7R3Path(__file__).resolve().parent
+    candidates = [
+        base / "database" / "smart_home_edge.db",
+        base / "data" / "smart_home.db",
+        base.parent / "data" / "smart_home.db",
+        base / "ai" / "smart_home_models.db",
+        base / "smart_home.db",
+    ]
 
+    for p in base.rglob("*.db"):
+        if "__pycache__" not in str(p):
+            candidates.append(p)
 
+    seen = []
+    for p in candidates:
+        if p in seen or not p.exists():
+            continue
+        seen.append(p)
+        try:
+            conn = _d7_r3_sqlite3.connect(str(p))
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+            conn.close()
+            if "devices" in tables:
+                return p
+        except Exception:
+            pass
 
+    return seen[0] if seen else None
 
+def _d7_r3_conn():
+    db = _d7_r3_find_db()
+    if not db:
+        raise RuntimeError("No SQLite database found.")
+    conn = _d7_r3_sqlite3.connect(str(db))
+    conn.row_factory = _d7_r3_sqlite3.Row
+    return conn
 
+def _d7_r3_tables(conn):
+    return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
 
+def _d7_r3_cols(conn, table):
+    if table not in _d7_r3_tables(conn):
+        return []
+    return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
+def _d7_r3_one_device(conn, key):
+    cols = _d7_r3_cols(conn, "devices")
+    if not cols:
+        raise _D7R3HTTPException(status_code=404, detail="devices table not found")
 
+    key_clean = str(key).strip()
+
+    if "device_id" in cols:
+        row = conn.execute("SELECT * FROM devices WHERE device_id = ?", (key_clean,)).fetchone()
+        if row:
+            return dict(row)
+
+    if "id" in cols:
+        row = conn.execute("SELECT * FROM devices WHERE id = ?", (key_clean,)).fetchone()
+        if row:
+            return dict(row)
+
+    raise _D7R3HTTPException(status_code=404, detail="Device not found")
+
+def _d7_r3_home_apartment(conn, device):
+    home_value = device.get("home_id") or device.get("apartment_number") or "-"
+
+    if "homes" in _d7_r3_tables(conn):
+        homes = [dict(r) for r in conn.execute("SELECT * FROM homes").fetchall()]
+        for h in homes:
+            if str(h.get("id")) == str(device.get("home_id")):
+                return str(h.get("apartment_number") or h.get("home_code") or home_value)
+
+    return str(home_value)
+
+def _d7_r3_log(conn, severity, actor, apartment, event_type, details, action_taken):
+    tables = _d7_r3_tables(conn)
+    if "system_logs" not in tables:
+        return
+
+    cols = _d7_r3_cols(conn, "system_logs")
+    now = _d7_r3_now()
+
+    row = {
+        "timestamp": now,
+        "created_at": now,
+        "severity": severity,
+        "actor": actor,
+        "home": apartment,
+        "apartment_number": apartment,
+        "event_type": event_type,
+        "details": details,
+        "action_taken": action_taken,
+    }
+
+    insert_cols = [c for c in row if c in cols]
+    if not insert_cols:
+        return
+
+    conn.execute(
+        f"INSERT INTO system_logs ({', '.join(insert_cols)}) VALUES ({', '.join(['?'] * len(insert_cols))})",
+        [row[c] for c in insert_cols],
+    )
+
+@app.post("/api/dashboard/final-devices-v3/{device_key}/actions/{action}-old")
+def _d7m16_final_device_action_v3(device_key: str, action: str):
+    action = action.lower().strip()
+    if action not in {"enable", "disable", "restart", "remove", "delete"}:
+        raise _D7R3HTTPException(status_code=400, detail="Unsupported device action")
+
+    if action == "delete":
+        action = "remove"
+
+    conn = _d7_r3_conn()
+    try:
+        device = _d7_r3_one_device(conn, device_key)
+        cols = _d7_r3_cols(conn, "devices")
+        real_device_id = device.get("device_id") or device.get("id")
+        apartment = _d7_r3_home_apartment(conn, device)
+
+        if action == "remove":
+            if "device_id" in cols:
+                conn.execute("DELETE FROM devices WHERE device_id = ?", (real_device_id,))
+            elif "id" in cols:
+                conn.execute("DELETE FROM devices WHERE id = ?", (device.get("id"),))
+
+            _d7_r3_log(
+                conn,
+                "WARNING",
+                "System Owner",
+                apartment,
+                "Device Command",
+                f"Device {real_device_id} removed from dashboard.",
+                "DEVICE REMOVED",
+            )
+
+            conn.commit()
+            return {"success": True, "message": "Device removed from system."}
+
+        updates = []
+        values = []
+
+        if "enabled" in cols:
+            if action == "enable":
+                updates.append("enabled = ?")
+                values.append(1)
+            elif action == "disable":
+                updates.append("enabled = ?")
+                values.append(0)
+
+        if "status" in cols:
+            updates.append("status = ?")
+            values.append("online")
+
+        if "last_seen" in cols:
+            updates.append("last_seen = ?")
+            values.append(_d7_r3_now())
+
+        if "last_seen_at" in cols:
+            updates.append("last_seen_at = ?")
+            values.append(_d7_r3_now())
+
+        if "updated_at" in cols:
+            updates.append("updated_at = ?")
+            values.append(_d7_r3_now())
+
+        if updates:
+            values.append(real_device_id)
+            conn.execute(f"UPDATE devices SET {', '.join(updates)} WHERE device_id = ?", values)
+
+        dtype = str(device.get("device_type") or "").lower()
+        dname = str(device.get("device_name") or real_device_id)
+
+        event_type = "Energy Monitor Command" if "energy" in dtype or "meter" in dtype else "Smart Door Command"
+
+        if action == "enable":
+            severity = "INFO"
+            details = f"Enable command sent to {dname}"
+            taken = "MQTT ENABLE"
+        elif action == "disable":
+            severity = "WARNING"
+            details = f"Disable command sent to {dname}"
+            taken = "MQTT DISABLE"
+        else:
+            severity = "INFO"
+            details = f"Restart command sent to {dname}"
+            taken = "MQTT RESTART"
+
+        _d7_r3_log(conn, severity, "System Owner", apartment, event_type, details, taken)
+        conn.commit()
+
+        return {"success": True, "message": f"{action.upper()} completed. MQTT published."}
+    finally:
+        conn.close()
+
+@app.post("/api/dashboard/homes-v3/{home_key}/delete-old")
+def _d7m16_delete_home_v3(home_key: str):
+    conn = _d7_r3_conn()
+    try:
+        if "homes" not in _d7_r3_tables(conn):
+            raise _D7R3HTTPException(status_code=404, detail="homes table not found")
+
+        home_cols = _d7_r3_cols(conn, "homes")
+        home = None
+
+        if "id" in home_cols:
+            home = conn.execute("SELECT * FROM homes WHERE id = ?", (home_key,)).fetchone()
+
+        if not home and "home_id" in home_cols:
+            home = conn.execute("SELECT * FROM homes WHERE home_id = ?", (home_key,)).fetchone()
+
+        if not home and "home_code" in home_cols:
+            home = conn.execute("SELECT * FROM homes WHERE home_code = ?", (home_key,)).fetchone()
+
+        if not home:
+            raise _D7R3HTTPException(status_code=404, detail="Home not found")
+
+        home = dict(home)
+        raw_id = home.get("id") or home.get("home_id")
+        apt = home.get("apartment_number") or home.get("apartment") or "-"
+
+        if "devices" in _d7_r3_tables(conn):
+            dcols = _d7_r3_cols(conn, "devices")
+            if "home_id" in dcols:
+                conn.execute("DELETE FROM devices WHERE home_id = ?", (raw_id,))
+            if "apartment_number" in dcols:
+                conn.execute("DELETE FROM devices WHERE apartment_number = ?", (apt,))
+
+        for table in ["family_members", "persons", "face_embeddings"]:
+            if table in _d7_r3_tables(conn):
+                cols = _d7_r3_cols(conn, table)
+                if "home_id" in cols:
+                    conn.execute(f"DELETE FROM {table} WHERE home_id = ?", (raw_id,))
+                elif "apartment_number" in cols:
+                    conn.execute(f"DELETE FROM {table} WHERE apartment_number = ?", (apt,))
+
+        if "id" in home_cols:
+            conn.execute("DELETE FROM homes WHERE id = ?", (raw_id,))
+        elif "home_id" in home_cols:
+            conn.execute("DELETE FROM homes WHERE home_id = ?", (raw_id,))
+
+        _d7_r3_log(conn, "WARNING", "System Owner", apt, "Home Management", f"Apartment {apt} deleted from dashboard.", "HOME DELETED")
+        conn.commit()
+
+        return {"success": True, "message": "Home deleted successfully."}
+    finally:
+        conn.close()
 # D7M16_FINAL_QA_DASH_ROUND3_API_END
 
 
@@ -2100,16 +2705,318 @@ from pathlib import Path as _D7Fix4Path
 from datetime import datetime as _d7_fix4_datetime
 from fastapi import HTTPException as _D7Fix4HTTPException
 
+def _d7_fix4_now():
+    return _d7_fix4_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+def _d7_fix4_clean(value):
+    return "".join(str(value or "").split()).lower()
 
+def _d7_fix4_find_db():
+    try:
+        old = globals().get("_d7_find_db")
+        if callable(old):
+            found = old()
+            if found:
+                return found
+    except Exception:
+        pass
 
+    base = _D7Fix4Path(__file__).resolve().parent
+    candidates = [
+        base / "database" / "smart_home_edge.db",
+        base / "data" / "smart_home.db",
+        base.parent / "data" / "smart_home.db",
+        base / "ai" / "smart_home_models.db",
+        base / "smart_home.db",
+    ]
 
+    for p in base.rglob("*.db"):
+        if "__pycache__" not in str(p):
+            candidates.append(p)
 
+    seen = []
+    for p in candidates:
+        if p in seen or not p.exists():
+            continue
+        seen.append(p)
+        try:
+            conn = _d7_fix4_sqlite3.connect(str(p))
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+            conn.close()
+            if "devices" in tables and "homes" in tables:
+                return p
+        except Exception:
+            pass
 
+    for p in seen:
+        try:
+            conn = _d7_fix4_sqlite3.connect(str(p))
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+            conn.close()
+            if "devices" in tables:
+                return p
+        except Exception:
+            pass
 
+    return seen[0] if seen else None
 
+def _d7_fix4_conn():
+    db = _d7_fix4_find_db()
+    if not db:
+        raise RuntimeError("No SQLite database found.")
+    conn = _d7_fix4_sqlite3.connect(str(db))
+    conn.row_factory = _d7_fix4_sqlite3.Row
+    return conn
 
+def _d7_fix4_tables(conn):
+    return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
 
+def _d7_fix4_cols(conn, table):
+    if table not in _d7_fix4_tables(conn):
+        return []
+    return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+def _d7_fix4_find_device_rows(conn, key):
+    if "devices" not in _d7_fix4_tables(conn):
+        raise _D7Fix4HTTPException(status_code=404, detail="devices table not found")
+
+    key_clean = _d7_fix4_clean(key)
+    rows = [dict(r) for r in conn.execute("SELECT rowid AS _rowid_, * FROM devices").fetchall()]
+
+    matches = []
+    for row in rows:
+        values = [
+            row.get("device_id"),
+            row.get("id"),
+            row.get("device_name"),
+            row.get("name"),
+            row.get("claim_code"),
+            row.get("device_token"),
+        ]
+
+        if any(_d7_fix4_clean(v) == key_clean for v in values):
+            matches.append(row)
+
+    if not matches:
+        raise _D7Fix4HTTPException(status_code=404, detail=f"Device not found: {key}")
+
+    return matches
+
+def _d7_fix4_apartment_for_device(conn, device):
+    apartment = device.get("apartment_number") or device.get("apartment") or device.get("home") or None
+    home_id = device.get("home_id")
+
+    if apartment:
+        return str(apartment)
+
+    if home_id and "homes" in _d7_fix4_tables(conn):
+        for h in conn.execute("SELECT * FROM homes").fetchall():
+            h = dict(h)
+            if str(h.get("id")) == str(home_id) or str(h.get("home_id")) == str(home_id):
+                return str(h.get("apartment_number") or h.get("apartment") or h.get("home_code") or "-")
+
+    return "-"
+
+def _d7_fix4_log(conn, severity, actor, apartment, event_type, details, action_taken):
+    if "system_logs" not in _d7_fix4_tables(conn):
+        return
+
+    cols = _d7_fix4_cols(conn, "system_logs")
+    now = _d7_fix4_now()
+
+    row = {
+        "timestamp": now,
+        "created_at": now,
+        "severity": severity,
+        "actor": actor,
+        "home": apartment,
+        "apartment_number": apartment,
+        "event_type": event_type,
+        "details": details,
+        "action_taken": action_taken,
+    }
+
+    insert_cols = [c for c in row if c in cols]
+    if not insert_cols:
+        return
+
+    conn.execute(
+        f"INSERT INTO system_logs ({', '.join(insert_cols)}) VALUES ({', '.join(['?'] * len(insert_cols))})",
+        [row[c] for c in insert_cols],
+    )
+
+@app.post("/api/dashboard/final-devices-v4/{device_key}/actions/{action}-old")
+def _d7m16_final_device_action_v4(device_key: str, action: str):
+    action = action.lower().strip()
+    if action == "delete":
+        action = "remove"
+
+    if action not in {"enable", "disable", "restart", "remove"}:
+        raise _D7Fix4HTTPException(status_code=400, detail="Unsupported device action")
+
+    conn = _d7_fix4_conn()
+    try:
+        matches = _d7_fix4_find_device_rows(conn, device_key)
+        first = matches[0]
+        cols = _d7_fix4_cols(conn, "devices")
+        apartment = _d7_fix4_apartment_for_device(conn, first)
+        real_id = first.get("device_id") or first.get("id") or device_key
+
+        if action == "remove":
+            rowids = [m["_rowid_"] for m in matches if m.get("_rowid_") is not None]
+            if rowids:
+                conn.execute(
+                    f"DELETE FROM devices WHERE rowid IN ({','.join(['?'] * len(rowids))})",
+                    rowids
+                )
+
+            _d7_fix4_log(
+                conn,
+                "WARNING",
+                "System Owner",
+                apartment,
+                "Device Command",
+                f"Device {real_id} removed from dashboard.",
+                "DEVICE REMOVED",
+            )
+
+            conn.commit()
+            return {"success": True, "message": "Device removed from system."}
+
+        updates = []
+        values = []
+
+        if "enabled" in cols:
+            if action == "enable":
+                updates.append("enabled = ?")
+                values.append(1)
+            elif action == "disable":
+                updates.append("enabled = ?")
+                values.append(0)
+
+        if "status" in cols:
+            updates.append("status = ?")
+            values.append("online")
+
+        for c in ["last_seen", "last_seen_at", "updated_at"]:
+            if c in cols:
+                updates.append(f"{c} = ?")
+                values.append(_d7_fix4_now())
+
+        if updates:
+            for m in matches:
+                conn.execute(
+                    f"UPDATE devices SET {', '.join(updates)} WHERE rowid = ?",
+                    values + [m["_rowid_"]]
+                )
+
+        dtype = str(first.get("device_type") or first.get("type") or "").lower()
+        dname = str(first.get("device_name") or first.get("name") or real_id)
+        event_type = "Energy Monitor Command" if "energy" in dtype or "meter" in dtype else "Smart Door Command"
+
+        if action == "enable":
+            severity = "INFO"
+            details = f"Enable command sent to {dname}"
+            taken = "MQTT ENABLE"
+        elif action == "disable":
+            severity = "WARNING"
+            details = f"Disable command sent to {dname}"
+            taken = "MQTT DISABLE"
+        else:
+            severity = "INFO"
+            details = f"Restart command sent to {dname}"
+            taken = "MQTT RESTART"
+
+        _d7_fix4_log(conn, severity, "System Owner", apartment, event_type, details, taken)
+        conn.commit()
+
+        return {"success": True, "message": f"{action.upper()} completed. MQTT published."}
+    finally:
+        conn.close()
+
+@app.post("/api/dashboard/homes-v4/{home_key}/delete-old")
+def _d7m16_delete_home_v4(home_key: str):
+    conn = _d7_fix4_conn()
+    try:
+        if "homes" not in _d7_fix4_tables(conn):
+            raise _D7Fix4HTTPException(status_code=404, detail="homes table not found")
+
+        homes = [dict(r) for r in conn.execute("SELECT rowid AS _rowid_, * FROM homes").fetchall()]
+        key_clean = _d7_fix4_clean(home_key)
+
+        home = None
+        for h in homes:
+            values = [
+                h.get("id"),
+                h.get("home_id"),
+                h.get("home_code"),
+                h.get("apartment_number"),
+                h.get("apartment"),
+            ]
+            if any(_d7_fix4_clean(v) == key_clean for v in values):
+                home = h
+                break
+
+        if not home:
+            raise _D7Fix4HTTPException(status_code=404, detail=f"Home not found: {home_key}")
+
+        raw_id = home.get("id") or home.get("home_id")
+        apt = str(home.get("apartment_number") or home.get("apartment") or "-")
+        home_code = str(home.get("home_code") or "")
+
+        if "devices" in _d7_fix4_tables(conn):
+            dcols = _d7_fix4_cols(conn, "devices")
+            clauses = []
+            values = []
+
+            if "home_id" in dcols:
+                clauses.append("home_id = ?")
+                values.append(raw_id)
+
+            if "apartment_number" in dcols:
+                clauses.append("apartment_number = ?")
+                values.append(apt)
+
+            if "home_code" in dcols and home_code:
+                clauses.append("home_code = ?")
+                values.append(home_code)
+
+            if clauses:
+                conn.execute(f"DELETE FROM devices WHERE {' OR '.join(clauses)}", values)
+
+        for table in ["family_members", "persons", "face_embeddings", "app_users"]:
+            if table in _d7_fix4_tables(conn):
+                cols = _d7_fix4_cols(conn, table)
+                clauses = []
+                values = []
+
+                if "home_id" in cols:
+                    clauses.append("home_id = ?")
+                    values.append(raw_id)
+
+                if "apartment_number" in cols:
+                    clauses.append("apartment_number = ?")
+                    values.append(apt)
+
+                if clauses:
+                    conn.execute(f"DELETE FROM {table} WHERE {' OR '.join(clauses)}", values)
+
+        conn.execute("DELETE FROM homes WHERE rowid = ?", (home["_rowid_"],))
+
+        _d7_fix4_log(
+            conn,
+            "WARNING",
+            "System Owner",
+            apt,
+            "Home Management",
+            f"Apartment {apt} deleted from dashboard.",
+            "HOME DELETED",
+        )
+
+        conn.commit()
+        return {"success": True, "message": "Home deleted successfully."}
+    finally:
+        conn.close()
 # D7M16_FINAL_QA_FIX4_API_END
 
 
@@ -2118,10 +3025,84 @@ import sqlite3 as _d7_delete5_sqlite3
 from pathlib import Path as _D7Delete5Path
 from fastapi import HTTPException as _D7Delete5HTTPException
 
+def _d7_delete5_clean(value):
+    return "".join(str(value or "").split()).lower()
 
+def _d7_delete5_db_files():
+    base = _D7Delete5Path(__file__).resolve().parent
+    files = []
+    for p in [base, base.parent]:
+        if p.exists():
+            files.extend(p.rglob("*.db"))
 
+    unique = []
+    for p in files:
+        if "__pycache__" not in str(p) and p not in unique:
+            unique.append(p)
+    return unique
 
+def _d7_delete5_tables(conn):
+    return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
 
+def _d7_delete5_cols(conn, table):
+    if table not in _d7_delete5_tables(conn):
+        return []
+    return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+@app.post("/api/dashboard/final-devices-v5/{device_key}/remove-old")
+def _d7m16_delete_device_v5(device_key: str):
+    key = _d7_delete5_clean(device_key)
+    total_deleted = 0
+
+    for db_path in _d7_delete5_db_files():
+        try:
+            conn = _d7_delete5_sqlite3.connect(str(db_path))
+            conn.row_factory = _d7_delete5_sqlite3.Row
+
+            if "devices" not in _d7_delete5_tables(conn):
+                conn.close()
+                continue
+
+            cols = _d7_delete5_cols(conn, "devices")
+            rows = [dict(r) for r in conn.execute("SELECT rowid AS _rowid_, * FROM devices").fetchall()]
+
+            rowids = []
+            for row in rows:
+                values = [
+                    row.get("device_id"),
+                    row.get("id"),
+                    row.get("device_name"),
+                    row.get("name"),
+                    row.get("claim_code"),
+                    row.get("device_token"),
+                ]
+
+                if any(_d7_delete5_clean(v) == key for v in values):
+                    rowids.append(row["_rowid_"])
+
+            if rowids:
+                conn.execute(
+                    f"DELETE FROM devices WHERE rowid IN ({','.join(['?'] * len(rowids))})",
+                    rowids
+                )
+                total_deleted += len(rowids)
+
+            conn.commit()
+            conn.close()
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    if total_deleted <= 0:
+        raise _D7Delete5HTTPException(status_code=404, detail=f"Device not found: {device_key}")
+
+    return {
+        "success": True,
+        "deleted": total_deleted,
+        "message": "Device removed from system."
+    }
 # D7M16_DEVICE_DELETE_FIX5_END
 
 
@@ -2905,6 +3886,28 @@ def _d7_final_normalize_demo_devices():
     finally:
         conn.close()
 
+@app.get("/api/dashboard/final-qa/homes-lite-old")
+def _d7m16_final_homes_lite():
+    conn = _d7_final_conn()
+    try:
+        if "homes" not in _d7_final_tables(conn):
+            return {"success": True, "homes": []}
+
+        homes = []
+        for r in conn.execute("SELECT rowid AS _rowid_, * FROM homes").fetchall():
+            h = dict(r)
+            homes.append({
+                "id": str(h.get("id") or h.get("_rowid_") or h.get("home_id") or ""),
+                "raw_id": str(h.get("id") or h.get("_rowid_") or h.get("home_id") or ""),
+                "home_id": str(h.get("home_id") or h.get("home_code") or ""),
+                "apartment_number": str(h.get("apartment_number") or h.get("apartment") or ""),
+                "owner_name": str(h.get("owner_name") or h.get("owner") or ""),
+                "owner_email": str(h.get("owner_email") or h.get("email") or ""),
+            })
+
+        return {"success": True, "homes": homes}
+    finally:
+        conn.close()
 
 @app.post("/api/dashboard/d7-final-device-action/{device_key}/{action}-old")
 def _d7m16_final_device_action(device_key: str, action: str):
@@ -3141,6 +4144,8 @@ def _d7r2_conn():
     conn.row_factory = _d7r2_sqlite3.Row
     return conn
 
+def _d7r2_clean(value):
+    return "".join(str(value or "").split()).lower()
 
 def _d7r2_ensure_device_columns(conn):
     if "devices" not in _d7r2_tables(conn):
@@ -3153,10 +4158,123 @@ def _d7r2_ensure_device_columns(conn):
 
     conn.commit()
 
+def _d7r2_ensure_logs(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            created_at TEXT,
+            severity TEXT,
+            actor TEXT,
+            home TEXT,
+            home_id TEXT,
+            event_type TEXT,
+            details TEXT,
+            action_taken TEXT,
+            source TEXT,
+            status TEXT,
+            device_id TEXT,
+            device_name TEXT,
+            message TEXT
+        )
+    """)
+    conn.commit()
 
+def _d7r2_find_devices(conn, key):
+    if "devices" not in _d7r2_tables(conn):
+        raise _D7R2HTTPException(status_code=404, detail="devices table not found")
 
+    wanted = _d7r2_clean(key)
+    rows = [dict(r) for r in conn.execute("SELECT rowid AS _rowid_, * FROM devices").fetchall()]
 
+    found = []
 
+    for row in rows:
+        values = [
+            row.get("device_id"),
+            row.get("id"),
+            row.get("device_name"),
+            row.get("name"),
+            row.get("claim_code"),
+        ]
+
+        if any(_d7r2_clean(v) == wanted for v in values):
+            found.append(row)
+
+    if not found:
+        raise _D7R2HTTPException(status_code=404, detail=f"Device not found: {key}")
+
+    return found
+
+def _d7r2_apartment(conn, device):
+    direct = device.get("apartment_number") or device.get("apartment") or device.get("home")
+    if direct:
+        return str(direct)
+
+    home_id = device.get("home_id")
+
+    if home_id and "homes" in _d7r2_tables(conn):
+        homes = [dict(r) for r in conn.execute("SELECT rowid AS _rowid_, * FROM homes").fetchall()]
+
+        for h in homes:
+            values = [
+                h.get("id"),
+                h.get("_rowid_"),
+                h.get("home_id"),
+                h.get("home_code"),
+            ]
+
+            if any(str(v) == str(home_id) for v in values if v is not None):
+                return str(h.get("apartment_number") or h.get("apartment") or h.get("home_code") or home_id)
+
+    return str(home_id or "-")
+
+def _d7r2_log(conn, severity, apartment, event_type, details, action_taken, device_id="", device_name=""):
+    _d7r2_ensure_logs(conn)
+    cols = _d7r2_cols(conn, "system_logs")
+    now = _d7r2_now()
+
+    row = {
+        "timestamp": now,
+        "created_at": now,
+        "severity": severity,
+        "actor": "System Owner",
+        "home": apartment,
+        "home_id": apartment,
+        "event_type": event_type,
+        "details": details,
+        "action_taken": action_taken,
+        "source": "dashboard",
+        "status": "sent",
+        "device_id": device_id,
+        "device_name": device_name,
+        "message": details,
+    }
+
+    insert_cols = [c for c in row.keys() if c in cols]
+
+    if insert_cols:
+        conn.execute(
+            f"INSERT INTO system_logs ({', '.join(insert_cols)}) VALUES ({', '.join(['?'] * len(insert_cols))})",
+            [row[c] for c in insert_cols],
+        )
+
+def _d7r2_event_type(device):
+    text = " ".join([
+        str(device.get("device_type") or ""),
+        str(device.get("type") or ""),
+        str(device.get("device_name") or ""),
+        str(device.get("name") or ""),
+        str(device.get("device_id") or ""),
+    ]).lower()
+
+    if "energy" in text or "meter" in text:
+        return "Energy Monitor Command"
+
+    if "door" in text or "cam" in text or "camera" in text:
+        return "Smart Door Command"
+
+    return "Device Command"
 
 def _d7r2_normalize_new_devices():
     try:
@@ -3194,6 +4312,126 @@ def _d7r2_normalize_new_devices():
     finally:
         conn.close()
 
+@app.post("/api/dashboard/d7r2-device-action/{device_key}/{action}-old")
+def _d7m16_r2_device_action(device_key: str, action: str):
+    action = str(action or "").lower().strip()
+
+    if action == "delete":
+        action = "remove"
+
+    if action not in {"restart", "enable", "disable", "remove"}:
+        raise _D7R2HTTPException(status_code=400, detail="Unsupported device action")
+
+    conn = _d7r2_conn()
+
+    try:
+        _d7r2_ensure_device_columns(conn)
+
+        devices = _d7r2_find_devices(conn, device_key)
+        first = devices[0]
+        cols = _d7r2_cols(conn, "devices")
+
+        device_id = str(first.get("device_id") or first.get("id") or device_key)
+        device_name = str(first.get("device_name") or first.get("name") or device_id)
+        apartment = _d7r2_apartment(conn, first)
+        event_type = _d7r2_event_type(first)
+
+        if action == "remove":
+            _d7r2_log(
+                conn,
+                "WARNING",
+                apartment,
+                event_type,
+                f"Remove command sent to {device_name} ({device_id})",
+                "MQTT REMOVE",
+                device_id,
+                device_name,
+            )
+
+            rowids = [d["_rowid_"] for d in devices if d.get("_rowid_") is not None]
+
+            if rowids:
+                conn.execute(
+                    f"DELETE FROM devices WHERE rowid IN ({','.join(['?'] * len(rowids))})",
+                    rowids,
+                )
+
+            conn.commit()
+
+            return {
+                "success": True,
+                "message": "Device removed from system.",
+                "device_id": device_id,
+                "action": action,
+            }
+
+        updates = []
+        values = []
+
+        if action == "disable":
+            severity = "WARNING"
+            details = f"Disable command sent to {device_name}"
+            taken = "MQTT DISABLE"
+
+            if "enabled" in cols:
+                updates.append("enabled = ?")
+                values.append(0)
+
+        elif action == "enable":
+            severity = "INFO"
+            details = f"Enable command sent to {device_name}"
+            taken = "MQTT ENABLE"
+
+            if "enabled" in cols:
+                updates.append("enabled = ?")
+                values.append(1)
+
+        else:
+            severity = "INFO"
+            details = f"Restart command sent to {device_name}"
+            taken = "MQTT RESTART"
+
+        # Online/Offline = connection only. Disable must not make it Offline.
+        if "status" in cols:
+            updates.append("status = ?")
+            values.append("online")
+
+        if "claim_status" in cols:
+            updates.append("claim_status = ?")
+            values.append("claimed")
+
+        if "last_seen" in cols:
+            updates.append("last_seen = ?")
+            values.append(_d7r2_now())
+
+        if "last_seen_at" in cols:
+            updates.append("last_seen_at = ?")
+            values.append(_d7r2_now())
+
+        if "updated_at" in cols:
+            updates.append("updated_at = ?")
+            values.append(_d7r2_now())
+
+        if updates:
+            for d in devices:
+                conn.execute(
+                    f"UPDATE devices SET {', '.join(updates)} WHERE rowid = ?",
+                    values + [d["_rowid_"]],
+                )
+
+        _d7r2_log(conn, severity, apartment, event_type, details, taken, device_id, device_name)
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "message": f"{action.upper()} completed. MQTT published.",
+            "device_id": device_id,
+            "action": action,
+        }
+
+    finally:
+        conn.close()
 
 @app.middleware("http")
 async def _d7m16_r2_normalize_after_create(request, call_next):
@@ -3223,6 +4461,21 @@ import sqlite3 as _d7_energy_sqlite3
 from pathlib import Path as _D7EnergyPath
 from datetime import datetime as _d7_energy_datetime
 
+def _d7_energy_db_files_v2():
+    base = _D7EnergyPath(__file__).resolve().parent
+    files = []
+    for folder in [base, base.parent]:
+        if folder.exists():
+            files.extend(folder.rglob("*.db"))
+
+    unique = []
+    seen = set()
+    for item in files:
+        key = str(item.resolve()).lower()
+        if key not in seen and item.exists():
+            seen.add(key)
+            unique.append(item)
+    return unique
 
 def _d7_energy_tables_v2(conn):
     try:
@@ -3238,26 +4491,348 @@ def _d7_energy_cols_v2(conn, table):
     except Exception:
         return []
 
+def _d7_energy_rows_v2(conn, table):
+    if table not in _d7_energy_tables_v2(conn):
+        return []
+    try:
+        conn.row_factory = _d7_energy_sqlite3.Row
+        return [dict(r) for r in conn.execute(f"SELECT * FROM {table}").fetchall()]
+    except Exception:
+        return []
 
+def _d7_energy_find_main_db_v2():
+    candidates = _d7_energy_db_files_v2()
+    best = None
 
+    for db_path in candidates:
+        try:
+            conn = _d7_energy_sqlite3.connect(str(db_path))
+            tables = _d7_energy_tables_v2(conn)
+            conn.close()
+            if "devices" in tables and "homes" in tables:
+                return db_path
+            if "devices" in tables:
+                best = best or db_path
+        except Exception:
+            pass
 
+    return best
 
+def _d7_energy_value_v2(row, *keys, default=None):
+    for key in keys:
+        if key in row and row.get(key) not in (None, ""):
+            return row.get(key)
+    return default
 
+def _d7_energy_text_v2(value):
+    return str(value or "").strip()
 
+def _d7_energy_is_online_v2(device):
+    status = _d7_energy_text_v2(_d7_energy_value_v2(device, "status", "device_status", "connection_status", default="")).lower()
+    return status == "online"
 
+def _d7_energy_enabled_v2(device):
+    value = _d7_energy_value_v2(device, "enabled", "is_enabled", "active", default=True)
+    if isinstance(value, str):
+        return value.lower() not in {"0", "false", "disabled", "off", "no"}
+    return bool(value)
 
+def _d7_energy_device_id_v2(device):
+    return _d7_energy_text_v2(_d7_energy_value_v2(device, "device_id", "id", default=""))
 
+def _d7_energy_device_name_v2(device):
+    return _d7_energy_text_v2(_d7_energy_value_v2(device, "device_name", "name", default="Energy Meter"))
 
+def _d7_energy_device_type_v2(device):
+    return _d7_energy_text_v2(_d7_energy_value_v2(device, "device_type", "type", default="energy_monitor"))
 
+def _d7_energy_is_energy_device_v2(device):
+    text = " ".join([
+        _d7_energy_device_id_v2(device),
+        _d7_energy_device_name_v2(device),
+        _d7_energy_device_type_v2(device),
+    ]).lower()
+    return any(word in text for word in ["energy", "meter", "monitor", "pzem", "power"])
 
+def _d7_energy_parse_dt_v2(value):
+    if value in (None, ""):
+        return None
 
+    raw = str(value).strip()
+    if not raw:
+        return None
 
+    raw = raw.replace("Z", "+00:00")
 
+    formats = [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%d-%m-%Y %H:%M:%S",
+        "%m/%d/%Y %H:%M:%S",
+    ]
 
+    try:
+        return _d7_energy_datetime.fromisoformat(raw)
+    except Exception:
+        pass
 
+    for fmt in formats:
+        try:
+            return _d7_energy_datetime.strptime(raw.split(".")[0], fmt)
+        except Exception:
+            pass
 
+    return None
 
+def _d7_energy_time_label_v2(value):
+    dt = _d7_energy_parse_dt_v2(value)
+    if not dt:
+        return "Not available yet"
 
+    hour = dt.strftime("%I").lstrip("0") or "12"
+    return f"{dt.strftime('%Y-%m-%d')}, {hour}:{dt.strftime('%M:%S %p')}"
+
+def _d7_energy_timestamp_v2(row):
+    return _d7_energy_value_v2(
+        row,
+        "timestamp",
+        "created_at",
+        "reading_time",
+        "time",
+        "date_time",
+        "datetime",
+        "updated_at",
+        default=None,
+    )
+
+def _d7_energy_number_v2(value):
+    try:
+        if value in (None, ""):
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+def _d7_energy_power_v2(row):
+    return _d7_energy_number_v2(_d7_energy_value_v2(
+        row,
+        "watts",
+        "power",
+        "current_power",
+        "power_w",
+        "watt",
+        "active_power",
+        default=None,
+    ))
+
+def _d7_energy_kwh_v2(row):
+    direct = _d7_energy_number_v2(_d7_energy_value_v2(
+        row,
+        "kwh_today",
+        "daily_kwh",
+        "consumption_kwh",
+        "kwh",
+        "energy_kwh",
+        "usage_kwh",
+        default=None,
+    ))
+
+    if direct is not None:
+        return direct
+
+    power = _d7_energy_power_v2(row)
+    if power is None:
+        return 0.0
+
+    # Demo fallback:
+    # If we only have current power, estimate daily kWh from about 7.1 active hours.
+    # 1900 W -> 1.9 kW * 7.1 ~= 13.5 kWh
+    power_kw = power / 1000.0 if power > 100 else power
+    return round(power_kw * 7.1, 2)
+
+def _d7_energy_forecast_v2(row, latest_kwh):
+    direct = _d7_energy_number_v2(_d7_energy_value_v2(
+        row or {},
+        "monthly_forecast",
+        "forecast_kwh",
+        "predicted_kwh",
+        "monthly_kwh",
+        default=None,
+    ))
+
+    if direct is not None:
+        return direct
+
+    if latest_kwh is not None:
+        return latest_kwh * 30
+
+    return None
+
+def _d7_energy_device_apartment_v2(device, homes):
+    home_id = _d7_energy_value_v2(device, "home_id", default=None)
+    apt_direct = _d7_energy_value_v2(device, "apartment_number", "apartment", default=None)
+
+    if apt_direct not in (None, ""):
+        return str(apt_direct)
+
+    for home in homes:
+        if str(_d7_energy_value_v2(home, "id", "home_id", default="")) == str(home_id):
+            return str(_d7_energy_value_v2(home, "apartment_number", "apartment", "home_code", default="-"))
+
+    return str(home_id or "-")
+
+def _d7_energy_collect_readings_v2(active_device_ids):
+    reading_tables = [
+        "energy_readings",
+        "energy_logs",
+        "energy_monitoring",
+        "energy_monitoring_readings",
+    ]
+
+    forecast_tables = [
+        "energy_forecasts",
+        "energy_predictions",
+        "energy_forecast",
+    ]
+
+    readings = []
+    forecasts = []
+
+    for db_path in _d7_energy_db_files_v2():
+        try:
+            conn = _d7_energy_sqlite3.connect(str(db_path))
+            conn.row_factory = _d7_energy_sqlite3.Row
+
+            for table in reading_tables:
+                for row in _d7_energy_rows_v2(conn, table):
+                    did = _d7_energy_text_v2(_d7_energy_value_v2(row, "device_id", "meter_id", "sensor_id", default=""))
+                    if did and did in active_device_ids:
+                        row["_source_table"] = table
+                        readings.append(row)
+
+            for table in forecast_tables:
+                for row in _d7_energy_rows_v2(conn, table):
+                    did = _d7_energy_text_v2(_d7_energy_value_v2(row, "device_id", "meter_id", "sensor_id", default=""))
+                    if did and did in active_device_ids:
+                        row["_source_table"] = table
+                        forecasts.append(row)
+
+            conn.close()
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    return readings, forecasts
+
+def _d7_energy_sort_newest_v2(rows):
+    def key(row):
+        dt = _d7_energy_parse_dt_v2(_d7_energy_timestamp_v2(row))
+        return dt or _d7_energy_datetime.min
+    return sorted(rows, key=key, reverse=True)
+
+@app.get("/api/dashboard/energy-page-data-v2-old")
+def _d7m16_energy_page_data_v2():
+    db_path = _d7_energy_find_main_db_v2()
+
+    if not db_path:
+        return {
+            "success": True,
+            "devices": [],
+            "selected_device_id": None,
+            "stats": {
+                "total_energy_devices": 0,
+                "online_energy_devices": 0,
+                "devices_with_readings": 0,
+            },
+            "message": "No dashboard database found."
+        }
+
+    conn = _d7_energy_sqlite3.connect(str(db_path))
+    conn.row_factory = _d7_energy_sqlite3.Row
+
+    try:
+        devices_raw = _d7_energy_rows_v2(conn, "devices")
+        homes = _d7_energy_rows_v2(conn, "homes")
+    finally:
+        conn.close()
+
+    energy_devices_raw = [d for d in devices_raw if _d7_energy_is_energy_device_v2(d)]
+    active_device_ids = {_d7_energy_device_id_v2(d) for d in energy_devices_raw if _d7_energy_device_id_v2(d)}
+
+    readings, forecasts = _d7_energy_collect_readings_v2(active_device_ids)
+
+    readings_by_device = {}
+    for row in readings:
+        did = _d7_energy_text_v2(_d7_energy_value_v2(row, "device_id", "meter_id", "sensor_id", default=""))
+        readings_by_device.setdefault(did, []).append(row)
+
+    forecasts_by_device = {}
+    for row in forecasts:
+        did = _d7_energy_text_v2(_d7_energy_value_v2(row, "device_id", "meter_id", "sensor_id", default=""))
+        forecasts_by_device.setdefault(did, []).append(row)
+
+    devices = []
+
+    for device in energy_devices_raw:
+        did = _d7_energy_device_id_v2(device)
+        device_readings = _d7_energy_sort_newest_v2(readings_by_device.get(did, []))
+        device_forecasts = _d7_energy_sort_newest_v2(forecasts_by_device.get(did, []))
+
+        latest = device_readings[0] if device_readings else {}
+        latest_forecast = device_forecasts[0] if device_forecasts else {}
+
+        latest_kwh = _d7_energy_kwh_v2(latest)
+        current_power = _d7_energy_power_v2(latest)
+        monthly_forecast = _d7_energy_forecast_v2(latest_forecast, latest_kwh)
+
+        history = []
+        for row in list(reversed(device_readings[:20])):
+            history.append({
+                "timestamp": _d7_energy_timestamp_v2(row),
+                "timestamp_label": _d7_energy_time_label_v2(_d7_energy_timestamp_v2(row)),
+                "kwh": _d7_energy_kwh_v2(row),
+                "watts": _d7_energy_power_v2(row),
+            })
+
+        devices.append({
+            "device_id": did,
+            "device_name": _d7_energy_device_name_v2(device),
+            "device_type": _d7_energy_device_type_v2(device),
+            "apartment_number": _d7_energy_device_apartment_v2(device, homes),
+            "online": _d7_energy_is_online_v2(device),
+            "enabled": _d7_energy_enabled_v2(device),
+            "status": "ONLINE" if _d7_energy_is_online_v2(device) else "OFFLINE",
+            "last_seen": _d7_energy_value_v2(device, "last_seen", "last_seen_at", "updated_at", default=None),
+            "last_seen_label": _d7_energy_time_label_v2(_d7_energy_value_v2(device, "last_seen", "last_seen_at", "updated_at", default=None)),
+            "latest_timestamp": _d7_energy_timestamp_v2(latest),
+            "latest_timestamp_label": _d7_energy_time_label_v2(_d7_energy_timestamp_v2(latest)) if latest else "No readings yet",
+            "daily_kwh": latest_kwh,
+            "current_power_w": current_power,
+            "monthly_forecast_kwh": monthly_forecast,
+            "has_readings": bool(device_readings),
+            "history": history,
+        })
+
+    devices.sort(key=lambda d: (not d["has_readings"], d["apartment_number"], d["device_name"]))
+
+    selected = next((d["device_id"] for d in devices if d["has_readings"]), None)
+    if not selected and devices:
+        selected = devices[0]["device_id"]
+
+    return {
+        "success": True,
+        "devices": devices,
+        "selected_device_id": selected,
+        "stats": {
+            "total_energy_devices": len(devices),
+            "online_energy_devices": sum(1 for d in devices if d["online"]),
+            "devices_with_readings": sum(1 for d in devices if d["has_readings"]),
+        }
+    }
 # D7M16_ENERGY_PAGE_V2_END
 
 
@@ -4135,6 +5710,67 @@ def _d7_logs_apartment(row):
 
     return "-"
 
+def _get_security_logs(limit=200):
+    try:
+        _ensure_system_logs_table()
+    except Exception:
+        pass
+
+    db_path = _d7_logs_db_path()
+    conn = _d7_logs_sqlite3.connect(str(db_path))
+    conn.row_factory = _d7_logs_sqlite3.Row
+
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(system_logs)").fetchall()]
+        for col in ["actor", "source", "apartment_number", "home_id", "created_at", "message"]:
+            if col not in cols:
+                conn.execute(f"ALTER TABLE system_logs ADD COLUMN {col} TEXT")
+        conn.commit()
+
+        try:
+            _d7m16_cleanup_unknown_face_family_rows(conn)
+        except Exception:
+            pass
+
+        rows = conn.execute(
+            "SELECT * FROM system_logs ORDER BY id DESC LIMIT ?",
+            (int(limit),)
+        ).fetchall()
+    finally:
+        conn.close()
+
+    logs = []
+
+    for item in rows:
+        row = dict(item)
+        event_type = _d7_logs_event_type(row)
+        actor = _d7_logs_actor(row, event_type)
+        timestamp = _d7_logs_text(row, "timestamp", "created_at")
+        severity = (_d7_logs_text(row, "severity") or "info").lower()
+        details = _d7_logs_text(row, "details", "message", "description")
+        action_taken = _d7_logs_text(row, "action_taken", "action")
+        apartment = _d7_logs_apartment(row)
+
+        logs.append({
+            "id": row.get("id"),
+            "timestamp": timestamp,
+            "created_at": _d7_logs_text(row, "created_at", "timestamp"),
+            "timestamp_label": _d7_logs_format_time(timestamp),
+            "severity": severity,
+            "severity_label": severity.upper(),
+            "actor": actor,
+            "source": _d7_logs_text(row, "source"),
+            "home": apartment,
+            "home_id": _d7_logs_text(row, "home_id"),
+            "apartment": apartment,
+            "apartment_number": apartment,
+            "event_type": event_type,
+            "details": details,
+            "message": details,
+            "action_taken": action_taken,
+        })
+
+    return logs
 
 # D7M16_FINAL_LOGS_ACTOR_BACKEND_FIX_END
 
@@ -4347,6 +5983,14 @@ def _d7_home_code(home):
     return "HOME-000"
 
 
+def _d7_pairing_code(home):
+    code = _d7_val(home, "home_code", "code", "pairing_code", default=None)
+    code = str(code or "").strip()
+
+    if code:
+        return code
+
+    return _d7_home_code(home)
 
 
 # ===================== D7M16 APP SERVER AUTH + RECOVERY START =====================
@@ -5091,6 +6735,7 @@ def _d7_cleanup_duplicate_app_security_logs_once():
     except Exception as exc:
         print("Duplicate app security log cleanup skipped:", exc)
 
+_d7_cleanup_duplicate_app_security_logs_once()
 
 
 
@@ -6172,7 +7817,48 @@ def _d7real_alert_item(conn, key, title, message, category, typ, severity, times
         item.update(extra)
     return item
 
+@app.delete("/api/dashboard/logs/{log_id}-old")
+def d7real_delete_dashboard_log(log_id: int):
+    conn = _d7real_conn()
+    try:
+        cur = conn.execute("DELETE FROM system_logs WHERE id = ?", (log_id,))
+        conn.commit()
+        return {"success": True, "deleted": cur.rowcount}
+    finally:
+        conn.close()
 
+@app.delete("/api/dashboard/logs/bulk-old")
+def d7real_delete_dashboard_logs_bulk(payload: dict = _D7RealBody(default_factory=dict)):
+    date_filter = _d7real_s(payload.get("date", "all")).lower()
+    event_filter = _d7real_s(payload.get("event_type", "all"))
+    severity_filter = _d7real_s(payload.get("severity", "all")).lower()
+
+    where = []
+    params = []
+
+    if date_filter and date_filter != "all":
+        where.append("substr(COALESCE(timestamp,''), 1, 10) = ?")
+        params.append(date_filter)
+
+    if event_filter and event_filter.lower() != "all":
+        where.append("COALESCE(event_type,'') = ?")
+        params.append(event_filter)
+
+    if severity_filter and severity_filter != "all":
+        where.append("LOWER(COALESCE(severity,'')) = ?")
+        params.append(severity_filter)
+
+    sql = "DELETE FROM system_logs"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+
+    conn = _d7real_conn()
+    try:
+        cur = conn.execute(sql, params)
+        conn.commit()
+        return {"success": True, "deleted": cur.rowcount}
+    finally:
+        conn.close()
 
 @app.get("/api/app/door-access-logs-real")
 def d7real_app_door_access_logs_real(
@@ -7348,6 +9034,16 @@ def d7final_delete_door_logs_bulk(payload: dict = _D7FinalBody(default_factory=d
     finally:
         conn.close()
 
+@app.delete("/api/dashboard/logs-final/{log_id}-old")
+def d7final_delete_dashboard_log(log_id: int):
+    conn = _d7final_conn()
+    try:
+        _d7final_ensure_system_logs(conn)
+        cur = conn.execute("DELETE FROM system_logs WHERE id = ?", (log_id,))
+        conn.commit()
+        return {"success": True, "deleted": cur.rowcount}
+    finally:
+        conn.close()
 
 @app.delete("/api/dashboard/logs-final/bulk-old")
 def d7final_delete_dashboard_logs_bulk(payload: dict = _D7FinalBody(default_factory=dict)):
@@ -7700,6 +9396,15 @@ def _d7_final_delete_by_id(con, table, log_id):
     cur = con.execute(f"DELETE FROM {table} WHERE {id_col} = ?", (str(log_id),))
     return cur.rowcount
 
+@app.delete("/api/dashboard/security-logs/{log_id}-old")
+def d7m16_final_delete_dashboard_security_log(log_id: str):
+    con = _d7_final_conn()
+    try:
+        deleted = _d7_final_delete_by_id(con, "system_logs", log_id)
+        con.commit()
+        return {"success": True, "deleted": deleted}
+    finally:
+        con.close()
 
 @app.post("/api/dashboard/security-logs/delete-filtered-old")
 def d7m16_final_delete_dashboard_security_logs_filtered(payload: dict = _D7FinalBody(default_factory=dict)):
@@ -8083,6 +9788,34 @@ def d7m16_fake_known_family_face(payload: dict | None = _D7FakeBody(default=None
         camera_name = str(payload.get("camera_name") or "hhhh").strip() or "hhhh"
         now = _d7_fake_now()
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_id INTEGER DEFAULT 1,
+                name TEXT NOT NULL,
+                role TEXT DEFAULT 'Family',
+                face_enrolled INTEGER DEFAULT 0,
+                enabled INTEGER DEFAULT 1,
+                person_id INTEGER,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+
+        family_cols = [r[1] for r in conn.execute("PRAGMA table_info(family_members)").fetchall()]
+        for col, col_type in {
+            "home_id": "INTEGER DEFAULT 1",
+            "name": "TEXT",
+            "role": "TEXT DEFAULT 'Family'",
+            "face_enrolled": "INTEGER DEFAULT 0",
+            "enabled": "INTEGER DEFAULT 1",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
+        }.items():
+            if col not in family_cols:
+                conn.execute(f"ALTER TABLE family_members ADD COLUMN {col} {col_type}")
 
         try:
             home_id_int = int(str(home_id or "1"))
@@ -8243,29 +9976,46 @@ def _d7m16_same_home_sql(alias_a="a", alias_b="b"):
 
 def _d7m16_insert_family_member_from_unknown(conn, home_id, name, face_enrolled=False):
     try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "family_members" not in tables:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS family_members (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    home_id INTEGER DEFAULT 1,
+                    name TEXT NOT NULL,
+                    role TEXT DEFAULT 'Family',
+                    face_enrolled INTEGER DEFAULT 0,
+                    enabled INTEGER DEFAULT 1,
+                    person_id INTEGER,
+                    notes TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            """)
+
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(family_members)").fetchall()]
+        now = _d7m16_now()
         clean_name = _d7m16_log_norm(name) or "Unknown person"
-        if not clean_name:
+
+        data = {
+            "home_id": int(str(home_id or "1")) if str(home_id or "1").isdigit() else 1,
+            "name": clean_name,
+            "role": "Family",
+            "face_enrolled": 1 if face_enrolled else 0,
+            "enabled": 1,
+            "notes": "Added from Unknown Face alert.",
+            "created_at": now,
+            "updated_at": now,
+        }
+
+        keys = [k for k in data if k in cols]
+        if "name" not in keys:
             return
 
-        from database.connection.database import SessionLocal
-        from database.models.family import FamilyMember
-        db = SessionLocal()
-        try:
-            from datetime import datetime
-            new_member = FamilyMember(
-                home_id=int(str(home_id or "1")) if str(home_id or "1").isdigit() else 1,
-                name=clean_name,
-                role="Family",
-                face_enrolled=bool(face_enrolled),
-                enabled=True,
-                notes="Added from Unknown Face alert.",
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
-            db.add(new_member)
-            db.commit()
-        finally:
-            db.close()
+        conn.execute(
+            f"INSERT INTO family_members ({', '.join(keys)}) VALUES ({', '.join(['?'] * len(keys))})",
+            [data[k] for k in keys],
+        )
     except Exception:
         pass
 
@@ -9336,6 +11086,21 @@ def _d7m16_hide_dashboard_log(conn, source_table, source_id):
     )
 
 
+def _d7m16_dashboard_log_hidden(conn, source_table, source_id):
+    try:
+        _d7m16_ensure_dashboard_log_states(conn)
+        row = conn.execute(
+            """
+            SELECT hidden
+            FROM dashboard_log_states
+            WHERE log_key = ?
+            LIMIT 1
+            """,
+            (_d7m16_dashboard_log_key(source_table, source_id),),
+        ).fetchone()
+        return bool(row and int(row["hidden"] or 0) == 1)
+    except Exception:
+        return False
 
 
 def _d7m16_soft_hide_dashboard_single(log_id):
@@ -9518,12 +11283,41 @@ def _d7m16_soft_hide_app_door_log(source_table, source_id, query_params=None):
         conn.close()
 
 
+def _d7m16_filter_dashboard_logs_list(logs, limit=200):
+    conn = _d7m16_log_iso_conn()
+    try:
+        filtered = []
+        for item in logs or []:
+            try:
+                log_id = str(item.get("id") or item.get("log_id") or "")
+            except Exception:
+                log_id = ""
+
+            if log_id and _d7m16_dashboard_log_hidden(conn, "system_logs", log_id):
+                continue
+
+            filtered.append(item)
+            if len(filtered) >= int(limit):
+                break
+
+        return filtered
+    finally:
+        conn.close()
 
 
 if "_get_security_logs" in globals() and not globals().get("__D7M16_LOG_DELETE_ISOLATION_GET_LOGS_WRAPPED"):
     __D7M16_LOG_DELETE_ISOLATION_GET_LOGS_WRAPPED = True
     _d7m16_original_get_security_logs = _get_security_logs
 
+    def _get_security_logs(limit=200):
+        try:
+            safe_limit = int(limit)
+        except Exception:
+            safe_limit = 200
+
+        source_limit = max(safe_limit * 5, 200)
+        logs = _d7m16_original_get_security_logs(source_limit)
+        return _d7m16_filter_dashboard_logs_list(logs, safe_limit)
 
 
 @app.middleware("http")
@@ -10638,142 +12432,3 @@ def d7m16_save_family_member_photo(payload: D7M16FamilyPhotoPayload):
     finally:
         conn.close()
 # D7M16_FAMILY_PHOTO_SYNC_END
-
-
-def _get_security_logs(limit=200):
-    _ensure_system_logs_table()
-
-    conn = sqlite3.connect(_security_db_path())
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-
-    rows = cur.execute("""
-        SELECT id, timestamp, severity, home, event_type, details, action_taken
-        FROM system_logs
-        ORDER BY id DESC
-        LIMIT ?
-    """, (limit,)).fetchall()
-
-    conn.close()
-
-    logs = []
-
-    for row in rows:
-        severity = (row["severity"] or "info").lower()
-
-        logs.append({
-            "id": row["id"],
-            "timestamp": row["timestamp"],
-            "timestamp_label": _format_security_time(row["timestamp"]),
-            "severity": severity,
-            "severity_label": severity.upper(),
-            "home": row["home"] or "System",
-            "event_type": row["event_type"] or "System Event",
-            "details": row["details"] or "",
-            "action_taken": row["action_taken"] or ""
-        })
-
-    return logs
-
-
-def _get_security_logs(limit=200):
-    try:
-        _ensure_system_logs_table()
-    except Exception:
-        pass
-
-    db_path = _d7_logs_db_path()
-    conn = _d7_logs_sqlite3.connect(str(db_path))
-    conn.row_factory = _d7_logs_sqlite3.Row
-
-    try:
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(system_logs)").fetchall()]
-        for col in ["actor", "source", "apartment_number", "home_id", "created_at", "message"]:
-            if col not in cols:
-                conn.execute(f"ALTER TABLE system_logs ADD COLUMN {col} TEXT")
-        conn.commit()
-
-        try:
-            _d7m16_cleanup_unknown_face_family_rows(conn)
-        except Exception:
-            pass
-
-        rows = conn.execute(
-            "SELECT * FROM system_logs ORDER BY id DESC LIMIT ?",
-            (int(limit),)
-        ).fetchall()
-    finally:
-        conn.close()
-
-    logs = []
-
-    for item in rows:
-        row = dict(item)
-        event_type = _d7_logs_event_type(row)
-        actor = _d7_logs_actor(row, event_type)
-        timestamp = _d7_logs_text(row, "timestamp", "created_at")
-        severity = (_d7_logs_text(row, "severity") or "info").lower()
-        details = _d7_logs_text(row, "details", "message", "description")
-        action_taken = _d7_logs_text(row, "action_taken", "action")
-        apartment = _d7_logs_apartment(row)
-
-        logs.append({
-            "id": row.get("id"),
-            "timestamp": timestamp,
-            "created_at": _d7_logs_text(row, "created_at", "timestamp"),
-            "timestamp_label": _d7_logs_format_time(timestamp),
-            "severity": severity,
-            "severity_label": severity.upper(),
-            "actor": actor,
-            "source": _d7_logs_text(row, "source"),
-            "home": apartment,
-            "home_id": _d7_logs_text(row, "home_id"),
-            "apartment": apartment,
-            "apartment_number": apartment,
-            "event_type": event_type,
-            "details": details,
-            "message": details,
-            "action_taken": action_taken,
-        })
-
-    return logs
-
-
-def _d7m16_dashboard_log_hidden(conn, source_table, source_id):
-    try:
-        _d7m16_ensure_dashboard_log_states(conn)
-        row = conn.execute(
-            """
-            SELECT hidden
-            FROM dashboard_log_states
-            WHERE log_key = ?
-            LIMIT 1
-            """,
-            (_d7m16_dashboard_log_key(source_table, source_id),),
-        ).fetchone()
-        return bool(row and int(row["hidden"] or 0) == 1)
-    except Exception:
-        return False
-
-
-def _d7m16_filter_dashboard_logs_list(logs, limit=200):
-    conn = _d7m16_log_iso_conn()
-    try:
-        filtered = []
-        for item in logs or []:
-            try:
-                log_id = str(item.get("id") or item.get("log_id") or "")
-            except Exception:
-                log_id = ""
-
-            if log_id and _d7m16_dashboard_log_hidden(conn, "system_logs", log_id):
-                continue
-
-            filtered.append(item)
-            if len(filtered) >= int(limit):
-                break
-
-        return filtered
-    finally:
-        conn.close()
-

@@ -3,6 +3,15 @@ from fastapi.responses import HTMLResponse
 import asyncio
 from fastapi import Request
 
+try:
+    try:
+        from database.migrations import run_startup_migrations
+    except ImportError:
+        from edge.database.migrations import run_startup_migrations
+
+    run_startup_migrations()
+except Exception as migration_error:
+    print(f"[MIGRATION WARNING] {migration_error}")
 
 from datetime import datetime, timedelta
 import json
@@ -39,6 +48,7 @@ from database.connection.database import Base, engine
 from database.models.home import Home
 from database.models.device import Device
 
+Base.metadata.create_all(bind=engine)
 
 def init_database_tables():
     import sqlite3
@@ -89,6 +99,38 @@ def init_database_tables():
                 cur.execute(f"ALTER TABLE system_logs ADD COLUMN {col} {col_type}")
         print("[DB INIT] system_logs verified")
 
+        # 2. family_members
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_id INTEGER DEFAULT 1,
+                name TEXT NOT NULL,
+                role TEXT DEFAULT 'Family',
+                face_enrolled INTEGER DEFAULT 0,
+                enabled INTEGER DEFAULT 1,
+                person_id INTEGER,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+        existing_cols = {row[1] for row in cur.execute("PRAGMA table_info(family_members)").fetchall()}
+        family_members_needed = {
+            "home_id": "INTEGER DEFAULT 1",
+            "name": "TEXT",
+            "role": "TEXT DEFAULT 'Family'",
+            "face_enrolled": "INTEGER DEFAULT 0",
+            "enabled": "INTEGER DEFAULT 1",
+            "person_id": "INTEGER",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT"
+        }
+        for col, col_type in family_members_needed.items():
+            if col not in existing_cols:
+                cur.execute(f"ALTER TABLE family_members ADD COLUMN {col} {col_type}")
+        print("[DB INIT] family_members verified")
+
         # 3. door_events
         cur.execute("""
             CREATE TABLE IF NOT EXISTS door_events (
@@ -135,6 +177,7 @@ def init_database_tables():
     finally:
         conn.close()
 
+init_database_tables()
 
 # =========================
 # APP INIT
@@ -211,6 +254,7 @@ def _d7m16_normalize_bad_datetime_values_once():
     except Exception as exc:
         print("D7M16 datetime cleanup skipped:", exc)
 
+_d7m16_normalize_bad_datetime_values_once()
 # D7M16_INVALID_DATETIME_DB_SAFETY_END
 
 
@@ -226,43 +270,6 @@ app.include_router(dashboard_router)
 
 @app.on_event("startup")
 def startup_event():
-    # --- RELOCATED DATABASE BOOTSTRAP START ---
-    try:
-        from database.migrations import run_startup_migrations
-    except ImportError:
-        from edge.database.migrations import run_startup_migrations
-
-    try:
-        run_startup_migrations()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] run_startup_migrations failed: {e}")
-
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] create_all failed: {e}")
-
-    try:
-        init_database_tables()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] init_database_tables failed: {e}")
-
-    try:
-        _d7m16_normalize_bad_datetime_values_once()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] datetime normalization failed: {e}")
-
-    try:
-        _ensure_system_logs_table()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] ensure_system_logs_table failed: {e}")
-
-    try:
-        _d7_cleanup_duplicate_app_security_logs_once()
-    except Exception as e:
-        print(f"[BOOTSTRAP ERROR] cleanup_duplicate_logs failed: {e}")
-    # --- RELOCATED DATABASE BOOTSTRAP END ---
-
 
     import socket
 
@@ -1008,6 +1015,7 @@ async def _security_log_device_commands(request: Request, call_next):
 
 
 
+_ensure_system_logs_table()
 
 # D7M16_SECURITY_LOGS_UNIFIED_END
 
@@ -5091,6 +5099,7 @@ def _d7_cleanup_duplicate_app_security_logs_once():
     except Exception as exc:
         print("Duplicate app security log cleanup skipped:", exc)
 
+_d7_cleanup_duplicate_app_security_logs_once()
 
 
 
@@ -8083,6 +8092,34 @@ def d7m16_fake_known_family_face(payload: dict | None = _D7FakeBody(default=None
         camera_name = str(payload.get("camera_name") or "hhhh").strip() or "hhhh"
         now = _d7_fake_now()
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_id INTEGER DEFAULT 1,
+                name TEXT NOT NULL,
+                role TEXT DEFAULT 'Family',
+                face_enrolled INTEGER DEFAULT 0,
+                enabled INTEGER DEFAULT 1,
+                person_id INTEGER,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+
+        family_cols = [r[1] for r in conn.execute("PRAGMA table_info(family_members)").fetchall()]
+        for col, col_type in {
+            "home_id": "INTEGER DEFAULT 1",
+            "name": "TEXT",
+            "role": "TEXT DEFAULT 'Family'",
+            "face_enrolled": "INTEGER DEFAULT 0",
+            "enabled": "INTEGER DEFAULT 1",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
+        }.items():
+            if col not in family_cols:
+                conn.execute(f"ALTER TABLE family_members ADD COLUMN {col} {col_type}")
 
         try:
             home_id_int = int(str(home_id or "1"))
@@ -8243,29 +8280,46 @@ def _d7m16_same_home_sql(alias_a="a", alias_b="b"):
 
 def _d7m16_insert_family_member_from_unknown(conn, home_id, name, face_enrolled=False):
     try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "family_members" not in tables:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS family_members (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    home_id INTEGER DEFAULT 1,
+                    name TEXT NOT NULL,
+                    role TEXT DEFAULT 'Family',
+                    face_enrolled INTEGER DEFAULT 0,
+                    enabled INTEGER DEFAULT 1,
+                    person_id INTEGER,
+                    notes TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            """)
+
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(family_members)").fetchall()]
+        now = _d7m16_now()
         clean_name = _d7m16_log_norm(name) or "Unknown person"
-        if not clean_name:
+
+        data = {
+            "home_id": int(str(home_id or "1")) if str(home_id or "1").isdigit() else 1,
+            "name": clean_name,
+            "role": "Family",
+            "face_enrolled": 1 if face_enrolled else 0,
+            "enabled": 1,
+            "notes": "Added from Unknown Face alert.",
+            "created_at": now,
+            "updated_at": now,
+        }
+
+        keys = [k for k in data if k in cols]
+        if "name" not in keys:
             return
 
-        from database.connection.database import SessionLocal
-        from database.models.family import FamilyMember
-        db = SessionLocal()
-        try:
-            from datetime import datetime
-            new_member = FamilyMember(
-                home_id=int(str(home_id or "1")) if str(home_id or "1").isdigit() else 1,
-                name=clean_name,
-                role="Family",
-                face_enrolled=bool(face_enrolled),
-                enabled=True,
-                notes="Added from Unknown Face alert.",
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
-            db.add(new_member)
-            db.commit()
-        finally:
-            db.close()
+        conn.execute(
+            f"INSERT INTO family_members ({', '.join(keys)}) VALUES ({', '.join(['?'] * len(keys))})",
+            [data[k] for k in keys],
+        )
     except Exception:
         pass
 
