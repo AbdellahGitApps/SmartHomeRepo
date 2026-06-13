@@ -436,17 +436,67 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
                 
                 print("[FACE] Creating person record...")
                 cur.execute("INSERT INTO persons (name, role, created_at) VALUES (?, ?, ?)", 
-                            (name, role, _now_iso()))
+                            (name, role, _now_iso())
+                )
+
                 person_id = cur.lastrowid
                 print(f"[FACE] Person created with ID: {person_id}")
                 
                 print("[FACE] Saving embedding...")
                 emb_json = json.dumps(embedding)
                 cur.execute("INSERT INTO face_embeddings (person_id, embedding_json, created_at) VALUES (?, ?, ?)",
-                            (person_id, emb_json, _now_iso()))
+                            (person_id, emb_json, _now_iso())
+                )
                 
                 model_conn.commit()
                 print("[FACE] Registration completed successfully in face_embeddings.")
+
+                # ==================================================
+                # COPY TO MAIN DATABASE USED BY RECOGNITION
+                # ==================================================
+                try:
+                    from database.connection.database import SessionLocal
+                    from database.models.ai_face import Person, FaceEmbedding
+
+                
+                    db = SessionLocal()
+
+                    try:
+                        print("[SYNC] Creating ORM person...")
+
+                        orm_person = Person(
+                            home_id=home_id,
+                            name=name,
+                            role=role,
+                        )
+
+                        db.add(orm_person)
+                        db.commit()
+                        db.refresh(orm_person)
+
+                        print(
+                            f"[SYNC] ORM person created: {orm_person.id}"
+                        )
+
+                        orm_embedding = FaceEmbedding(
+                            person_id=orm_person.id,
+                            embedding_json=emb_json,
+                        )
+
+                        db.add(orm_embedding)
+                        db.commit()
+
+                        print(
+                            f"[SYNC] ORM embedding saved for person {orm_person.id}"
+                        )
+
+                    finally:
+                        db.close()
+
+                except Exception as sync_error:
+                    print(
+                        f"[SYNC ERROR] {sync_error}"
+                    )
             except Exception as e:
                 model_conn.rollback()
                 raise ValueError(f"Database insertion failed: {str(e)}")
