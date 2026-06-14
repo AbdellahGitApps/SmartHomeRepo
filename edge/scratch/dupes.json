@@ -1,0 +1,334 @@
+{
+  "_d7_now": {
+    "definitions": [
+      {
+        "lines": "1174-1175",
+        "decorators": []
+      },
+      {
+        "lines": "2217-2218",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "d7_update_system_owner",
+      "_d7_log_user_action",
+      "_d7_ensure_users_schema"
+    ],
+    "active_definition": "2217-2218",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_conn": {
+    "definitions": [
+      {
+        "lines": "1179-1185",
+        "decorators": []
+      },
+      {
+        "lines": "2287-2290",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "d7_toggle_home_owner",
+      "_d7_log_user_action",
+      "_d7_system_owner_credentials_match",
+      "d7_users_management_list",
+      "d7_update_system_owner",
+      "_d7_ensure_users_schema"
+    ],
+    "active_definition": "2287-2290",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_cols": {
+    "definitions": [
+      {
+        "lines": "1187-1191",
+        "decorators": []
+      },
+      {
+        "lines": "2293-2297",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "d7_toggle_home_owner",
+      "_d7_log_user_action",
+      "d7_users_management_list",
+      "_d7_ensure_users_schema",
+      "_d7_device_log"
+    ],
+    "active_definition": "2293-2297",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_home_code": {
+    "definitions": [
+      {
+        "lines": "1230-1234",
+        "decorators": []
+      },
+      {
+        "lines": "3277-3288",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_device_belongs_to_home"
+    ],
+    "active_definition": "3277-3288",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_v6_now": {
+    "definitions": [
+      {
+        "lines": "1422-1423",
+        "decorators": []
+      },
+      {
+        "lines": "1569-1570",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_v6_log_once",
+      "_d7_v6_normalize_demo_records"
+    ],
+    "active_definition": "1569-1570",
+    "identical_impls": true,
+    "identical_asts": true,
+    "shadowed": true
+  },
+  "_d7_v6_clean": {
+    "definitions": [
+      {
+        "lines": "1425-1426",
+        "decorators": []
+      },
+      {
+        "lines": "1572-1573",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_v6_find_device_rows"
+    ],
+    "active_definition": "1572-1573",
+    "identical_impls": true,
+    "identical_asts": true,
+    "shadowed": true
+  },
+  "_d7_v6_tables": {
+    "definitions": [
+      {
+        "lines": "1428-1429",
+        "decorators": []
+      },
+      {
+        "lines": "1609-1610",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_v6_log_once",
+      "_d7_v6_normalize_demo_records",
+      "_d7_v6_home_apartment",
+      "_d7_v6_apartment_for_device",
+      "_d7_v6_cols",
+      "_d7_v6_find_device_rows"
+    ],
+    "active_definition": "1609-1610",
+    "identical_impls": true,
+    "identical_asts": true,
+    "shadowed": true
+  },
+  "_d7_v6_cols": {
+    "definitions": [
+      {
+        "lines": "1431-1434",
+        "decorators": []
+      },
+      {
+        "lines": "1612-1615",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_v6_log_once",
+      "_d7_v6_ensure_logs",
+      "_d7_v6_normalize_demo_records"
+    ],
+    "active_definition": "1612-1615",
+    "identical_impls": true,
+    "identical_asts": true,
+    "shadowed": true
+  },
+  "_d7_v6_db_files": {
+    "definitions": [
+      {
+        "lines": "1436-1451",
+        "decorators": []
+      },
+      {
+        "lines": "1575-1607",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_v6_normalize_demo_records"
+    ],
+    "active_definition": "1575-1607",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_v6_find_device_rows": {
+    "definitions": [
+      {
+        "lines": "1458-1475",
+        "decorators": []
+      },
+      {
+        "lines": "1660-1675",
+        "decorators": []
+      }
+    ],
+    "callers": [],
+    "active_definition": "1660-1675",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_v6_log_once": {
+    "definitions": [
+      {
+        "lines": "1532-1556",
+        "decorators": []
+      },
+      {
+        "lines": "1688-1713",
+        "decorators": []
+      }
+    ],
+    "callers": [],
+    "active_definition": "1688-1713",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_final_tables": {
+    "definitions": [
+      {
+        "lines": "1775-1776",
+        "decorators": []
+      },
+      {
+        "lines": "5946-5947",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "d7m16_final_bulk_delete_app_door_access_logs",
+      "_d7_final_cols",
+      "_d7_final_delete_by_id",
+      "_d7_final_apartment_for_device",
+      "_d7_final_normalize_demo_devices",
+      "_d7_final_find_db",
+      "_d7_final_find_device_rows",
+      "_d7_final_ensure_device_columns"
+    ],
+    "active_definition": "5946-5947",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_final_cols": {
+    "definitions": [
+      {
+        "lines": "1778-1781",
+        "decorators": []
+      },
+      {
+        "lines": "5949-5952",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "d7m16_final_bulk_delete_app_door_access_logs",
+      "_d7_final_delete_by_id",
+      "_d7_final_normalize_demo_devices",
+      "_d7_final_insert_log",
+      "_d7_final_ensure_device_columns"
+    ],
+    "active_definition": "5949-5952",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_final_find_db": {
+    "definitions": [
+      {
+        "lines": "1783-1806",
+        "decorators": []
+      },
+      {
+        "lines": "5899-5936",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_final_conn"
+    ],
+    "active_definition": "5899-5936",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_d7_final_conn": {
+    "definitions": [
+      {
+        "lines": "1808-1812",
+        "decorators": []
+      },
+      {
+        "lines": "5938-5944",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "_d7_final_normalize_demo_devices",
+      "d7m16_final_bulk_delete_app_door_access_logs",
+      "d7m16_final_delete_app_door_access_log"
+    ],
+    "active_definition": "5938-5944",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  },
+  "_get_security_logs": {
+    "definitions": [
+      {
+        "lines": "8206-8238",
+        "decorators": []
+      },
+      {
+        "lines": "8241-8300",
+        "decorators": []
+      }
+    ],
+    "callers": [
+      "logs_page"
+    ],
+    "active_definition": "8241-8300",
+    "identical_impls": false,
+    "identical_asts": false,
+    "shadowed": true
+  }
+}

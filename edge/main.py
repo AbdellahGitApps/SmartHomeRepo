@@ -1171,24 +1171,10 @@ import secrets as _d7_secrets
 from datetime import datetime as _d7_datetime
 from fastapi import Request as _D7Request, HTTPException as _D7HTTPException
 
-def _d7_now():
-    return _d7_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 from core_database import _d7_db_candidates, _d7_find_db, _d7_table_names
 
-def _d7_conn():
-    db = _d7_find_db()
-    if not db:
-        raise RuntimeError("No SQLite database found for dashboard data.")
-    conn = _d7_sqlite3.connect(str(db))
-    conn.row_factory = _d7_sqlite3.Row
-    return conn
 
-def _d7_cols(conn, table):
-    try:
-        return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
-    except Exception:
-        return []
 
 def _d7_rows(conn, table, limit=None):
     if table not in _d7_table_names(conn):
@@ -1227,11 +1213,6 @@ def _d7_padded_apt(home):
         except Exception:
             return "000"
 
-def _d7_home_code(home):
-    code = _d7_val(home, "home_code", "code", "home_id_code", default=None)
-    if code:
-        return str(code)
-    return f"HOME-{_d7_padded_apt(home)}"
 
 
 def _d7_device_id(device):
@@ -1419,60 +1400,16 @@ from pathlib import Path as _D7V6Path
 from datetime import datetime as _d7_v6_datetime
 from fastapi import HTTPException as _D7V6HTTPException
 
-def _d7_v6_now():
-    return _d7_v6_datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def _d7_v6_clean(value):
-    return "".join(str(value or "").split()).lower()
 
-def _d7_v6_tables(conn):
-    return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
 
-def _d7_v6_cols(conn, table):
-    if table not in _d7_v6_tables(conn):
-        return []
-    return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
-def _d7_v6_db_files():
-    base = _D7V6Path(__file__).resolve().parent
-    files = []
-    for p in [base, base.parent]:
-        if p.exists():
-            files.extend(p.rglob("*.db"))
-    unique = []
-    seen = set()
-    for item in files:
-        key = str(item.resolve()).lower()
-        if key not in seen and ".venv" not in key:
-            seen.add(key)
-            unique.append(item)
-    preferred = base / "database" / "smart_home_edge.db"
-    unique = sorted(unique, key=lambda p: 0 if p.resolve() == preferred.resolve() else 1)
-    return unique
 
 def _d7_v6_conn(path):
     conn = _d7_v6_sqlite3.connect(str(path))
     conn.row_factory = _d7_v6_sqlite3.Row
     return conn
 
-def _d7_v6_find_device_rows(conn, key):
-    if "devices" not in _d7_v6_tables(conn):
-        return []
-    key_clean = _d7_v6_clean(key)
-    rows = [dict(r) for r in conn.execute("SELECT rowid AS _rowid_, * FROM devices").fetchall()]
-    matches = []
-    for row in rows:
-        values = [
-            row.get("device_id"),
-            row.get("id"),
-            row.get("device_name"),
-            row.get("name"),
-            row.get("claim_code"),
-            row.get("device_token"),
-        ]
-        if any(_d7_v6_clean(v) == key_clean for v in values):
-            matches.append(row)
-    return matches
 
 def _d7_v6_apartment_from_device_id(device_id):
     match = _d7_v6_re.search(r"(?:DOOR|METER|CAM)-HOME0*([0-9]+)-", str(device_id or ""), _d7_v6_re.I)
@@ -1529,31 +1466,6 @@ def _d7_v6_ensure_logs(conn):
             conn.execute(f"ALTER TABLE system_logs ADD COLUMN {col} {typ}")
     conn.commit()
 
-def _d7_v6_log_once(apartment, event_type, details, action_taken, severity):
-    target = _D7V6Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
-    conn = _d7_v6_conn(target)
-    try:
-        _d7_v6_ensure_logs(conn)
-        cols = _d7_v6_cols(conn, "system_logs")
-        now = _d7_v6_now()
-        row = {
-            "timestamp": now,
-            "created_at": now,
-            "severity": severity,
-            "actor": "System Owner",
-            "home": str(apartment),
-            "event_type": event_type,
-            "details": details,
-            "action_taken": action_taken,
-        }
-        insert_cols = [c for c in row if c in cols]
-        conn.execute(
-            f"INSERT INTO system_logs ({', '.join(insert_cols)}) VALUES ({', '.join(['?'] * len(insert_cols))})",
-            [row[c] for c in insert_cols],
-        )
-        conn.commit()
-    finally:
-        conn.close()
 
 # D7M16_FINAL_QA_DEVICE_ACTION_V6_END
 
@@ -1772,44 +1684,9 @@ def _d7_final_db_files():
 
     return unique
 
-def _d7_final_tables(conn):
-    return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
 
-def _d7_final_cols(conn, table):
-    if table not in _d7_final_tables(conn):
-        return []
-    return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
-def _d7_final_find_db():
-    candidates = _d7_final_db_files()
 
-    for p in candidates:
-        try:
-            conn = _d7_final_sqlite3.connect(str(p))
-            tables = _d7_final_tables(conn)
-            conn.close()
-            if "homes" in tables and "devices" in tables:
-                return p
-        except Exception:
-            pass
-
-    for p in candidates:
-        try:
-            conn = _d7_final_sqlite3.connect(str(p))
-            tables = _d7_final_tables(conn)
-            conn.close()
-            if "devices" in tables:
-                return p
-        except Exception:
-            pass
-
-    raise RuntimeError("No dashboard database with devices table found.")
-
-def _d7_final_conn():
-    db = _d7_final_find_db()
-    conn = _d7_final_sqlite3.connect(str(db))
-    conn.row_factory = _d7_final_sqlite3.Row
-    return conn
 
 def _d7_final_clean(value):
     return "".join(str(value or "").split()).lower()
@@ -8203,39 +8080,6 @@ def d7m16_save_family_member_photo(payload: D7M16FamilyPhotoPayload):
 # D7M16_FAMILY_PHOTO_SYNC_END
 
 
-def _get_security_logs(limit=200):
-    _ensure_system_logs_table()
-
-    conn = sqlite3.connect(_security_db_path())
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-
-    rows = cur.execute("""
-        SELECT id, timestamp, severity, home, event_type, details, action_taken
-        FROM system_logs
-        ORDER BY id DESC
-        LIMIT ?
-    """, (limit,)).fetchall()
-
-    conn.close()
-
-    logs = []
-
-    for row in rows:
-        severity = (row["severity"] or "info").lower()
-
-        logs.append({
-            "id": row["id"],
-            "timestamp": row["timestamp"],
-            "timestamp_label": _format_security_time(row["timestamp"]),
-            "severity": severity,
-            "severity_label": severity.upper(),
-            "home": row["home"] or "System",
-            "event_type": row["event_type"] or "System Event",
-            "details": row["details"] or "",
-        })
-
-    return _d7m16_filter_dashboard_logs_list(logs, limit=limit)
 
 
 def _get_security_logs(limit=200):
