@@ -50,3 +50,46 @@ def get_db_connection():
             raise
         finally:
             conn.close()
+
+
+# Relocated from main.py Phase 26A.2
+def _d7_db_candidates():
+    base = Path(__file__).resolve().parent
+    candidates = [
+        base / "database" / "smart_home_edge.db",
+        base / "data" / "smart_home.db",
+        base.parent / "data" / "smart_home.db",
+        base / "ai" / "smart_home_models.db",
+        base / "smart_home.db",
+    ]
+    for p in base.rglob("*.db"):
+        if "__pycache__" not in str(p):
+            candidates.append(p)
+
+    clean = []
+    for p in candidates:
+        if p not in clean:
+            clean.append(p)
+    return clean
+
+def _d7_table_names(conn):
+    try:
+        return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    except Exception:
+        return set()
+
+def _d7_find_db():
+    fallback = None
+    for p in _d7_db_candidates():
+        if not p.exists():
+            continue
+        fallback = p
+        try:
+            conn = sqlite3.connect(str(p))
+            tables = _d7_table_names(conn)
+            conn.close()
+            if "homes" in tables and "devices" in tables:
+                return p
+        except Exception:
+            pass
+    return fallback
