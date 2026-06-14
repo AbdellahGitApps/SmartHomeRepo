@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 import json
@@ -15,12 +15,14 @@ router = APIRouter()
 class FaceVerifyRequest(BaseModel):
     face_embedding: list[float]
     source: str = "backend_face_adapter"
+    device_id: str
 
 
 class FaceCaptureRecognizeRequest(BaseModel):
     capture_url: Optional[str] = None
     source: str = "esp32_cam"
     save_unknown_snapshot: bool = True
+    device_id: str
 
 
 def _now_iso() -> str:
@@ -68,12 +70,17 @@ def _ensure_face_tables(conn):
         """
         CREATE TABLE IF NOT EXISTS persons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            home_id INTEGER,
             name TEXT NOT NULL,
             role TEXT DEFAULT 'resident',
             created_at TEXT
         )
         """
     )
+    try:
+        conn.execute("ALTER TABLE persons ADD COLUMN home_id INTEGER")
+    except sqlite3.OperationalError:
+        pass
 
     conn.execute(
         """
@@ -105,13 +112,15 @@ def _ensure_face_tables(conn):
     conn.commit()
 
 
-def _load_gallery(conn):
+def _load_gallery(conn, home_id):
     rows = conn.execute(
         """
         SELECT fe.person_id, fe.embedding_json, p.name, p.role
         FROM face_embeddings fe
         LEFT JOIN persons p ON p.id = fe.person_id
-        """
+        WHERE p.home_id = ?
+        """,
+        (home_id,)
     ).fetchall()
 
     gallery = []
@@ -180,12 +189,15 @@ def _insert_face_event(conn, event_type, person_id, score, snapshot_path, source
     conn.commit()
 
 
-def _recognize_embedding(embedding, source, snapshot_path=None):
+def _recognize_embedding(embedding, source, snapshot_path=None, home_id=None):
+    if home_id is None:
+        raise HTTPException(status_code=500, detail="home_id is required for recognition isolation")
+
     conn = _connect_model_db()
 
     try:
         _ensure_face_tables(conn)
-        gallery = _load_gallery(conn)
+        gallery = _load_gallery(conn, home_id)
 
         if not gallery:
             return {
@@ -203,6 +215,38 @@ def _recognize_embedding(embedding, source, snapshot_path=None):
         person_id = person["person_id"] if person else None
 
         _insert_face_event(conn, event_type, person_id, score, snapshot_path, source)
+
+        if event_type == "known" and person is not None:
+            from api.door_official_flow import _publish_open_command, DoorOpenRequest, _connect
+            main_conn = _connect()
+            try:
+                door_device = main_conn.execute(
+                    """
+                    SELECT *
+                    FROM devices
+                    WHERE home_id = ? AND lower(device_type) IN ('smart_door', 'esp32_cam', 'door_camera', 'camera')
+                    ORDER BY
+                        CASE
+                            WHEN lower(claim_status) IN ('claimed', 'active') THEN 0
+                            ELSE 1
+                        END,
+                        id ASC
+                    LIMIT 1
+                    """,
+                    (home_id,)
+                ).fetchone()
+                
+                if door_device:
+                    req = DoorOpenRequest(
+                        source="face_recognition",
+                        reason="known_face",
+                        opened_by=person["name"]
+                    )
+                    _publish_open_command(door_device, req)
+            except Exception as e:
+                print(f"[FACE -> DOOR] Error unlocking door: {e}")
+            finally:
+                main_conn.close()
 
         return {
             "success": True,
@@ -336,9 +380,22 @@ def verify_face(request_data: FaceVerifyRequest):
     if not request_data.face_embedding:
         raise HTTPException(status_code=400, detail="face_embedding is required")
 
+    from api.door_official_flow import _connect
+    conn_main = _connect()
+    try:
+        device_row = conn_main.execute("SELECT home_id FROM devices WHERE device_id = ?", (request_data.device_id,)).fetchone()
+        if not device_row:
+            raise HTTPException(status_code=404, detail="Device not found")
+        home_id = device_row["home_id"]
+        if not home_id:
+            raise HTTPException(status_code=400, detail="Device is not assigned to a home")
+    finally:
+        conn_main.close()
+
     return _recognize_embedding(
         request_data.face_embedding,
         source=request_data.source,
+        home_id=home_id,
     )
 
 
@@ -346,6 +403,18 @@ def verify_face(request_data: FaceVerifyRequest):
 def recognize_from_capture(request_data: FaceCaptureRecognizeRequest):
     if not request_data.capture_url:
         raise HTTPException(status_code=400, detail="capture_url is required")
+
+    from api.door_official_flow import _connect
+    conn_main = _connect()
+    try:
+        device_row = conn_main.execute("SELECT home_id FROM devices WHERE device_id = ?", (request_data.device_id,)).fetchone()
+        if not device_row:
+            raise HTTPException(status_code=404, detail="Device not found")
+        home_id = device_row["home_id"]
+        if not home_id:
+            raise HTTPException(status_code=400, detail="Device is not assigned to a home")
+    finally:
+        conn_main.close()
 
     frame = _fetch_image_from_url(request_data.capture_url)
     box = _detect_largest_face(frame)
@@ -360,6 +429,7 @@ def recognize_from_capture(request_data: FaceCaptureRecognizeRequest):
         embedding,
         source=request_data.source,
         snapshot_path=None,
+        home_id=home_id,
     )
 
     if request_data.save_unknown_snapshot and not result["recognized"]:

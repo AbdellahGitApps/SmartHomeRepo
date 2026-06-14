@@ -9,7 +9,7 @@ from fastapi import Body as _D7FinalBody
 router = APIRouter()
 @router.get("/api/app/door-access-logs")
 def d7m16_app_door_access_logs(home_id=None, home_code=None, admin_login=None, limit: int = 50):
-    from edge.main import _Path, _datetime, _sqlite3, action_taken, actor, add_item, admin_login, apartment_number, as_dict, c, cols, conn, db_path, dcols, details, device_id, device_name, devices, did, dname, door_device_ids, door_device_names, door_label, dtype, event_type, home, home_code, home_dict, home_id, home_match, item, items, joined, key, label_from, lower, method_from, method_label, name, params, pick, raw, resolved_home_id, result, result_from, result_label, row, row_apt, row_home, rows, seen, source, src, status, table, tables, text, timestamp, unique_items, user, user_from, value, where, where_parts
+    from main import devices, status
     """
     Flutter Doors / Access Log.
     Returns door-only logs for the current home:
@@ -401,7 +401,6 @@ def d7m16_app_door_access_logs(home_id=None, home_code=None, admin_login=None, l
 
 @router.post("/api/app/door-manual-action")
 async def d7m16_app_door_manual_action(request: Request):
-    from edge.main import _Path, _datetime, _sqlite3, action, action_taken, actor, apartment_number, conn, cur, data, db_path, details, device_id, device_name, door_cols, door_status, event_type, get_database_path, home, home_code, home_id, insert_cols, log_cols, log_data, now, reason, resolved_home_id, row, source, state_cols, tables, updates, values
     import sqlite3 as _sqlite3
     from pathlib import Path as _Path
     from datetime import datetime as _datetime
@@ -640,7 +639,7 @@ async def d7m16_app_door_manual_action(request: Request):
         conn.close()
 
 def _d7real_result_label(action, event_type="", details="", severity=""):
-    from edge.main import _d7real_s, action, details, event_type, severity, text
+    from main import _d7real_s
     text = " ".join([_d7real_s(action), _d7real_s(event_type), _d7real_s(details)]).lower()
 
     if "door lock" in text or "app door lock" in text or "manual door lock" in text:
@@ -658,7 +657,7 @@ def _d7real_result_label(action, event_type="", details="", severity=""):
     return "Access Granted"
 
 def _d7real_log_to_app_item(row):
-    from edge.main import _d7real_time, _d7real_val, action, actor, details, device_name, event_type, label, row, severity, timestamp
+    from main import _d7real_time, _d7real_val
     timestamp = _d7real_val(row, "timestamp", "created_at", "created", "time", default="")
     action = _d7real_val(row, "action_taken", "action", default="")
     event_type = _d7real_val(row, "event_type", "type", default="Door Event")
@@ -711,7 +710,7 @@ def d7real_app_door_access_logs_real(
     admin_login: str = "",
     limit: int = 80,
 ):
-    from edge.main import _d7real_conn, _d7real_home_match_sql, _d7real_resolve_home, admin_login, conn, home, home_code, home_id, items, rows, sql
+    from main import _d7real_conn, _d7real_home_match_sql, _d7real_resolve_home
     conn = _d7real_conn()
     try:
         home = _d7real_resolve_home(conn, home_id, home_code, admin_login)
@@ -733,7 +732,7 @@ def d7real_app_door_access_logs_real(
 
 @router.delete("/api/app/door-access-logs/{source_table}/{source_id}")
 def d7real_delete_app_door_access_log(source_table: str, source_id: int):
-    from edge.main import _D7RealHTTPException, _d7real_conn, conn, cur
+    from main import _D7RealHTTPException, _d7real_conn
     if source_table not in {"system_logs"}:
         raise _D7RealHTTPException(status_code=400, detail="Unsupported log source.")
 
@@ -747,7 +746,7 @@ def d7real_delete_app_door_access_log(source_table: str, source_id: int):
 
 @router.delete("/api/app/door-access-logs/bulk")
 def d7real_delete_app_door_access_logs_bulk(payload: dict = _D7RealBody(default_factory=dict)):
-    from edge.main import _D7RealBody, _d7real_conn, _d7real_home_match_sql, _d7real_resolve_home, _d7real_s, actor_filter, admin_login, conn, cur, date_filter, home, home_code, home_id, params, payload, sql, where
+    from main import _D7RealBody, _d7real_conn, _d7real_home_match_sql, _d7real_resolve_home, _d7real_s
     date_filter = _d7real_s(payload.get("date", "all")).lower()
     actor_filter = _d7real_s(payload.get("actor", "all"))
     home_id = _d7real_s(payload.get("home_id", ""))
@@ -781,7 +780,7 @@ def d7real_delete_app_door_access_logs_bulk(payload: dict = _D7RealBody(default_
         conn.close()
 
 def _d7final_home_filter(conn, home):
-    from edge.main import _d7final_cols, _d7final_home_values, clauses, cols, conn, home, params, values
+    from main import _d7final_cols, _d7final_home_values
     values = _d7final_home_values(home)
     cols = _d7final_cols(conn, "system_logs")
     clauses = []
@@ -803,7 +802,7 @@ def _d7final_home_filter(conn, home):
     return " AND (" + " OR ".join(clauses) + ")", params
 
 def _d7final_text(row):
-    from edge.main import _d7final_s, _d7final_val, row
+    from main import _d7final_s, _d7final_val
     return " ".join([
         _d7final_s(_d7final_val(row, "event_type")),
         _d7final_s(_d7final_val(row, "action_taken")),
@@ -813,12 +812,11 @@ def _d7final_text(row):
     ]).lower()
 
 def _d7final_is_energy(row):
-    from edge.main import row, text
     text = _d7final_text(row)
     return "energy" in text or "meter" in text or "power" in text
 
 def _d7final_is_door(row):
-    from edge.main import _d7final_s, _d7final_val, action, event, key, pending_action, row, text
+    from main import _d7final_s, _d7final_val
     # D7M16_DOORLOG_SKIP_PENDING_UNKNOWN_START
     pending_action = _d7final_s(_d7final_val(row, "action_taken")).upper()
     if pending_action == "UNKNOWN FACE DETECTED":
@@ -858,7 +856,7 @@ def _d7final_is_door(row):
     ])
 
 def _d7final_actor(row):
-    from edge.main import _d7final_s, _d7final_val, action, raw, row, text
+    from main import _d7final_s, _d7final_val
     raw = _d7final_s(_d7final_val(row, "actor", "source")).strip()
     text = f"{raw} {_d7final_text(row)}".lower()
     action = _d7final_s(_d7final_val(row, "action_taken")).upper()
@@ -884,7 +882,7 @@ def _d7final_actor(row):
     return "Admin App" if raw else "Server"
 
 def _d7final_result_label(row):
-    from edge.main import _d7final_s, _d7final_val, action, details, row, severity, text
+    from main import _d7final_s, _d7final_val
     text = _d7final_text(row)
     severity = _d7final_s(_d7final_val(row, "severity")).lower()
     action = _d7final_s(_d7final_val(row, "action_taken")).upper()
@@ -936,7 +934,6 @@ def _d7final_result_label(row):
     return "Access Granted"
 
 def _d7final_result_key(label):
-    from edge.main import clean, label
     clean = str(label or "").strip().lower()
 
     if clean in {
@@ -975,7 +972,7 @@ def _d7final_result_key(label):
     return "pendingDecision"
 
 def _d7final_log_item(row):
-    from edge.main import _d7final_s, _d7final_time_label, _d7final_val, actor, device_name, label, method_label, row, ts
+    from main import _d7final_s, _d7final_time_label, _d7final_val
     label = _d7final_result_label(row)
     ts = _d7final_val(row, "timestamp", "created_at")
     actor = _d7final_actor(row)
@@ -1005,7 +1002,7 @@ def _d7final_log_item(row):
     }
 
 def _d7m16_door_log_hidden(conn, source_table, source_id, viewer_scope):
-    from edge.main import _d7m16_door_state_key, _d7m16_ensure_door_log_states, conn, row, state_key, viewer_scope
+    from main import _d7m16_door_state_key, _d7m16_ensure_door_log_states
     _d7m16_ensure_door_log_states(conn)
     state_key = _d7m16_door_state_key(source_table, source_id, viewer_scope)
     row = conn.execute(
@@ -1016,7 +1013,7 @@ def _d7m16_door_log_hidden(conn, source_table, source_id, viewer_scope):
 
 @router.get("/api/app/door-access-logs-final")
 def d7final_get_door_logs(home_id: str = "", home_code: str = "", admin_login: str = "", viewer_role: str = "admin", limit: int = 80):
-    from edge.main import _d7final_conn, _d7final_ensure_system_logs, _d7final_find_home, _d7final_s, _d7final_val, _d7m16_viewer_scope, admin_login, conn, home, home_code, home_id, items, params, row, row_id, rows, viewer_role, viewer_scope
+    from main import _d7final_conn, _d7final_ensure_system_logs, _d7final_find_home, _d7final_s, _d7final_val, _d7m16_viewer_scope
     conn = _d7final_conn()
     try:
         _d7final_ensure_system_logs(conn)
@@ -1058,7 +1055,7 @@ def d7final_delete_door_log(
     admin_login: str = "",
     viewer_role: str = "admin",
 ):
-    from edge.main import _D7FinalHTTPException, _d7final_conn, _d7final_find_home, _d7final_home_values, _d7m16_hide_door_log_for_viewer, _d7m16_viewer_scope, admin_login, conn, home, home_code, home_id, row, values, viewer_role, viewer_scope
+    from main import _D7FinalHTTPException, _d7final_conn, _d7final_find_home, _d7final_home_values, _d7m16_hide_door_log_for_viewer, _d7m16_viewer_scope
     if source_table != "system_logs":
         raise _D7FinalHTTPException(status_code=400, detail="Unsupported log source.")
 
@@ -1087,7 +1084,7 @@ def d7final_delete_door_log(
 
 @router.delete("/api/app/door-access-logs-final/bulk")
 def d7final_delete_door_logs_bulk(payload: dict = _D7FinalBody(default_factory=dict)):
-    from edge.main import _D7FinalBody, _d7final_conn, _d7final_find_home, _d7final_home_values, _d7final_s, _d7final_val, _d7m16_hide_door_log_for_viewer, _d7m16_viewer_scope, actor, actor_filter, conn, date_filter, hidden_count, home, params, payload, row, row_date, row_id, rows, ts, values, viewer_scope
+    from main import _D7FinalBody, _d7final_conn, _d7final_find_home, _d7final_home_values, _d7final_s, _d7final_val, _d7m16_hide_door_log_for_viewer, _d7m16_viewer_scope
     conn = _d7final_conn()
     try:
         home = _d7final_find_home(conn, _d7final_s(payload.get("home_id")), _d7final_s(payload.get("home_code")), _d7final_s(payload.get("admin_login")))
@@ -1134,7 +1131,7 @@ def d7final_delete_door_logs_bulk(payload: dict = _D7FinalBody(default_factory=d
         conn.close()
 
 def _d7_final_find_db():
-    from edge.main import _D7FinalPath, _d7_final_sqlite3, base, candidates, con, found, old, seen, tables
+    from main import _D7FinalPath, _d7_final_sqlite3
     old = globals().get("_d7_find_db")
     if callable(old):
         try:
@@ -1174,7 +1171,7 @@ def _d7_final_find_db():
     return seen[0] if seen else None
 
 def _d7_final_delete_by_id(con, table, log_id):
-    from edge.main import _D7FinalHTTPException, _d7_final_cols, _d7_final_tables, cols, con, cur, id_col, log_id, table
+    from main import _D7FinalHTTPException, _d7_final_cols, _d7_final_tables
     if table not in {"system_logs", "security_logs", "door_events", "face_events"}:
         raise _D7FinalHTTPException(status_code=400, detail="Invalid log table")
 
@@ -1188,7 +1185,7 @@ def _d7_final_delete_by_id(con, table, log_id):
 
 @router.delete("/api/app/door-access-logs/{source_table}/{source_id}")
 def d7m16_final_delete_app_door_access_log(source_table: str, source_id: str):
-    from edge.main import _d7_final_conn, con, deleted, table
+    from main import _d7_final_conn
     con = _d7_final_conn()
     try:
         table = source_table.strip()
@@ -1200,7 +1197,7 @@ def d7m16_final_delete_app_door_access_log(source_table: str, source_id: str):
 
 @router.delete("/api/app/door-access-logs/bulk")
 def d7m16_final_bulk_delete_app_door_access_logs(payload: dict = _D7FinalBody(default_factory=dict)):
-    from edge.main import _D7FinalBody, _d7_final_cols, _d7_final_conn, _d7_final_tables, actor, c, cols, con, cur, date_value, door_terms, home_code, home_id, home_terms, params, payload, sql, time_col, value, where
+    from main import _D7FinalBody, _d7_final_cols, _d7_final_conn, _d7_final_tables
     con = _d7_final_conn()
     try:
         if "system_logs" not in _d7_final_tables(con):
@@ -1256,5 +1253,5 @@ def d7m16_final_bulk_delete_app_door_access_logs(payload: dict = _D7FinalBody(de
 
 @router.post("/api/app/door-access-logs-final/bulk")
 def d7m16_post_app_door_access_logs_final_bulk(payload: dict = _D7FinalBody(default_factory=dict)):
-    from edge.main import _D7FinalBody, payload
+    from main import _D7FinalBody
     return d7final_delete_door_logs_bulk(payload)

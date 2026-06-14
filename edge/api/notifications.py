@@ -35,7 +35,7 @@ def _d7real_state(conn, key):
     return row
 
 def _d7real_alert_item(conn, key, title, message, category, typ, severity, timestamp="", source_table="", source_id="", extra=None):
-    from edge.main import _d7real_time
+    from main import _d7real_time
     state = _d7real_state(conn, key)
     if state and int(state["hidden"] or 0) == 1:
         return None
@@ -62,7 +62,7 @@ def _d7real_alert_item(conn, key, title, message, category, typ, severity, times
 
 @router.get("/api/app/alerts")
 def d7real_get_app_alerts(home_id: str = "", home_code: str = "", admin_login: str = ""):
-    from edge.main import _d7real_val, _d7real_resolve_home, _d7real_s, _d7real_conn, _d7real_home_match_sql
+    from main import _d7real_val, _d7real_resolve_home, _d7real_s, _d7real_conn, _d7real_home_match_sql
     conn = _d7real_conn()
     try:
         _d7real_ensure_alert_table(conn)
@@ -206,7 +206,7 @@ def d7real_get_app_alerts(home_id: str = "", home_code: str = "", admin_login: s
 
 @router.post("/api/app/alerts/{alert_key:path}/resolve")
 def d7real_resolve_alert(alert_key: str):
-    from edge.main import _d7real_conn
+    from main import _d7real_conn
     conn = _d7real_conn()
     try:
         _d7real_ensure_alert_table(conn)
@@ -226,7 +226,7 @@ def d7real_resolve_alert(alert_key: str):
 
 @router.delete("/api/app/alerts/{alert_key:path}")
 def d7real_hide_alert(alert_key: str):
-    from edge.main import _d7real_conn
+    from main import _d7real_conn
     conn = _d7real_conn()
     try:
         _d7real_ensure_alert_table(conn)
@@ -246,7 +246,7 @@ def d7real_hide_alert(alert_key: str):
 
 @router.post("/api/app/alerts/clear")
 def d7real_clear_alerts(payload: dict = _D7RealBody(default_factory=dict)):
-    from edge.main import _d7real_conn, _d7real_s
+    from main import _d7real_conn, _d7real_s
     conn = _d7real_conn()
     try:
         data = d7real_get_app_alerts(
@@ -278,7 +278,8 @@ def d7real_clear_alerts(payload: dict = _D7RealBody(default_factory=dict)):
         conn.close()
 
 def _d7final_alerts_for_home(conn, home):
-    from edge.main import _d7final_s, _d7final_ensure_alerts, _d7final_text, _d7final_home_filter, _d7final_tables, _d7final_energy_power, _d7final_cols, _d7final_alert, _d7final_is_energy, _d7final_is_door, _d7final_home_values, _d7final_val
+    from main import _d7final_s, _d7final_ensure_alerts, _d7final_tables, _d7final_energy_power, _d7final_cols, _d7final_alert, _d7final_home_values, _d7final_val
+    from api.door import _d7final_text, _d7final_home_filter, _d7final_is_energy, _d7final_is_door
     _d7final_ensure_alerts(conn)
     home_sql, params = _d7final_home_filter(conn, home)
     values = _d7final_home_values(home)
@@ -594,17 +595,20 @@ def _d7final_alerts_for_home(conn, home):
 
 @router.get("/api/app/alerts-final")
 def d7final_get_alerts(home_id: str = "", home_code: str = "", admin_login: str = "", viewer_role: str = "admin"):
-    from edge.main import _d7m16_viewer_scope, _d7final_find_home, _d7final_conn
+    from main import _d7m16_viewer_scope, _d7final_find_home, _d7final_conn
     conn = _d7final_conn()
     try:
         home = _d7final_find_home(conn, home_id, home_code, admin_login)
 
-        import edge.main
-        edge.main._D7M16_ALERT_SCOPE = _d7m16_viewer_scope(home, viewer_role, admin_login)
+        # pyrefly: ignore [missing-import]
+        import main
+        # pyrefly: ignore [not-callable]
+        main._D7M16_ALERT_SCOPE = _d7m16_viewer_scope(home, viewer_role, admin_login)
         try:
             alerts = _d7final_alerts_for_home(conn, home)
         finally:
-            edge.main._D7M16_ALERT_SCOPE = ""
+            # pyrefly: ignore [not-callable]
+            main._D7M16_ALERT_SCOPE = ""
 
         active_count = sum(1 for item in alerts if not item.get("isResolved"))
         return {"success": True, "alerts": alerts, "active_count": active_count}
@@ -613,19 +617,22 @@ def d7final_get_alerts(home_id: str = "", home_code: str = "", admin_login: str 
 
 @router.post("/api/app/alerts-final/clear")
 def d7final_clear_alerts(payload: dict = _D7FinalBody(default_factory=dict)):
-    from edge.main import _d7m16_viewer_scope, _d7final_s, _d7m16_state_key, _d7final_ensure_alerts, _d7final_now, _d7final_find_home, _d7final_conn, _d7final_home_values
+    from main import _d7m16_viewer_scope, _d7final_s, _d7m16_state_key, _d7final_ensure_alerts, _d7final_now, _d7final_find_home, _d7final_conn, _d7final_home_values
     conn = _d7final_conn()
     try:
         home = _d7final_find_home(conn, _d7final_s(payload.get("home_id")), _d7final_s(payload.get("home_code")), _d7final_s(payload.get("admin_login")))
         values = _d7final_home_values(home)
         viewer_scope = _d7m16_viewer_scope(home, _d7final_s(payload.get("viewer_role", "admin")), _d7final_s(payload.get("admin_login")))
 
-        import edge.main
-        edge.main._D7M16_ALERT_SCOPE = viewer_scope
+        # pyre-ignore [missing-import]
+        import main
+        # pyre-ignore [not-callable]
+        main._D7M16_ALERT_SCOPE = viewer_scope
         try:
             alerts = _d7final_alerts_for_home(conn, home)
         finally:
-            edge.main._D7M16_ALERT_SCOPE = ""
+            # pyre-ignore [not-callable]
+            main._D7M16_ALERT_SCOPE = ""
 
         _d7final_ensure_alerts(conn)
         now = _d7final_now()
@@ -651,7 +658,7 @@ def d7final_resolve_alert(
     admin_login: str = "",
     viewer_role: str = "admin",
 ):
-    from edge.main import _d7m16_viewer_scope, _d7m16_state_key, _d7final_ensure_alerts, _d7final_now, _d7final_find_home, _d7final_conn
+    from main import _d7m16_viewer_scope, _d7m16_state_key, _d7final_ensure_alerts, _d7final_now, _d7final_find_home, _d7final_conn
     conn = _d7final_conn()
     try:
         _d7final_ensure_alerts(conn)
@@ -680,7 +687,7 @@ def d7final_hide_alert(
     admin_login: str = "",
     viewer_role: str = "admin",
 ):
-    from edge.main import _d7m16_viewer_scope, _d7m16_state_key, _d7final_ensure_alerts, _d7final_now, _d7final_find_home, _d7final_conn
+    from main import _d7m16_viewer_scope, _d7m16_state_key, _d7final_ensure_alerts, _d7final_now, _d7final_find_home, _d7final_conn
     conn = _d7final_conn()
     try:
         _d7final_ensure_alerts(conn)

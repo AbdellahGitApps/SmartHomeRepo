@@ -441,8 +441,8 @@ def create_family_member(payload: FamilyMemberCreate, request: Request):
                 cur = model_conn.cursor()
                 
                 print("[FACE] Creating person record...")
-                cur.execute("INSERT INTO persons (name, role, created_at) VALUES (?, ?, ?)", 
-                            (name, role, _now_iso())
+                cur.execute("INSERT INTO persons (home_id, name, role, created_at) VALUES (?, ?, ?, ?)", 
+                            (home_id, name, role, _now_iso())
                 )
 
                 person_id = cur.lastrowid
@@ -641,8 +641,8 @@ def update_family_member(member_id: int, payload: FamilyMemberUpdate):
                     cur = model_conn.cursor()
                     
                     if person_id is None:
-                        cur.execute("INSERT INTO persons (name, role, created_at) VALUES (?, ?, ?)", 
-                                    (name, role, _now_iso()))
+                        cur.execute("INSERT INTO persons (home_id, name, role, created_at) VALUES (?, ?, ?, ?)", 
+                                    (home_id, name, role, _now_iso()))
                         person_id = cur.lastrowid
                     
                     emb_json = json.dumps(embedding)
