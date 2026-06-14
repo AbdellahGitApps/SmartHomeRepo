@@ -1,0 +1,100 @@
+{
+  "main.py": {
+    "line_count": 10778,
+    "route_count": 62,
+    "function_count": 347,
+    "class_count": 13,
+    "duplicate_function_definitions": {
+      "cameras": [
+        585,
+        685
+      ],
+      "_d7_now": [
+        1645,
+        3276
+      ],
+      "_d7_conn": [
+        1689,
+        3346
+      ],
+      "_d7_cols": [
+        1697,
+        3352
+      ],
+      "_d7_home_code": [
+        1740,
+        4336
+      ],
+      "_d7_v6_now": [
+        2137,
+        2402
+      ],
+      "_d7_v6_clean": [
+        2140,
+        2405
+      ],
+      "_d7_v6_tables": [
+        2143,
+        2442
+      ],
+      "_d7_v6_cols": [
+        2146,
+        2445
+      ],
+      "_d7_v6_db_files": [
+        2151,
+        2408
+      ],
+      "_d7_v6_find_device_rows": [
+        2173,
+        2493
+      ],
+      "_d7_v6_log_once": [
+        2247,
+        2521
+      ],
+      "_d7m16_final_device_action_v6": [
+        2274,
+        2549
+      ],
+      "_d7_final_tables": [
+        2721,
+        7683
+      ],
+      "_d7_final_cols": [
+        2724,
+        7686
+      ],
+      "_d7_final_find_db": [
+        2729,
+        7636
+      ],
+      "_d7_final_conn": [
+        2754,
+        7675
+      ],
+      "_d7final_alerts_for_home": [
+        6885,
+        7366
+      ],
+      "_get_security_logs": [
+        10643,
+        10678
+      ]
+    },
+    "duplicate_route_definitions": {
+      "POST /api/dashboard/final-devices-v6/{device_key}/actions/{action}-old": [
+        "_d7m16_final_device_action_v6",
+        "_d7m16_final_device_action_v6"
+      ],
+      "DELETE /api/app/door-access-logs/{source_table}/{source_id}": [
+        "d7real_delete_app_door_access_log",
+        "d7m16_final_delete_app_door_access_log"
+      ],
+      "DELETE /api/app/door-access-logs/bulk": [
+        "d7real_delete_app_door_access_logs_bulk",
+        "d7m16_final_bulk_delete_app_door_access_logs"
+      ]
+    }
+  }
+}

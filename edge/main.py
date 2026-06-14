@@ -10670,10 +10670,9 @@ def _get_security_logs(limit=200):
             "home": row["home"] or "System",
             "event_type": row["event_type"] or "System Event",
             "details": row["details"] or "",
-            "action_taken": row["action_taken"] or ""
         })
 
-    return logs
+    return _d7m16_filter_dashboard_logs_list(logs, limit=limit)
 
 
 def _get_security_logs(limit=200):
@@ -10735,8 +10734,7 @@ def _get_security_logs(limit=200):
             "message": details,
             "action_taken": action_taken,
         })
-
-    return logs
+    return _d7m16_filter_dashboard_logs_list(logs, limit=limit)
 
 
 def _d7m16_dashboard_log_hidden(conn, source_table, source_id):
