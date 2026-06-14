@@ -1,0 +1,51 @@
+{
+  "auth_routes": [
+    "users_page",
+    "_d7m16_dashboard_login_page",
+    "_d7m16_dashboard_login_submit",
+    "d7_users_management_list",
+    "d7_update_system_owner",
+    "d7_toggle_home_owner",
+    "_d7_system_owner_auth_check",
+    "_d7_app_register_admin",
+    "_d7_app_login_admin",
+    "_d7_app_login_user",
+    "_d7_app_update_settings",
+    "_d7_app_recovery_request",
+    "_d7_app_recovery_reset",
+    "d7_app_account_status"
+  ],
+  "safe_to_move": [
+    "_d7_app_now",
+    "_d7_account_home_is_active",
+    "_d7_app_ensure_schema",
+    "_d7_plain_login_value",
+    "_d7_now",
+    "_d7_col",
+    "_d7_app_public_home_id",
+    "_d7_app_account_payload",
+    "_d7_app_home_payload",
+    "_d7_app_validate_login",
+    "_d7_auth_matches_db",
+    "_d7_log_user_action",
+    "_d7_app_log",
+    "_d7_account_disabled_message",
+    "_d7_dashboard_format_last_login",
+    "_d7_app_find_home_by_id",
+    "_d7_app_assert_home_account_active",
+    "_d7_app_db_path",
+    "_d7_norm_login_value",
+    "_d7_app_find_home_by_code",
+    "_d7_account_home_status_from_row"
+  ],
+  "shared_deps": [
+    "_d7_ensure_users_schema",
+    "_d7_app_tables",
+    "_d7_conn",
+    "_d7_cols",
+    "_d7_app_cols",
+    "_d7_find_db_files",
+    "status",
+    "_d7_app_conn"
+  ]
+}
