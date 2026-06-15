@@ -12,11 +12,8 @@ from database.repositories.device_repository import DeviceRepository
 
 from services.face_ai_service import FaceAIService
 
-from database.repositories.face_event_repository import (
-    FaceEventRepository
-)
 
-from services.door_control_service import unlock_door
+
 
 
 _face_ai = FaceAIService()
@@ -27,7 +24,11 @@ def process_uploaded_image(
     device_id: str,
     home_id: int
 ):
-    result = _face_ai.recognize_image(image_path)
+    result = _face_ai.recognize_image(
+        image_path,
+        home_id=home_id,
+        device_id=device_id
+    )
 
     print(
         f"[FACE AI] "
@@ -213,44 +214,16 @@ class ImageUploadService:
 
                 if face_result.get("matched"):
 
-                    FaceEventRepository.create(
-                        db=db,
-                        home_id=home_id,
-                        event_type="known",
-                        person_id=face_result.get(
-                            "person_id"
-                        ),
-                        score=face_result.get(
-                            "score"
-                        ),
-                        snapshot_path=relative_path,
-                    )
-
-                    # Auto Unlock Door
-                    unlock_door(
-                        device.device_id
-                    )
-
                     print(
                         f"[DOOR] Unlock requested "
-                        f"for {face_result.get('person_name')}"
+                        f"for {face_result.get('person_name')} (via new engine)"
                     )
 
                 else:
 
-                    FaceEventRepository.create(
-                        db=db,
-                        home_id=home_id,
-                        event_type="unknown",
-                        score=face_result.get(
-                            "score"
-                        ),
-                        snapshot_path=relative_path,
-                    )
-
                     print(
                         "[DOOR] Access denied - "
-                        "unknown person"
+                        "unknown person (via new engine)"
                     )
 
             publish_device_event(

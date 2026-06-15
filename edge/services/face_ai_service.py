@@ -1,30 +1,24 @@
 from pathlib import Path
-
 import cv2
 
-from ai.face_model.face_detector import (
-    FaceDetector,
-    preprocess_for_arcface,
+from api.face_recognition_flow import (
+    _detect_largest_face,
+    _preprocess_face,
+    _extract_embedding,
+    _recognize_embedding,
 )
-
-from ai.face_model.face_embedder import FaceEmbedder
-
-from ai.face_model.recognizer import FaceRecognizer
 
 
 class FaceAIService:
 
     def __init__(self):
-
-        self.detector = FaceDetector()
-
-        self.embedder = FaceEmbedder()
-
-        self.recognizer = FaceRecognizer()
+        pass
 
     def recognize_image(
         self,
         image_path: str,
+        home_id: int = 1,
+        device_id: str = "test",
     ) -> dict:
 
         image_path = Path(image_path)
@@ -32,11 +26,8 @@ class FaceAIService:
         if not image_path.exists():
 
             return {
-
                 "success": False,
-
                 "reason": "image_not_found"
-
             }
 
         image = cv2.imread(
@@ -46,98 +37,52 @@ class FaceAIService:
         if image is None:
 
             return {
-
                 "success": False,
-
                 "reason": "invalid_image"
-
             }
 
-        box = self.detector.detect_largest_face(
+        box = _detect_largest_face(
             image
         )
 
         if box is None:
 
             return {
-
                 "success": True,
-
                 "matched": False,
-
                 "reason": "no_face_detected"
-
             }
 
         try:
 
-            face = preprocess_for_arcface(
+            face = _preprocess_face(
                 image,
                 box
             )
 
-            embedding = self.embedder.embed(
+            embedding = _extract_embedding(
                 face
             )
 
         except Exception as exc:
 
             return {
-
                 "success": False,
-
                 "reason": f"embedding_failed: {exc}"
-
             }
 
-        gallery = self.recognizer.load_gallery()
-
-        if len(gallery) == 0:
-
-            return {
-
-                "success": True,
-
-                "matched": False,
-
-                "reason": "empty_gallery"
-
-            }
-
-        person_id, score = self.recognizer.match(
-
-            embedding,
-
-            gallery
-
-        )
-
-        if person_id is None:
-
-            return {
-
-                "success": True,
-
-                "matched": False,
-
-                "score": float(score)
-
-            }
-
-        person = self.recognizer.get_person(
-            person_id
+        result = _recognize_embedding(
+            embedding=embedding,
+            source="esp32_cam",
+            snapshot_path=str(image_path),
+            home_id=home_id,
         )
 
         return {
-
-            "success": True,
-
-            "matched": True,
-
-            "person_id": person_id,
-
-            "person_name": person.name if person else None,
-
-            "score": float(score),
-
-        }
+            "success": result.get("success", False),
+            "matched": result.get("recognized", False),
+            "person_id": result.get("person", {}).get("id") if result.get("person") else None,
+            "person_name": result.get("person", {}).get("name") if result.get("person") else None,
+            "score": result.get("score"),
+            "snapshot_path": result.get("snapshot_path"),
+        }
