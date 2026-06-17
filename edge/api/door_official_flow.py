@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 import json
@@ -118,6 +118,10 @@ def _insert_system_log(conn, device, payload, topics):
         "source": payload["source"],
     }
 
+    actor_val = payload.get("opened_by") or payload["source"]
+    if payload["source"] == "face_recognition":
+        actor_val = "Server"
+
     values = {
         "timestamp": _now_iso(),
         "created_at": _now_iso(),
@@ -125,7 +129,7 @@ def _insert_system_log(conn, device, payload, topics):
         "event_type": "door_open_command",
         "severity": "info",
         "source": payload["source"],
-        "actor": payload.get("opened_by") or payload["source"],
+        "actor": actor_val,
         "action_taken": "MQTT DOOR OPEN",
         "device_id": device["device_id"],
         "device_name": device["name"] if "name" in device.keys() else device["device_id"],

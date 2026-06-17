@@ -244,6 +244,26 @@ def _recognize_embedding(embedding, source, snapshot_path=None, home_id=None):
                     )
                     payload, topics = _publish_open_command(door_device, req)
                     _insert_system_log(main_conn, door_device, payload, topics)
+                    
+                    device_id = door_device["device_id"]
+                    device_name = door_device["device_name"] if "device_name" in door_device.keys() else device_id
+                    
+                    details_str = f"Known face recognized for family member {person['name']}."
+                    message_str = f"{person['name']} recognized and access granted"
+                    
+                    main_conn.execute(
+                        """
+                        INSERT INTO system_logs (
+                            timestamp, created_at, event_type, severity, source, actor, action_taken, device_id, device_name, details, message, home_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            _now_iso(), _now_iso(), "face_recognition", "info",
+                            "face_recognition", "Server", "FAMILY ACCESS GRANTED",
+                            device_id, device_name, details_str, message_str, home_id
+                        )
+                    )
+                    main_conn.commit()
             except Exception as e:
                 print(f"[FACE -> DOOR] Error unlocking door: {e}")
             finally:

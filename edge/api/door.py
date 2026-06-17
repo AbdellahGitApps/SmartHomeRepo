@@ -81,6 +81,9 @@ def d7m16_app_door_access_logs(home_id=None, home_code=None, admin_login=None, l
     def is_door_related(event_type, action_taken, details, device_id="", device_name=""):
         joined = lower(f"{event_type} {action_taken} {details} {device_id} {device_name}")
 
+        if "family access granted" in joined:
+            return True
+
         if any(bad in joined for bad in [
             "energy",
             "app account",
