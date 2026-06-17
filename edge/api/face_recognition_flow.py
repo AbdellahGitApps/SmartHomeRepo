@@ -217,7 +217,7 @@ def _recognize_embedding(embedding, source, snapshot_path=None, home_id=None):
         _insert_face_event(conn, event_type, person_id, score, snapshot_path, source)
 
         if event_type == "known" and person is not None:
-            from api.door_official_flow import _publish_open_command, DoorOpenRequest, _connect
+            from api.door_official_flow import _publish_open_command, DoorOpenRequest, _connect, _insert_system_log
             main_conn = _connect()
             try:
                 door_device = main_conn.execute(
@@ -242,9 +242,46 @@ def _recognize_embedding(embedding, source, snapshot_path=None, home_id=None):
                         reason="known_face",
                         opened_by=person["name"]
                     )
-                    _publish_open_command(door_device, req)
+                    payload, topics = _publish_open_command(door_device, req)
+                    _insert_system_log(main_conn, door_device, payload, topics)
             except Exception as e:
                 print(f"[FACE -> DOOR] Error unlocking door: {e}")
+            finally:
+                main_conn.close()
+
+        elif event_type == "unknown":
+            from api.door_official_flow import _connect
+            main_conn = _connect()
+            try:
+                door_device = main_conn.execute(
+                    """
+                    SELECT * FROM devices 
+                    WHERE home_id = ? AND lower(device_type) IN ('smart_door', 'esp32_cam', 'door_camera', 'camera') LIMIT 1
+                    """,
+                    (home_id,)
+                ).fetchone()
+                
+                device_id = door_device["device_id"] if door_device else "unknown_device"
+                device_name = door_device["device_name"] if door_device and "device_name" in door_device.keys() else "Camera"
+                
+                import json
+                details = json.dumps({"reason": "unknown_face", "source": source, "snapshot": snapshot_path})
+                
+                main_conn.execute(
+                    """
+                    INSERT INTO system_logs (
+                        timestamp, created_at, category, event_type, severity, source, actor, action_taken, device_id, device_name, details, message, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        _now_iso(), _now_iso(), "security", "face_recognition", "warning",
+                        source, "unknown", "Unknown face detected", device_id, device_name,
+                        details, "An unknown face was detected at the door.", "logged"
+                    )
+                )
+                main_conn.commit()
+            except Exception as e:
+                print(f"[FACE -> LOG] Error logging unknown face: {e}")
             finally:
                 main_conn.close()
 
