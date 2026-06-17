@@ -5,6 +5,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from database.connection.database import Base
 
 
+
 def generate_claim_code():
     # Format: HOME-XXXXX where XXXXX is 5 random uppercase alphanumeric chars
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))

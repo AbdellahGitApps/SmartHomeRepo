@@ -1,3 +1,10 @@
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+templates = Jinja2Templates(
+    directory=str(BASE_DIR / "dashboard" / "templates")
+)
 import time
 import struct
 import zlib
@@ -10,7 +17,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from core_database import _d7_find_db
-
+from database.models import Device, Home
 router = APIRouter(tags=['cameras'])
 
 @router.get("/cameras")
@@ -112,9 +119,6 @@ def cameras(request: Request, db: Session = Depends(get_db)):
             "stats": stats,
         },
     )
-
-def cameras(request: Request):
-    return templates.TemplateResponse(request=request, name="cameras.html")
 
 def _d7_camera_db_path():
     try:
