@@ -270,13 +270,13 @@ def _recognize_embedding(embedding, source, snapshot_path=None, home_id=None):
                 main_conn.execute(
                     """
                     INSERT INTO system_logs (
-                        timestamp, created_at, category, event_type, severity, source, actor, action_taken, device_id, device_name, details, message, status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        timestamp, created_at, event_type, severity, source, actor, action_taken, device_id, device_name, details, message, home_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        _now_iso(), _now_iso(), "security", "face_recognition", "warning",
+                        _now_iso(), _now_iso(), "face_recognition", "warning",
                         source, "unknown", "Unknown face detected", device_id, device_name,
-                        details, "An unknown face was detected at the door.", "logged"
+                        details, "An unknown face was detected at the door.", home_id
                     )
                 )
                 main_conn.commit()
