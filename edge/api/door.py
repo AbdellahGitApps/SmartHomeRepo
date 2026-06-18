@@ -55,6 +55,15 @@ def d7m16_app_door_access_logs(home_id=None, home_code=None, admin_login=None, l
         if not raw:
             return ""
 
+        try:
+            from datetime import timedelta as _timedelta
+            if "+" in raw or raw.endswith("Z"):
+                dt = _datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                local_dt = dt + _timedelta(hours=3)
+                return local_dt.strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            pass
+
         raw = raw.replace("T", " ").replace("Z", "").strip()
 
         if "+" in raw:

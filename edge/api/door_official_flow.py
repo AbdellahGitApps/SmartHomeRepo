@@ -126,7 +126,7 @@ def _insert_system_log(conn, device, payload, topics):
         "timestamp": _now_iso(),
         "created_at": _now_iso(),
         "category": "door",
-        "event_type": "door_open_command",
+        "event_type": "Smart Door Command",
         "severity": "info",
         "source": payload["source"],
         "actor": actor_val,

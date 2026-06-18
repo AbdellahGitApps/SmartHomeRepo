@@ -644,6 +644,16 @@ def _d7_cam_final_format_time(value):
     raw = _d7_cam_final_text(value)
     if not raw:
         return ""
+        
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        if "+" in raw or raw.endswith("Z"):
+            dt = _dt.fromisoformat(raw.replace("Z", "+00:00"))
+            local_dt = dt + _td(hours=3)
+            return local_dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        pass
+        
     return raw.replace("T", " ").split(".")[0]
 
 def _d7_cam_final_extract_member(details):

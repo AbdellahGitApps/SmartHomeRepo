@@ -147,54 +147,7 @@ class ImageUploadService:
             )
 
         # 6. Event Logging
-        details_dict = {
-            "device_id": device.device_id,
-            "home_id": home_id,
-            "timestamp": datetime.now().isoformat(),
-            "image_path": relative_path,
-        }
-
-        try:
-            db.execute(
-                text("""
-                    INSERT INTO system_logs (
-                        timestamp,
-                        severity,
-                        home,
-                        event_type,
-                        details,
-                        action_taken
-                    )
-                    VALUES (
-                        :timestamp,
-                        :severity,
-                        :home,
-                        :event_type,
-                        :details,
-                        :action_taken
-                    )
-                """),
-                {
-                    "timestamp": datetime.now().strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    ),
-                    "severity": "info",
-                    "home": home_label,
-                    "event_type": "IMAGE_RECEIVED",
-                    "details": json.dumps(details_dict),
-                    "action_taken": "IMAGE_UPLOAD",
-                },
-            )
-
-            db.commit()
-
-        except Exception as log_error:
-            print(
-                "[LOGGING ERROR] "
-                f"Failed to record IMAGE_RECEIVED "
-                f"event: {log_error}"
-            )
-
+        # IMAGE_UPLOAD is an internal technical operation, excluded from dashboard
                 # 7. Face Recognition Hook
         face_result = None
 
