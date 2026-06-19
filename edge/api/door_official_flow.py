@@ -204,7 +204,6 @@ def _mqtt_topics_for_device(device):
 
     return clean
 
-
 def _publish_open_command(device, request_data: DoorOpenRequest):
     request_id = uuid.uuid4().hex[:12]
 
@@ -221,9 +220,14 @@ def _publish_open_command(device, request_data: DoorOpenRequest):
     }
 
     topics = _mqtt_topics_for_device(device)
+
+    print("MQTT TOPICS =", topics)
+    print("MQTT CONNECTED =", mqtt_client.is_connected())
+
     payload_text = json.dumps(payload)
 
     for topic in topics:
+        print("PUBLISHING TO =", topic)
         mqtt_client.publish(topic, payload_text)
 
     return payload, topics

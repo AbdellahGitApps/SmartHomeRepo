@@ -3,6 +3,10 @@
 #include <HTTPClient.h>
 #include "secrets.h"
 
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <ESP32Servo.h>
+
 // ================= WIFI =================
 
 
@@ -14,13 +18,21 @@ const char* device_id =
 // ================= MQTT =================
 
 const char* mqtt_server =
-"10.0.0.17";
+"10.0.0.149";
 
 const int mqtt_port = 1883;
+
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+
+String cmdTopic;
+String controlTopic;
 
 // ================= SERVO =================
 
 #define SERVO_PIN 12
+
+Servo doorServo;
 
 // ================= ULTRASONIC =================
 
@@ -292,9 +304,139 @@ http.addHeader(
   esp_camera_fb_return(fb);
 }
 
+void mqttCallback(
+    char* topic,
+    byte* payload,
+    unsigned int length
+) {
+
+  Serial.println("MQTT CALLBACK FIRED");
+
+  String message;
+
+  for (unsigned int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+
+  Serial.println("========== MQTT ==========");
+  Serial.print("Topic: ");
+  Serial.println(topic);
+
+  Serial.print("Payload: ");
+  Serial.println(message);
+
+  DynamicJsonDocument doc(512);
+
+  DeserializationError err =
+      deserializeJson(doc, message);
+
+  if (err) {
+
+    Serial.println(
+        "Invalid JSON"
+    );
+
+    return;
+  }
+
+  String command =
+      doc["command"] | "";
+
+  String action =
+      doc["action"] | "";
+
+  if (
+      command == "open" ||
+      action == "open"
+  ) {
+
+    Serial.println(
+        "OPEN COMMAND RECEIVED"
+    );
+
+    doorServo.write(90);
+
+    delay(5000);
+
+    doorServo.write(0);
+  }
+}
+
 // =========================================
 // SETUP
 // =========================================
+
+void connectMQTT() {
+
+  mqttClient.setServer(
+      mqtt_server,
+      mqtt_port
+  );
+
+  mqttClient.setCallback(
+      mqttCallback
+  );
+
+  while (
+      !mqttClient.connected()
+  ) {
+
+    Serial.print(
+        "Connecting MQTT..."
+    );
+
+    String clientId =
+        "ESP32CAM-" +
+        String(device_id);
+
+    if (
+        mqttClient.connect(
+            clientId.c_str()
+        )
+    ) {
+
+      Serial.println(
+          "CONNECTED"
+      );
+
+      cmdTopic =
+          "device/" +
+          String(device_id) +
+          "/cmd";
+
+      controlTopic =
+          "device/" +
+          String(device_id) +
+          "/control";
+
+      bool sub = mqttClient.subscribe("device/DOOR-HOME110-001/#");
+
+      Serial.print("WILDCARD SUBSCRIBE = ");
+      Serial.println(sub);
+
+      Serial.println(
+          cmdTopic
+      );
+
+      Serial.println(
+          controlTopic
+      );
+
+    } else {
+
+      Serial.print(
+          "FAILED rc="
+      );
+
+      Serial.println(
+          mqttClient.state()
+      );
+
+      delay(3000);
+    }
+  }
+}
+
 
 void setup() {
 
@@ -313,6 +455,16 @@ void setup() {
   );
 
   connectWiFi();
+
+  connectMQTT();
+
+  doorServo.attach(SERVO_PIN);
+
+  Serial.println("SERVO TEST");
+
+  doorServo.write(90);
+  delay(3000);
+  doorServo.write(0);
 
   if (!setupCamera()) {
 
@@ -346,6 +498,12 @@ void loop() {
 
     connectWiFi();
   }
+  if (!mqttClient.connected()) {
+
+  connectMQTT();
+}
+
+mqttClient.loop();
 
   float distance =
       getDistanceCM();
@@ -379,6 +537,17 @@ void loop() {
     delay(300);
 
     captureAndUpload();
+
+    Serial.println("WAITING FOR MQTT RESPONSE");
+
+    unsigned long startWait = millis();
+
+    while (millis() - startWait < 5000) {
+      mqttClient.loop();
+      delay(10);
+    }
+
+    Serial.println("MQTT WAIT FINISHED");
 
     lastUploadTime =
         millis();
