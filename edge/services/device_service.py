@@ -30,11 +30,20 @@ def generate_device_id(
     home_clean = (home_code or "HOME").replace("-", "").upper()
 
     if db and home_id and device_type:
-        count = (
-            db.query(Device)
+        existing_devices = (
+            db.query(Device.device_id)
             .filter(Device.home_id == home_id, Device.device_type == device_type)
-            .count()
+            .all()
         )
+        max_seq = 0
+        for (did,) in existing_devices:
+            if did:
+                parts = str(did).split("-")
+                if len(parts) >= 3 and parts[-1].isdigit():
+                    seq_val = int(parts[-1])
+                    if seq_val > max_seq:
+                        max_seq = seq_val
+        count = max_seq
     else:
         count = 0
 

@@ -10,13 +10,69 @@ def handle_device_status(topic: str, payload: str):
     """
     try:
         data = json.loads(payload)
-        state = data.get("state")
+        state = data.get("state") or data.get("status") or ""
+        state = state.lower().strip()
+        
+        parts = topic.split("/")
+        if len(parts) < 3 or parts[0] != "device" or parts[2] != "status":
+            return
+        device_id = parts[1]
         
         logger.info(f"Device Status Update on {topic}: {state}")
         
-        # TODO: Forward data to service layer
-        # device_service.update_device_presence(topic, state)
+        from core_database import get_database_path
+        import sqlite3
+        from datetime import datetime
         
+        db_path = get_database_path()
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        
+        try:
+            device_row = cur.execute("SELECT * FROM devices WHERE device_id = ? OR id = ?", (device_id, device_id)).fetchone()
+            if not device_row:
+                logger.warning(f"Device status update received for unknown device: {device_id}")
+                return
+                
+            device = dict(device_row)
+            current_status = str(device.get("status") or "").lower().strip()
+            device_name = device.get("device_name") or device_id
+            home_id = device.get("home_id")
+            
+            if current_status == "restarting" and state == "online":
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # 1. Update status to online in database
+                cur.execute(
+                    "UPDATE devices SET status = 'online', last_seen = ?, last_seen_at = ?, updated_at = ? WHERE device_id = ? OR id = ?",
+                    (now, now, now, device_id, device_id)
+                )
+                
+                # 2. Insert Security Log
+                cur.execute(
+                    "INSERT INTO system_logs (timestamp, severity, event_type, details, action_taken, device_id, device_name, home_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (now, "INFO", "Device Restarted", f"Device {device_name} restarted successfully.", "MQTT RESTART", device_id, device_name, home_id)
+                )
+                conn.commit()
+                
+                # 3. Publish Mobile Notification
+                try:
+                    from ..publishers.notification_publisher import publish_notification
+                    publish_notification("info", f"Device {device_name} restarted successfully.")
+                except Exception as e:
+                    logger.error(f"Failed to publish notification: {e}")
+            elif state:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cur.execute(
+                    "UPDATE devices SET status = ?, last_seen = ?, last_seen_at = ?, updated_at = ? WHERE device_id = ? OR id = ?",
+                    (state, now, now, now, device_id, device_id)
+                )
+                conn.commit()
+                
+        finally:
+            conn.close()
+            
     except json.JSONDecodeError:
         logger.error(f"Failed to decode status payload on {topic}")
     except Exception as e:

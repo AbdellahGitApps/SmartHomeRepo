@@ -1159,6 +1159,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New Password'**
   String get newPassword;
+
+  /// No description provided for @serverSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Server Settings'**
+  String get serverSettings;
+
+  /// No description provided for @enterServerIp.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the IP address of the backend server:'**
+  String get enterServerIp;
+
+  /// No description provided for @serverIpHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., 10.0.2.2 or 192.168.1.x'**
+  String get serverIpHint;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @loginFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Please login with password first.'**
+  String get loginFirst;
+
+  /// No description provided for @accountRegisteredSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Account registered successfully'**
+  String get accountRegisteredSuccess;
+
+  /// No description provided for @loginFailedAfterRegistration.
+  ///
+  /// In en, this message translates to:
+  /// **'Login failed after registration.'**
+  String get loginFailedAfterRegistration;
+
+  /// No description provided for @invalidUserPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid user password.'**
+  String get invalidUserPassword;
+
+  /// No description provided for @firstLoginNewDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'First Login (New Device)'**
+  String get firstLoginNewDevice;
+
+  /// No description provided for @loginWithBiometrics.
+  ///
+  /// In en, this message translates to:
+  /// **'Login with Biometrics'**
+  String get loginWithBiometrics;
+
+  /// No description provided for @ownerPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner Phone'**
+  String get ownerPhone;
+
+  /// No description provided for @recoveryCodeMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery code generated in Security Logs.'**
+  String get recoveryCodeMessage;
+
+  /// No description provided for @passwordConfirmationNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Password confirmation does not match.'**
+  String get passwordConfirmationNoMatch;
+
+  /// No description provided for @passwordResetSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset successfully'**
+  String get passwordResetSuccess;
+
+  /// No description provided for @resetPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Password'**
+  String get resetPassword;
+
+  /// No description provided for @generateCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate Code'**
+  String get generateCode;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Password'**
+  String get confirmPassword;
+
+  /// No description provided for @couldNotRegister.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not register this account.'**
+  String get couldNotRegister;
+
+  /// No description provided for @couldNotResetPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reset password.'**
+  String get couldNotResetPassword;
+
+  /// No description provided for @couldNotGenerateRecoveryCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not generate recovery code.'**
+  String get couldNotGenerateRecoveryCode;
+
+  /// No description provided for @pleaseAuthenticate.
+  ///
+  /// In en, this message translates to:
+  /// **'Please authenticate to log in'**
+  String get pleaseAuthenticate;
+
+  /// No description provided for @ipUpdatedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Server IP updated to: {ip}'**
+  String ipUpdatedTo(String ip);
 }
 
 class _AppLocalizationsDelegate

@@ -547,4 +547,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get newPassword => 'New Password';
+
+  @override
+  String get serverSettings => 'Server Settings';
+
+  @override
+  String get enterServerIp => 'Enter the IP address of the backend server:';
+
+  @override
+  String get serverIpHint => 'e.g., 10.0.2.2 or 192.168.1.x';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get loginFirst => 'Please login with password first.';
+
+  @override
+  String get accountRegisteredSuccess => 'Account registered successfully';
+
+  @override
+  String get loginFailedAfterRegistration => 'Login failed after registration.';
+
+  @override
+  String get invalidUserPassword => 'Invalid user password.';
+
+  @override
+  String get firstLoginNewDevice => 'First Login (New Device)';
+
+  @override
+  String get loginWithBiometrics => 'Login with Biometrics';
+
+  @override
+  String get ownerPhone => 'Owner Phone';
+
+  @override
+  String get recoveryCodeMessage => 'Recovery code generated in Security Logs.';
+
+  @override
+  String get passwordConfirmationNoMatch =>
+      'Password confirmation does not match.';
+
+  @override
+  String get passwordResetSuccess => 'Password reset successfully';
+
+  @override
+  String get resetPassword => 'Reset Password';
+
+  @override
+  String get generateCode => 'Generate Code';
+
+  @override
+  String get confirmPassword => 'Confirm Password';
+
+  @override
+  String get couldNotRegister => 'Could not register this account.';
+
+  @override
+  String get couldNotResetPassword => 'Could not reset password.';
+
+  @override
+  String get couldNotGenerateRecoveryCode =>
+      'Could not generate recovery code.';
+
+  @override
+  String get pleaseAuthenticate => 'Please authenticate to log in';
+
+  @override
+  String ipUpdatedTo(String ip) {
+    return 'Server IP updated to: $ip';
+  }
 }

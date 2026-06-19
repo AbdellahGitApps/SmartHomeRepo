@@ -200,5 +200,32 @@
   "userAccount": "User Account",
   "forgotPassword": "Forgot Password?",
   "recoveryCode": "Recovery Code",
-  "newPassword": "New Password"
+  "newPassword": "New Password",
+  "serverSettings": "Server Settings",
+  "enterServerIp": "Enter the IP address of the backend server:",
+  "serverIpHint": "e.g., 10.0.2.2 or 192.168.1.x",
+  "save": "Save",
+  "loginFirst": "Please login with password first.",
+  "accountRegisteredSuccess": "Account registered successfully",
+  "loginFailedAfterRegistration": "Login failed after registration.",
+  "invalidUserPassword": "Invalid user password.",
+  "firstLoginNewDevice": "First Login (New Device)",
+  "loginWithBiometrics": "Login with Biometrics",
+  "ownerPhone": "Owner Phone",
+  "recoveryCodeMessage": "Recovery code generated in Security Logs.",
+  "passwordConfirmationNoMatch": "Password confirmation does not match.",
+  "passwordResetSuccess": "Password reset successfully",
+  "resetPassword": "Reset Password",
+  "generateCode": "Generate Code",
+  "confirmPassword": "Confirm Password",
+  "couldNotRegister": "Could not register this account.",
+  "couldNotResetPassword": "Could not reset password.",
+  "couldNotGenerateRecoveryCode": "Could not generate recovery code.",
+  "pleaseAuthenticate": "Please authenticate to log in",
+  "ipUpdatedTo": "Server IP updated to: {ip}",
+  "@ipUpdatedTo": {
+    "placeholders": {
+      "ip": { "type": "String" }
+    }
+  }
 }
