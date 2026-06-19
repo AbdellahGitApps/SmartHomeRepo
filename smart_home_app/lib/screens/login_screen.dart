@@ -67,9 +67,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (manual && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(
-            appState.locale.languageCode == 'ar'
-                ? 'يرجى تسجيل الدخول بكلمة المرور أولاً'
-                : 'Please login with password first.'
+            AppLocalizations.of(context)!.loginFirst
           )),
         );
       }
@@ -103,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!canAuthenticate) return false;
 
       return await auth.authenticate(
-        localizedReason: 'Please authenticate to log in',
+        localizedReason: AppLocalizations.of(context)!.pleaseAuthenticate,
         biometricOnly: true,
       );
     } on PlatformException catch (_) {
@@ -241,13 +239,13 @@ class _LoginScreenState extends State<LoginScreen>
     if (!ok) {
       setState(() {
         _isLoading = false;
-        _errorMessage = appState.lastAuthError ?? 'Could not register this account.';
+        _errorMessage = appState.lastAuthError ?? AppLocalizations.of(context)!.couldNotRegister;
       });
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account registered successfully')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.accountRegisteredSuccess)),
     );
 
     await Future.delayed(const Duration(milliseconds: 900));
@@ -260,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() {
         _isLoading = false;
         if (!loginOk) {
-          _errorMessage = appState.lastAuthError ?? 'Login failed after registration.';
+          _errorMessage = appState.lastAuthError ?? AppLocalizations.of(context)!.loginFailedAfterRegistration;
         } else {
           _errorMessage = null;
         }
@@ -288,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen>
       _isLoading = false;
       if (!ok) {
         _failedAdminAttempts++;
-        _errorMessage = appState.lastAuthError ?? 'Invalid username or password.';
+        _errorMessage = appState.lastAuthError ?? AppLocalizations.of(context)!.loginError;
       } else {
         _failedAdminAttempts = 0;
         _errorMessage = null;
@@ -315,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() {
       _isLoading = false;
       if (!ok) {
-        _errorMessage = appState.lastAuthError ?? 'Invalid user password.';
+        _errorMessage = appState.lastAuthError ?? AppLocalizations.of(context)!.invalidUserPassword;
       } else {
         _errorMessage = null;
       }
@@ -337,21 +335,21 @@ class _LoginScreenState extends State<LoginScreen>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Server Settings'),
+          title: Text(AppLocalizations.of(context)!.serverSettings),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Enter the IP address of the backend server:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+              Text(
+                AppLocalizations.of(context)!.enterServerIp,
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: ipCtrl,
                 style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
-                decoration: const InputDecoration(
-                  labelText: 'Server IP',
-                  hintText: 'e.g., 10.0.2.2 or 192.168.1.x',
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.serverIp,
+                  hintText: AppLocalizations.of(context)!.serverIpHint,
                 ),
               ),
             ],
@@ -359,7 +357,7 @@ class _LoginScreenState extends State<LoginScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -368,7 +366,7 @@ class _LoginScreenState extends State<LoginScreen>
                   appState.updateNetworkSettings(serverIp: newIp);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Server IP updated to: $newIp')),
+                      SnackBar(content: Text(AppLocalizations.of(context)!.ipUpdatedTo(newIp))),
                     );
                   }
                 }
@@ -376,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen>
                   Navigator.of(dialogContext).pop();
                 }
               },
-              child: const Text('Save'),
+              child: Text(AppLocalizations.of(context)!.save),
             ),
           ],
         );
@@ -439,7 +437,7 @@ class _LoginScreenState extends State<LoginScreen>
           obscureText: false,
           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
-            label: 'Phone Number',
+            label: AppLocalizations.of(context)!.phoneNumber,
             icon: LucideIcons.user,
           ),
         ),
@@ -449,7 +447,7 @@ class _LoginScreenState extends State<LoginScreen>
           obscureText: _obscureSignInPassword,
           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
-            label: 'Password',
+            label: AppLocalizations.of(context)!.password,
             icon: LucideIcons.lock,
             suffixIcon: IconButton(
               icon: Icon(
@@ -468,14 +466,14 @@ class _LoginScreenState extends State<LoginScreen>
           obscureText: false,
           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
-            label: 'Home Code',
+            label: AppLocalizations.of(context)!.homeCode,
             icon: LucideIcons.home,
           ),
           onSubmitted: (_) => _attemptAdminSignIn(),
         ),
         const SizedBox(height: 20),
         _errorBox(),
-        _button('Sign in (First login)', _attemptAdminSignIn),
+        _button(AppLocalizations.of(context)!.signInFirstLogin, _attemptAdminSignIn),
       ],
     );
   }
@@ -489,7 +487,7 @@ class _LoginScreenState extends State<LoginScreen>
           obscureText: false,
           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
-            label: 'Phone Number',
+            label: AppLocalizations.of(context)!.phoneNumber,
             icon: LucideIcons.user,
           ),
         ),
@@ -499,7 +497,7 @@ class _LoginScreenState extends State<LoginScreen>
           obscureText: _obscureLoginPassword,
           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
-            label: 'Password',
+            label: AppLocalizations.of(context)!.password,
             icon: LucideIcons.lock,
             suffixIcon: IconButton(
               icon: Icon(
@@ -518,7 +516,7 @@ class _LoginScreenState extends State<LoginScreen>
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: _showForgotPasswordDialog,
-              child: const Text('Forgot Password?'),
+              child: Text(AppLocalizations.of(context)!.forgotPassword),
             ),
           ),
         const SizedBox(height: 20),
@@ -528,7 +526,7 @@ class _LoginScreenState extends State<LoginScreen>
         IconButton(
           icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
           onPressed: () => _checkBiometricAutoLogin(manual: true),
-          tooltip: 'Login with Biometrics',
+          tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
         ),
       ],
     );
@@ -543,7 +541,7 @@ class _LoginScreenState extends State<LoginScreen>
           obscureText: false,
           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
-            label: 'Username',
+            label: AppLocalizations.of(context)!.username,
             icon: LucideIcons.user,
           ),
         ),
@@ -553,7 +551,7 @@ class _LoginScreenState extends State<LoginScreen>
           obscureText: _obscureUserPassword,
           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
           decoration: _decoration(
-            label: 'User Password',
+            label: AppLocalizations.of(context)!.password,
             icon: LucideIcons.keyRound,
             suffixIcon: IconButton(
               icon: Icon(
@@ -573,7 +571,7 @@ class _LoginScreenState extends State<LoginScreen>
         IconButton(
           icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
           onPressed: () => _checkBiometricAutoLogin(manual: true),
-          tooltip: 'Login with Biometrics',
+          tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
         ),
       ],
     );
@@ -664,9 +662,9 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         const SizedBox(height: 18),
-        const Text(
-          'Smart Home',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context)!.smartHome,
+          style: const TextStyle(
             color: gold,
             fontSize: 31,
             fontWeight: FontWeight.w800,
@@ -674,9 +672,9 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Secure \u2022 Connected \u2022 Intelligent',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context)!.appTagline,
+          style: const TextStyle(
             color: Colors.grey,
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -750,9 +748,9 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Column(
                     children: [
                       if (!appState.isDeviceLinked) ...[
-                        const Text(
-                          'First Login (New Device)',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context)!.firstLoginNewDevice,
+                          style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
                               color: Color(0xFFF2BE2E)),
@@ -763,14 +761,14 @@ class _LoginScreenState extends State<LoginScreen>
                         Row(
                           children: [
                             _toggleButton(
-                              label: 'Admin',
+                              label: AppLocalizations.of(context)!.admin,
                               icon: LucideIcons.shield,
                               selected: _selectedMode == 0,
                               onTap: () => _setSelectedMode(0),
                             ),
                             const SizedBox(width: 8),
                             _toggleButton(
-                              label: 'User',
+                              label: AppLocalizations.of(context)!.user,
                               icon: LucideIcons.user,
                               selected: _selectedMode == 1,
                               onTap: () => _setSelectedMode(1),
@@ -850,7 +848,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
 
     if (!ok) {
       setState(() {
-        dialogError = appState.lastAuthError ?? 'Could not generate recovery code.';
+        dialogError = appState.lastAuthError ?? AppLocalizations.of(context)!.couldNotGenerateRecoveryCode;
         dialogInfo = null;
       });
       return;
@@ -859,7 +857,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
     setState(() {
       otpRequested = true;
       dialogError = null;
-      dialogInfo = 'Recovery code generated in Security Logs.';
+      dialogInfo = AppLocalizations.of(context)!.recoveryCodeMessage;
     });
   }
 
@@ -867,7 +865,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
     final appState = Provider.of<AppStateProvider>(context, listen: false);
     if (newPasswordCtrl.text.trim() != confirmPasswordCtrl.text.trim()) {
       setState(() {
-        dialogError = 'Password confirmation does not match.';
+        dialogError = AppLocalizations.of(context)!.passwordConfirmationNoMatch;
         dialogInfo = null;
       });
       return;
@@ -883,7 +881,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
 
     if (!ok) {
       setState(() {
-        dialogError = appState.lastAuthError ?? 'Could not reset password.';
+        dialogError = appState.lastAuthError ?? AppLocalizations.of(context)!.couldNotResetPassword;
         dialogInfo = null;
       });
       return;
@@ -892,14 +890,14 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
     scaffoldMessenger.showSnackBar(
-      const SnackBar(content: Text('Password reset successfully')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.passwordResetSuccess)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Forgot Password'),
+      title: Text(AppLocalizations.of(context)!.forgotPassword),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -935,9 +933,9 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
             TextField(
               controller: phoneCtrl,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Owner Phone',
-                prefixIcon: Icon(Icons.phone_outlined),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.ownerPhone,
+                prefixIcon: const Icon(Icons.phone_outlined),
               ),
             ),
             if (otpRequested) ...[
@@ -945,9 +943,9 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
               TextField(
                 controller: otpCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Recovery Code',
-                  prefixIcon: Icon(Icons.password_outlined),
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.recoveryCode,
+                  prefixIcon: const Icon(Icons.password_outlined),
                 ),
               ),
               const SizedBox(height: 12),
@@ -955,7 +953,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
                 controller: newPasswordCtrl,
                 obscureText: _obscureRecoveryNewPassword,
                 decoration: InputDecoration(
-                  labelText: 'New Password',
+                  labelText: AppLocalizations.of(context)!.newPassword,
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureRecoveryNewPassword
@@ -976,7 +974,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
                 controller: confirmPasswordCtrl,
                 obscureText: _obscureRecoveryConfirmPassword,
                 decoration: InputDecoration(
-                  labelText: 'Confirm Password',
+                  labelText: AppLocalizations.of(context)!.confirmPassword,
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureRecoveryConfirmPassword
@@ -999,12 +997,12 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.cancel),
         ),
         ElevatedButton(
           onPressed: otpRequested ? resetPassword : requestCode,
           child: Text(
-            otpRequested ? 'Reset Password' : 'Generate Code',
+            otpRequested ? AppLocalizations.of(context)!.resetPassword : AppLocalizations.of(context)!.generateCode,
           ),
         ),
       ],

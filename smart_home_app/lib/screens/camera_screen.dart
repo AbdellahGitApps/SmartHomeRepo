@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'dart:io'; // For SocketException
+
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_home_app/l10n/app_localizations.dart';
@@ -105,8 +107,10 @@ class _CameraScreenState extends State<CameraScreen>
     } catch (e) {
       if (!mounted) return;
 
+      debugPrint('Camera load error: $e'); // Detailed log for debugging
+      final friendly = _friendlyErrorMessage(e);
       setState(() {
-        _cameraError = e.toString();
+        _cameraError = friendly;
       });
     } finally {
       if (!mounted) return;
@@ -155,8 +159,10 @@ class _CameraScreenState extends State<CameraScreen>
     } catch (e) {
       if (!mounted) return;
 
+      debugPrint('Face events load error: $e'); // Detailed log for debugging
+      final friendly = _friendlyErrorMessage(e);
       setState(() {
-        _faceEventsError = e.toString();
+        _faceEventsError = friendly;
       });
     } finally {
       if (!mounted) return;
@@ -306,7 +312,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
 
     if (_cameraError != null) {
-      return _errorBox('Backend camera error: $_cameraError');
+      return _errorBox(_cameraError ?? '');
     }
 
     if (_cameras.isEmpty) {
@@ -650,7 +656,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
 
     if (_faceEventsError != null) {
-      return _errorBox('Backend face events error: $_faceEventsError');
+      return _errorBox(_faceEventsError ?? '');
     }
 
     if (_faceEvents.isEmpty) {
@@ -806,6 +812,23 @@ class _CameraScreenState extends State<CameraScreen>
         ],
       ),
     );
+  }
+
+  /// Returns a user-friendly error message for various exception types.
+  String _friendlyErrorMessage(Object e) {
+    const genericMessage = "Server is currently unavailable. Please make sure the Smart Home server is running and try again.";
+    if (e is BackendApiException) {
+      // For HTTP errors or backend messages, hide details.
+      return genericMessage;
+    }
+    if (e is SocketException) {
+      return genericMessage;
+    }
+    if (e is TimeoutException) {
+      return genericMessage;
+    }
+    // Fallback for unexpected errors.
+    return "An unexpected error occurred. Please try again later.";
   }
 
   Widget _errorBox(String message) {

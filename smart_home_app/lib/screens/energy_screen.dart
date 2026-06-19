@@ -198,6 +198,8 @@ class _EnergyScreenState extends State<EnergyScreen>
       ], kw > 0 ? kw : 0.0);
 
       final deviceId = _d7EnergyText(maps, [
+        'device_name',
+        'name',
         'device_id',
         'id',
         'meter_id',

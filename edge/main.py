@@ -5612,9 +5612,9 @@ def _d7m16_matches_dashboard_filters(row, payload):
 
     search = str(payload.get("search") or "").strip().lower()
     date_value = str(payload.get("date") or "").strip()
-    event_type = str(payload.get("event_type") or payload.get("event") or "").strip().lower()
-    severity = str(payload.get("severity") or "").strip().lower()
-    actor = str(payload.get("actor") or "").strip().lower()
+    event_type_filter = str(payload.get("event_type") or payload.get("event") or "").strip().lower()
+    severity_filter = str(payload.get("severity") or "").strip().lower()
+    actor_filter = str(payload.get("actor") or "").strip().lower()
 
     row_time = str(_d7m16_row_value(row, "timestamp", "created_at", "time") or "")
     row_date = row_time[:10] if len(row_time) >= 10 else ""
@@ -5622,29 +5622,78 @@ def _d7m16_matches_dashboard_filters(row, payload):
     if date_value and row_date != date_value:
         return False
 
-    row_event = str(_d7m16_row_value(row, "event_type", "category") or "").strip().lower()
-    if event_type and row_event != event_type:
+    row_event = str(_d7m16_row_value(row, "event_type", "category") or "")
+    if event_type_filter and row_event.strip().lower() != event_type_filter:
         return False
 
     row_severity = str(_d7m16_row_value(row, "severity") or "").strip().lower()
-    if severity and row_severity != severity:
+    if severity_filter and row_severity != severity_filter:
         return False
 
-    row_actor = str(_d7m16_row_value(row, "actor", "source") or "").strip().lower()
-    if actor and actor != "all" and row_actor != actor:
+    action = str(_d7m16_row_value(row, "action_taken") or "").upper()
+    details = str(_d7m16_row_value(row, "details", "message") or "")
+    
+    actor_raw = str(_d7m16_row_value(row, "actor", "source") or "")
+    text_full_lower = f"{actor_raw} {action} {details} {row_event}".lower()
+    
+    detected_actor = "Server"
+    
+    if action in ["APP SETTINGS UPDATED", "APP ADMIN REGISTERED", "APP PASSWORD RESET"]:
+        detected_actor = "Admin App"
+    elif "failed login" in text_full_lower or "invalid username" in text_full_lower or "invalid password" in text_full_lower:
+        detected_actor = "Unknown"
+    elif "system_owner" in text_full_lower or "system owner" in text_full_lower or "dashboard" in text_full_lower:
+        detected_actor = "System Owner"
+    elif "flutter" in text_full_lower or "admin app" in text_full_lower or "manual_open_from_flutter" in text_full_lower or row_event == "Family Management":
+        detected_actor = "Admin App"
+    elif "esp32" in text_full_lower or "device heartbeat" in text_full_lower or "device event" in text_full_lower or "servo" in text_full_lower or row_event == "Smart Door Event":
+        detected_actor = "ESP32 Device"
+    elif row_event in ["System Error", "Face Recognition", "Energy Warning", "System Security"]:
+        detected_actor = "Server"
+    elif row_event in ["Smart Door Command", "Energy Monitor Command", "Device Restart", "Device Enable", "Device Disable", "Device Removed"]:
+        detected_actor = "System Owner"
+
+    if actor_raw.lower() == "server" and "command" in row_event.lower() and action.startswith("MQTT"):
+        detected_actor = "System Owner"
+
+    row_actor_bucket = ""
+    det_lower = detected_actor.lower()
+    if "system owner" in det_lower or "system_owner" in det_lower or "dashboard" in det_lower:
+        row_actor_bucket = "System Owner"
+    elif "admin app" in det_lower or "flutter" in det_lower or "owner app" in det_lower or "app settings" in det_lower or "family management" in det_lower:
+        row_actor_bucket = "Admin App"
+    elif "server" in det_lower or "esp32" in det_lower or "device" in det_lower or "face recognition" in det_lower or "energy warning" in det_lower or "system security" in det_lower or "system error" in det_lower:
+        row_actor_bucket = "Server"
+    else:
+        row_actor_bucket = detected_actor
+        
+    row_actor_bucket_lower = row_actor_bucket.lower()
+
+    if actor_filter and actor_filter != "all" and row_actor_bucket_lower != actor_filter:
         return False
 
     if search:
         searchable = " ".join([
             str(_d7m16_row_value(row, "home", "apartment", "apartment_number", "home_id") or ""),
-            str(_d7m16_row_value(row, "actor", "source") or ""),
-            str(_d7m16_row_value(row, "event_type", "category") or ""),
-            str(_d7m16_row_value(row, "details", "message") or ""),
-            str(_d7m16_row_value(row, "action_taken") or ""),
+            detected_actor,
+            row_actor_bucket,
+            row_event,
+            details,
+            action,
         ]).lower()
-
-        if search not in searchable:
-            return False
+        
+        is_number_search = search.isdigit()
+        if is_number_search:
+            apt = str(_d7m16_row_value(row, "home", "apartment", "apartment_number", "home_id") or "").lower()
+            import re
+            device_id_match = re.search(r'\b(?:DOOR|METER|CAM)-HOME0*([0-9]+)-\d+\b', searchable, re.IGNORECASE)
+            if device_id_match:
+                apt = str(int(device_id_match.group(1)))
+            if apt != search:
+                return False
+        else:
+            if search not in searchable:
+                return False
 
     return True
 
@@ -5790,20 +5839,6 @@ async def d7m16_log_delete_isolation_middleware(request, call_next):
                 return _d7m16_log_iso_json(
                     _d7m16_soft_hide_app_door_log(match.group(1), match.group(2), dict(request.query_params))
                 )
-
-            if path == "/api/dashboard/logs-final/bulk":
-                try:
-                    payload = await request.json()
-                except Exception:
-                    payload = {}
-                return _d7m16_log_iso_json(_d7m16_soft_hide_dashboard_filtered(payload))
-
-        if method == "POST" and path == "/api/dashboard/security-logs/delete-filtered":
-            try:
-                payload = await request.json()
-            except Exception:
-                payload = {}
-            return _d7m16_log_iso_json(_d7m16_soft_hide_dashboard_filtered(payload))
 
     except Exception as exc:
         return _d7m16_log_iso_json(

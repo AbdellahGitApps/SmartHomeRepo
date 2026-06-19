@@ -499,6 +499,7 @@
 
     if (action === "remove" && !(await DashboardConfirm.show(`Remove device ${deviceId}?`, { variant: "danger", confirmText: "Delete Device" }))) return;
     if (action === "disable" && !(await DashboardConfirm.show(`Disable device ${deviceId}?`, { variant: "warning", confirmText: "Disable" }))) return;
+    if (action === "restart" && !(await DashboardConfirm.show(`Restart device ${deviceId}?`, { variant: "danger", confirmText: "Restart Device" }))) return;
 
     try {
       const response = await fetch(`/api/dashboard/final-devices/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(action)}`, {

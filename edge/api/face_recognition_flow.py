@@ -258,7 +258,7 @@ def _recognize_embedding(embedding, source, snapshot_path=None, home_id=None):
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
-                            _now_iso(), _now_iso(), "face_recognition", "info",
+                            _now_iso(), _now_iso(), "Face Recognition", "info",
                             "face_recognition", "Server", "FAMILY ACCESS GRANTED",
                             device_id, device_name, details_str, message_str, home_id
                         )

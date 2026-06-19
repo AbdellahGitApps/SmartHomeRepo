@@ -547,4 +547,72 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get newPassword => 'كلمة المرور الجديدة';
+
+  @override
+  String get serverSettings => 'إعدادات الخادم';
+
+  @override
+  String get enterServerIp => 'أدخل عنوان IP للخادم:';
+
+  @override
+  String get serverIpHint => 'مثال: 10.0.2.2 أو 192.168.1.x';
+
+  @override
+  String get save => 'حفظ';
+
+  @override
+  String get loginFirst => 'يرجى تسجيل الدخول بكلمة المرور أولاً.';
+
+  @override
+  String get accountRegisteredSuccess => 'تم تسجيل الحساب بنجاح';
+
+  @override
+  String get loginFailedAfterRegistration => 'فشل تسجيل الدخول بعد التسجيل.';
+
+  @override
+  String get invalidUserPassword => 'كلمة مرور المستخدم غير صحيحة.';
+
+  @override
+  String get firstLoginNewDevice => 'أول تسجيل دخول (جهاز جديد)';
+
+  @override
+  String get loginWithBiometrics => 'تسجيل الدخول بالبصمة';
+
+  @override
+  String get ownerPhone => 'هاتف المالك';
+
+  @override
+  String get recoveryCodeMessage => 'تم إنشاء رمز الاسترداد في سجلات الأمان.';
+
+  @override
+  String get passwordConfirmationNoMatch => 'تأكيد كلمة المرور غير متطابق.';
+
+  @override
+  String get passwordResetSuccess => 'تم إعادة تعيين كلمة المرور بنجاح';
+
+  @override
+  String get resetPassword => 'إعادة تعيين كلمة المرور';
+
+  @override
+  String get generateCode => 'إنشاء الرمز';
+
+  @override
+  String get confirmPassword => 'تأكيد كلمة المرور';
+
+  @override
+  String get couldNotRegister => 'تعذر تسجيل هذا الحساب.';
+
+  @override
+  String get couldNotResetPassword => 'تعذر إعادة تعيين كلمة المرور.';
+
+  @override
+  String get couldNotGenerateRecoveryCode => 'تعذر إنشاء رمز الاسترداد.';
+
+  @override
+  String get pleaseAuthenticate => 'يرجى المصادقة لتسجيل الدخول';
+
+  @override
+  String ipUpdatedTo(String ip) {
+    return 'تم تحديث عنوان IP للخادم إلى: $ip';
+  }
 }

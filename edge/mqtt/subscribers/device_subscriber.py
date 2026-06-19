@@ -1,7 +1,7 @@
-from ..topics import HOME_DOOR_STATUS_TOPIC, HOME_NOTIFICATION_TOPIC
+from ..topics import HOME_DOOR_STATUS_TOPIC, HOME_NOTIFICATION_TOPIC, DEVICE_STATUS_TOPIC
 from ..handlers.door_handler import handle_door_status
 from ..handlers.notification_handler import handle_notification
-from ..handlers.status_handler import handle_device_register, handle_device_heartbeat
+from ..handlers.status_handler import handle_device_register, handle_device_heartbeat, handle_device_status
 
 def setup_device_subscriptions(mqtt_client):
     """
@@ -11,4 +11,5 @@ def setup_device_subscriptions(mqtt_client):
     mqtt_client.subscribe(HOME_NOTIFICATION_TOPIC, handle_notification)
     mqtt_client.subscribe("device/register", handle_device_register)
     mqtt_client.subscribe("device/heartbeat", handle_device_heartbeat)
+    mqtt_client.subscribe(DEVICE_STATUS_TOPIC, handle_device_status)
 

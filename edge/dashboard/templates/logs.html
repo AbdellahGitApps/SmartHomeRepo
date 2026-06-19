@@ -866,7 +866,7 @@ async function fetchLogs() {
 
     for (const endpoint of endpoints) {
         try {
-            const response = await fetch(endpoint);
+            const response = await fetch(endpoint, { cache: "no-store" });
             if (!response.ok) continue;
 
             const data = await response.json();
@@ -1300,10 +1300,20 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (typeof loadLogs === "function") {
-      await loadLogs();
+    // Update UI instantly without network cache issues, preserving filters
+    if (typeof allLogs !== "undefined" && Array.isArray(allLogs)) {
+        allLogs = allLogs.filter(l => String(l.id) !== String(id));
+    }
+    if (typeof window.allLogs !== "undefined" && Array.isArray(window.allLogs)) {
+        window.allLogs = window.allLogs.filter(l => String(l.id) !== String(id));
+    }
+    
+    if (typeof window.applyFilters === "function") {
+        window.applyFilters();
+    } else if (typeof applyFilters === "function") {
+        applyFilters();
     } else {
-      window.location.reload();
+        window.location.reload();
     }
   };
 
@@ -1461,6 +1471,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const payload = {
                 date: valueOf("dateFilter"),
                 event_type: valueOf("eventFilter"),
+                actor: valueOf("actorFilter"),
                 severity: valueOf("severityFilter")
             };
 
@@ -1512,7 +1523,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 try {
                     await apiDelete("/api/dashboard/logs/" + encodeURIComponent(log.id));
-                    refreshLogs();
+                    
+                    if (typeof allLogs !== "undefined" && Array.isArray(allLogs)) {
+                        allLogs = allLogs.filter(l => String(l.id) !== String(log.id));
+                    }
+                    if (typeof window.applyFilters === "function") {
+                        window.applyFilters();
+                    } else {
+                        refreshLogs();
+                    }
                 } catch (err) {
                     alert("Delete failed: " + err.message);
                 }
@@ -1569,7 +1588,16 @@ async function deleteSingleLogFinal(id) {
         return;
     }
 
-    await loadLogs();
+    if (typeof allLogs !== "undefined" && Array.isArray(allLogs)) {
+        allLogs = allLogs.filter(l => String(l.id) !== String(id));
+    }
+    if (typeof window.applyFilters === "function") {
+        window.applyFilters();
+    } else if (typeof applyFilters === "function") {
+        applyFilters();
+    } else {
+        window.location.reload();
+    }
 }
 
 async function deleteFilteredLogsFinal() {
@@ -1642,10 +1670,15 @@ async function deleteFilteredLogsFinal() {
       return;
     }
 
-    if (typeof loadLogs === "function") {
-      await loadLogs();
+    if (typeof allLogs !== "undefined" && Array.isArray(allLogs)) {
+        allLogs = allLogs.filter(l => String(l.id) !== String(logId));
+    }
+    if (typeof window.applyFilters === "function") {
+        window.applyFilters();
+    } else if (typeof applyFilters === "function") {
+        applyFilters();
     } else {
-      window.location.reload();
+        window.location.reload();
     }
   };
 
@@ -1655,6 +1688,7 @@ async function deleteFilteredLogsFinal() {
     const payload = {
       search: document.getElementById("logSearch")?.value || "",
       date: document.getElementById("dateFilter")?.value || "",
+      actor: document.getElementById("actorFilter")?.value || "",
       event_type: document.getElementById("eventFilter")?.value || "",
       severity: document.getElementById("severityFilter")?.value || ""
     };

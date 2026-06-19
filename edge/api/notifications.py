@@ -384,13 +384,15 @@ def _d7final_alerts_for_home(conn, home):
                 )
 
             elif _d7final_is_energy(row):
-                if any(key in text for key in ["enable", "disable", "restart", "offline", "fault", "warning"]):
+                if any(key in text for key in ["enable", "disable", "restart", "remove", "offline", "fault", "warning"]):
                     if "enable" in text:
                         title = "Energy Monitor Enabled"
                     elif "disable" in text:
                         title = "Energy Monitor Disabled"
                     elif "restart" in text:
                         title = "Energy Monitor Restarted"
+                    elif "remove" in text:
+                        title = "Energy Monitor Removed"
                     else:
                         title = "Energy Monitor Warning"
 
@@ -433,6 +435,58 @@ def _d7final_alerts_for_home(conn, home):
                         "security",
                         "doorEvent",
                         "warning",
+                        ts,
+                        "system_logs",
+                        row_id,
+                    )
+                elif "restart" in text.lower():
+                    item = _d7final_alert(
+                        conn,
+                        f"system_logs:{row_id}",
+                        "Device Restarted",
+                        details or action or event,
+                        "system",
+                        "system",
+                        "info",
+                        ts,
+                        "system_logs",
+                        row_id,
+                    )
+                elif "disable" in text.lower():
+                    item = _d7final_alert(
+                        conn,
+                        f"system_logs:{row_id}",
+                        "Device Disabled",
+                        details or action or event,
+                        "system",
+                        "system",
+                        "warning",
+                        ts,
+                        "system_logs",
+                        row_id,
+                    )
+                elif "enable" in text.lower():
+                    item = _d7final_alert(
+                        conn,
+                        f"system_logs:{row_id}",
+                        "Device Enabled",
+                        details or action or event,
+                        "system",
+                        "system",
+                        "info",
+                        ts,
+                        "system_logs",
+                        row_id,
+                    )
+                elif "remove" in text.lower():
+                    item = _d7final_alert(
+                        conn,
+                        f"system_logs:{row_id}",
+                        "Device Removed",
+                        details or action or event,
+                        "system",
+                        "system",
+                        "error",
                         ts,
                         "system_logs",
                         row_id,
