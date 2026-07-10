@@ -1,74 +1,146 @@
 import json
 import joblib
+import numpy as np
 import pandas as pd
+
 from config.settings import settings
 from .energy_features import build_energy_features
 from .energy_weekly import convert_daily_to_weekly
 
+
 def load_energy_model():
     model = joblib.load(settings.ENERGY_MODEL_PATH)
+
     with open(settings.ENERGY_FEATURES_PATH, "r", encoding="utf-8") as f:
         feature_columns = json.load(f)
+
     return model, feature_columns
 
-def forecast_next_weeks(daily_df: pd.DataFrame, weeks: int = 4) -> pd.DataFrame:
+
+def forecast_next_weeks(
+    daily_df: pd.DataFrame,
+    weeks: int = 4
+) -> pd.DataFrame:
     """
-    يحوّل البيانات اليومية إلى أسبوعية ثم يتنبأ بالأسابيع القادمة.
+    Convert daily energy data into weekly data
+    then forecast the coming weeks.
     """
+
+    if daily_df.empty:
+        raise ValueError("Daily dataset is empty.")
+
     model, feature_columns = load_energy_model()
 
     weekly_df = convert_daily_to_weekly(daily_df)
-    weekly_df["reading_date"] = pd.to_datetime(weekly_df["reading_date"])
-    weekly_df = weekly_df.sort_values("reading_date").reset_index(drop=True)
+
+    if weekly_df.empty:
+        raise ValueError("Weekly dataset is empty.")
+
+    weekly_df["reading_date"] = pd.to_datetime(
+        weekly_df["reading_date"]
+    )
+
+    weekly_df = (
+        weekly_df
+        .sort_values("reading_date")
+        .reset_index(drop=True)
+    )
 
     forecasts = []
 
     for _ in range(weeks):
+
         feature_df = build_energy_features(weekly_df)
+
+        if feature_df.empty:
+            raise ValueError(
+                "Not enough historical data to build prediction features."
+            )
+
         last_row = feature_df.iloc[[-1]].copy()
 
-        next_date = weekly_df["reading_date"].max() + pd.Timedelta(days=7)
+        next_date = (
+            weekly_df["reading_date"].max()
+            + pd.Timedelta(days=7)
+        )
 
         next_input = last_row.copy()
+
         next_input["day_of_week"] = next_date.dayofweek
         next_input["day_of_month"] = next_date.day
         next_input["month"] = next_date.month
         next_input["day_of_year"] = next_date.dayofyear
-        next_input["week_of_year"] = int(next_date.isocalendar().week)
-        next_input["is_weekend"] = int(next_date.dayofweek in [4, 5])
+        next_input["week_of_year"] = int(
+            next_date.isocalendar().week
+        )
 
-        # circular features
-        
-        next_input["dow_sin"] = np.sin(2 * np.pi * next_input["day_of_week"] / 7)
-        next_input["dow_cos"] = np.cos(2 * np.pi * next_input["day_of_week"] / 7)
-        next_input["month_sin"] = np.sin(2 * np.pi * next_input["month"] / 12)
-        next_input["month_cos"] = np.cos(2 * np.pi * next_input["month"] / 12)
+        next_input["is_weekend"] = int(
+            next_date.dayofweek in [4, 5]
+        )
 
-        pred = float(model.predict(next_input[feature_columns])[0])
+        # Cyclic calendar features
+        next_input["dow_sin"] = np.sin(
+            2 * np.pi * next_input["day_of_week"] / 7
+        )
 
-        forecasts.append({
-            "forecast_week_start": next_date.strftime("%Y-%m-%d"),
-            "predicted_kwh": pred
-        })
+        next_input["dow_cos"] = np.cos(
+            2 * np.pi * next_input["day_of_week"] / 7
+        )
 
-        weekly_df = pd.concat([
-            weekly_df,
-            pd.DataFrame([{
-                "reading_date": next_date,
-                "consumption_kwh": pred
-            }])
-        ], ignore_index=True)
+        next_input["month_sin"] = np.sin(
+            2 * np.pi * next_input["month"] / 12
+        )
+
+        next_input["month_cos"] = np.cos(
+            2 * np.pi * next_input["month"] / 12
+        )
+
+        prediction = float(
+            model.predict(
+                next_input[feature_columns]
+            )[0]
+        )
+
+        forecasts.append(
+            {
+                "forecast_week_start": next_date.strftime("%Y-%m-%d"),
+                "predicted_kwh": prediction,
+            }
+        )
+
+        weekly_df = pd.concat(
+            [
+                weekly_df,
+                pd.DataFrame(
+                    [
+                        {
+                            "reading_date": next_date,
+                            "consumption_kwh": prediction,
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
 
     return pd.DataFrame(forecasts)
 
-def forecast_next_month_total(daily_df: pd.DataFrame, weeks: int = 4) -> dict:
-    """
-    يتنبأ بـ 4 أسابيع قادمة ويحسب مجموعها كتقدير للشهر القادم.
-    """
-    forecast_df = forecast_next_weeks(daily_df, weeks=weeks)
-    total_kwh = float(forecast_df["predicted_kwh"].sum())
+
+def forecast_next_month_total(
+    daily_df: pd.DataFrame,
+    weeks: int = 4
+) -> dict:
+
+    forecast_df = forecast_next_weeks(
+        daily_df,
+        weeks=weeks,
+    )
+
+    total_kwh = float(
+        forecast_df["predicted_kwh"].sum()
+    )
 
     return {
         "forecast_weeks": forecast_df,
-        "predicted_month_total_kwh": total_kwh
+        "predicted_month_total_kwh": total_kwh,
     }

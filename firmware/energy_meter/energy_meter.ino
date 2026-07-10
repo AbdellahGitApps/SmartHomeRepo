@@ -1,0 +1,136 @@
+#include "device_config.h"
+#include "secrets.h"
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+#include "wifi_manager.h"
+#include "energy_meter.h"
+// ======================================================
+// Runtime
+// ======================================================
+
+unsigned long lastReadingTime = 0;
+
+// ======================================================
+// Setup
+// ======================================================
+
+void setup()
+{
+    Serial.begin(115200);
+
+    delay(1000);
+
+    randomSeed(micros());
+
+    Serial.println();
+    Serial.println("==========================================");
+    Serial.println(" SMART HOME ENERGY METER");
+    Serial.println("==========================================");
+
+    connectWiFi();
+
+    Serial.println("System Ready");
+}
+
+// ======================================================
+// Main Loop
+// ======================================================
+
+void loop()
+{
+    //----------------------------------------------------
+    // WiFi Watchdog
+    //----------------------------------------------------
+
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println();
+        Serial.println("WiFi Lost");
+
+        connectWiFi();
+    }
+
+    //----------------------------------------------------
+    // Send Interval
+    //----------------------------------------------------
+
+    if (millis() - lastReadingTime < READING_INTERVAL)
+    {
+        return;
+    }
+
+    lastReadingTime = millis();
+
+    //----------------------------------------------------
+    // Read Sensors
+    //----------------------------------------------------
+
+    float voltage =
+        readVoltageSensor();
+
+    float current =
+        readCurrentSensor();
+
+    float power =
+        calculatePower(
+            voltage,
+            current);
+
+    float energy =
+        calculateEnergy(
+            power,
+            READING_INTERVAL / 1000.0);
+
+    //----------------------------------------------------
+    // Print
+    //----------------------------------------------------
+
+    printMeasurements();
+
+    //----------------------------------------------------
+    // JSON
+    //----------------------------------------------------
+
+    JsonDocument doc;
+
+    doc["device_id"] = DEVICE_ID;
+    doc["device_name"] = DEVICE_NAME;
+    doc["device_type"] = DEVICE_TYPE;
+
+    doc["voltage"] = voltage;
+    doc["current"] = current;
+    doc["watts"] = power;
+    doc["kwh_today"] = energy;
+
+    doc["source"] = "esp32";
+
+    String payload;
+
+    serializeJson(
+        doc,
+        payload);
+
+    //----------------------------------------------------
+    // Send
+    //----------------------------------------------------
+
+    Serial.println();
+    Serial.println("Uploading...");
+
+    bool ok =
+        sendEnergyData(payload);
+
+    if (ok)
+    {
+        Serial.println("Upload Success");
+    }
+    else
+    {
+        Serial.println("Upload Failed");
+    }
+
+    Serial.println();
+}
