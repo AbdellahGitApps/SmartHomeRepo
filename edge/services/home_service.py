@@ -27,6 +27,7 @@ def create_home(
     owner_email: str,
     apartment_number: str,
     owner_phone: str = "",
+    energy_profile: str = "Residential Type A",
 ) -> Home:
     """
     Create a new Home in the database, automatically generating a unique home_code.
@@ -46,6 +47,7 @@ def create_home(
         owner_phone=owner_phone,
         apartment_number=apartment_number,
         home_code=home_code,
+        energy_profile=energy_profile,
     )
     db.add(db_home)
     db.commit()

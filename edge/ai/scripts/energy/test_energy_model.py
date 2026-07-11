@@ -1,8 +1,8 @@
-from app.core.db import SessionLocal
-from app.energy_model.energy_data import load_daily_readings_from_db
-from app.energy_model.energy_predict import forecast_next_month_total
-from app.energy_model.energy_analyze import analyze_energy_usage
-from app.energy_model.energy_recommend import generate_energy_recommendations
+from database.connection.database import SessionLocal
+from ai.energy_model.energy_data import load_daily_readings_from_db
+from ai.energy_model.energy_predict import forecast_next_month_total
+from ai.energy_model.energy_analyze import analyze_energy_usage
+from ai.energy_model.energy_recommend import generate_energy_recommendations
 
 def main():
     db = SessionLocal()

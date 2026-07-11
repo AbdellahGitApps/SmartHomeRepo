@@ -13,6 +13,10 @@ DEVICE_COLUMNS = {
     "enabled": "INTEGER DEFAULT 1",
 }
 
+HOME_COLUMNS = {
+    "energy_profile": "TEXT DEFAULT 'Residential Type A'",
+}
+
 
 def get_default_db_path():
     try:
@@ -75,5 +79,39 @@ def migrate_devices_table(db_path=None):
         connection.close()
 
 
+def migrate_homes_table(db_path=None):
+    db_file = Path(db_path) if db_path else get_default_db_path()
+
+    if not db_file.exists():
+        print(f"[MIGRATION] SQLite DB not found: {db_file}")
+        return {"db_exists": False, "changed": []}
+
+    connection = sqlite3.connect(db_file)
+    try:
+        cursor = connection.cursor()
+
+        if not table_exists(cursor, "homes"):
+            print("[MIGRATION] homes table not found. Skipping homes migration.")
+            return {"db_exists": True, "homes_table_exists": False, "changed": []}
+
+        changed = []
+        for column_name, column_type in HOME_COLUMNS.items():
+            if add_column_if_missing(cursor, "homes", column_name, column_type):
+                changed.append(column_name)
+
+        connection.commit()
+
+        if changed:
+            print(f"[MIGRATION] Added homes columns: {', '.join(changed)}")
+        else:
+            print("[MIGRATION] homes table already up to date.")
+
+        return {"db_exists": True, "homes_table_exists": True, "changed": changed}
+    finally:
+        connection.close()
+
+
 def run_startup_migrations():
-    return migrate_devices_table()
+    res_devices = migrate_devices_table()
+    res_homes = migrate_homes_table()
+    return {"devices": res_devices, "homes": res_homes}

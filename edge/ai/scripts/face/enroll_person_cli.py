@@ -2,12 +2,12 @@ import re
 import os
 import cv2
 
-from app.core.db import Base, engine, SessionLocal
-from app.core.models import Person, FaceEmbedding
-from app.core.config import PERSONS_DIR
+from database.connection.database import Base, engine, SessionLocal
+from database.models.ai_face import Person, FaceEmbedding
+from ai.core.config import PERSONS_DIR
 
-from app.face_model.enroll import collect_embeddings_from_camera, average_embedding
-from app.face_model.emb_utils import emb_to_json
+from ai.face_model.enroll import collect_embeddings_from_camera, average_embedding
+from ai.face_model.emb_utils import emb_to_json
 
 def slugify_name(name: str) -> str:
     name = name.strip().lower()

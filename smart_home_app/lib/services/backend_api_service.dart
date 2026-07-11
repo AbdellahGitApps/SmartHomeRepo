@@ -165,18 +165,28 @@ class BackendApiService {
     return _get('/api/energy/logs', query: {'limit': limit});
   }
 
-  Future<Map<String, dynamic>> getEnergyForecastLatest({int limit = 4}) {
-    return _get('/api/energy/forecast/latest', query: {'limit': limit});
+  Future<Map<String, dynamic>> getEnergyForecastLatest({int limit = 4, String? homeId}) {
+    final query = <String, dynamic>{'limit': limit};
+    if (homeId != null && homeId.trim().isNotEmpty) {
+      query['home_id'] = homeId.trim();
+    }
+    return _get('/api/energy/forecast/latest', query: query);
   }
 
   Future<Map<String, dynamic>> runEnergyForecast({
     int weeks = 4,
     bool preferDb = true,
     String source = 'flutter_app',
+    String? homeId,
   }) {
     return _post(
       '/api/energy/forecast/run',
-      body: {'weeks': weeks, 'prefer_db': preferDb, 'source': source},
+      body: {
+        'weeks': weeks, 
+        'prefer_db': preferDb, 
+        'source': source,
+        if (homeId != null && homeId.trim().isNotEmpty) 'home_id': homeId.trim(),
+      },
     );
   }
 

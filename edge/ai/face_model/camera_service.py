@@ -10,8 +10,8 @@ from ai.core.config import (
     UNKNOWN_CONFIRM_COUNT,
 )
 
-from ai.core.db import SessionLocal
-from ai.core.models import FaceEvent
+from database.connection.database import SessionLocal
+from database.models.ai_face import FaceEvent
 
 from .face_detector import FaceDetector, preprocess_for_arcface
 from .face_embedder import FaceEmbedder

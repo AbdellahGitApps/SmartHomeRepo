@@ -342,6 +342,7 @@ class HomeCreateRequest(BaseModel):
     owner_email: str
     owner_phone: str = ""
     apartment_number: str
+    energy_profile: str = "Residential Type A"
     devices: list[DeviceCreateRequest] = []
 
 
@@ -481,6 +482,7 @@ def create_home_endpoint(payload: HomeCreateRequest, background_tasks: Backgroun
             owner_email=payload.owner_email,
             apartment_number=payload.apartment_number,
             owner_phone=clean_owner_phone,
+            energy_profile=payload.energy_profile,
         )
 
         # Create each associated Device using the service

@@ -30,6 +30,10 @@ class _EnergyScreenState extends State<EnergyScreen>
   List<Map<String, dynamic>> _energyLogs = [];
   List<Map<String, dynamic>> _forecasts = [];
 
+  // Home-change detection
+  String? _lastHomeId;
+  bool _homeIdInitialized = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,61 +72,38 @@ class _EnergyScreenState extends State<EnergyScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Subscribe to AppStateProvider to detect home switches.
+    // Provider.of with listen:true registers this widget as a dependent.
+    final appState = Provider.of<AppStateProvider>(context);
+    final currentHomeId =
+        appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId;
+
+    if (!_homeIdInitialized) {
+      // First call (right after initState). initState already called
+      // _loadEnergyData(), so just record the current homeId.
+      _homeIdInitialized = true;
+      _lastHomeId = currentHomeId;
+      return;
+    }
+
+    if (currentHomeId != _lastHomeId) {
+      _lastHomeId = currentHomeId;
+      // Reload in the next frame so we don't call setState mid-build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadEnergyData();
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _api.close();
     _controller.dispose();
     super.dispose();
   }
-
-  // D7M16_ENERGY_HOME_SUMMARY_HELPERS_START
-  Map<String, dynamic> _d7EnergyAsMap(dynamic value) {
-    if (value is Map<String, dynamic>) return value;
-
-    if (value is Map) {
-      return value.map((key, val) => MapEntry(key.toString(), val));
-    }
-
-    return <String, dynamic>{};
-  }
-
-  String _d7EnergyText(
-    List<Map<String, dynamic>> maps,
-    List<String> keys, [
-    String fallback = '',
-  ]) {
-    for (final map in maps) {
-      for (final key in keys) {
-        final value = map[key];
-
-        if (value != null && value.toString().trim().isNotEmpty) {
-          return value.toString().trim();
-        }
-      }
-    }
-
-    return fallback;
-  }
-
-  double _d7EnergyNumber(
-    List<Map<String, dynamic>> maps,
-    List<String> keys, [
-    double fallback = 0.0,
-  ]) {
-    for (final map in maps) {
-      for (final key in keys) {
-        final value = map[key];
-
-        if (value == null) continue;
-        if (value is num) return value.toDouble();
-
-        final parsed = double.tryParse(value.toString());
-        if (parsed != null) return parsed;
-      }
-    }
-
-    return fallback;
-  }
-  // D7M16_ENERGY_HOME_SUMMARY_HELPERS_END
 
   Future<void> _loadEnergyData() async {
     setState(() {
@@ -131,22 +112,35 @@ class _EnergyScreenState extends State<EnergyScreen>
     });
 
     try {
+      // Always read homeId fresh at call time so we use the current home,
+      // not whatever was cached when the widget was first built.
       final appState = Provider.of<AppStateProvider>(context, listen: false);
+      final homeId =
+          appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId;
 
-      await appState.loadHomeSummary();
-
-      final summary = _d7EnergyAsMap(appState.homeSummary);
-      final energy = _d7EnergyAsMap(summary['energy']);
-      final energyDevices = appState.homeSummaryEnergyDevices;
-      final primaryDevice = energyDevices.isNotEmpty
-          ? Map<String, dynamic>.from(energyDevices.first)
-          : <String, dynamic>{};
-
-      final hasBackendEnergy = energy.isNotEmpty || primaryDevice.isNotEmpty;
+      final latestRes = await _api.getEnergyLatest();
+      final logsRes = await _api.getEnergyLogs();
+      var forecastRes = await _api.getEnergyForecastLatest(homeId: homeId);
 
       if (!mounted) return;
 
-      if (!hasBackendEnergy) {
+      final latestData = latestRes['latest'] as Map<String, dynamic>?;
+      final logsData = (logsRes['logs'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      var forecastData = (forecastRes['forecasts'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+      if (forecastData.isEmpty && latestData != null) {
+        try {
+          final runRes = await _api.runEnergyForecast(homeId: homeId);
+          if (runRes['success'] == true) {
+            final newForecastRes = await _api.getEnergyForecastLatest(homeId: homeId);
+            forecastData = (newForecastRes['forecasts'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          }
+        } catch (e) {
+          // Keep empty if forecast run fails (e.g. not enough data)
+        }
+      }
+
+      if (latestData == null) {
         setState(() {
           _latestEnergy = null;
           _energyLogs = [];
@@ -156,100 +150,10 @@ class _EnergyScreenState extends State<EnergyScreen>
         return;
       }
 
-      final maps = <Map<String, dynamic>>[energy, primaryDevice];
-
-      final voltage = _d7EnergyNumber(maps, [
-        'voltage',
-        'voltage_v',
-        'volt',
-      ], 220.0);
-
-      final rawWatts = _d7EnergyNumber(maps, [
-        'power_w',
-        'current_power_w',
-        'watts',
-        'watt',
-        'power',
-        'current_power',
-      ], 0.0);
-
-      final rawKw = _d7EnergyNumber(maps, [
-        'power_kw',
-        'kw',
-      ], rawWatts > 0 ? rawWatts / 1000.0 : 0.0);
-
-      final watts = rawWatts > 0 ? rawWatts : rawKw * 1000.0;
-      final kw = watts > 0 ? watts / 1000.0 : rawKw;
-
-      final current = _d7EnergyNumber(maps, [
-        'current_a',
-        'current',
-        'amps',
-        'amp',
-      ], voltage > 0 ? watts / voltage : 0.0);
-
-      final todayKwh = _d7EnergyNumber(maps, [
-        'kwh_today',
-        'consumption_kwh',
-        'daily_kwh',
-        'today_kwh',
-        'total_daily_usage',
-        'total_kwh',
-      ], kw > 0 ? kw : 0.0);
-
-      final deviceId = _d7EnergyText(maps, [
-        'device_name',
-        'name',
-        'device_id',
-        'id',
-        'meter_id',
-      ], 'No device yet');
-
-      final timestamp = _d7EnergyText(maps, [
-        'timestamp',
-        'last_seen',
-        'updated_at',
-        'created_at',
-        'reading_time',
-      ], DateTime.now().toIso8601String());
-
-      final latest = <String, dynamic>{
-        'voltage': voltage,
-        'current': current,
-        'watts': watts,
-        'power_kw': kw,
-        'kwh_today': todayKwh,
-        'consumption_kwh': todayKwh,
-        'device_id': deviceId,
-        'timestamp': timestamp,
-      };
-
-      final factors = <double>[0.72, 0.84, 0.78, 1.0, 0.91, 1.08, 0.88];
-
-      final logs = List<Map<String, dynamic>>.generate(factors.length, (index) {
-        final day = DateTime.now().subtract(
-          Duration(days: factors.length - 1 - index),
-        );
-
-        return {
-          'timestamp': day.toIso8601String(),
-          'watts': watts * factors[index],
-          'kwh_today': todayKwh * factors[index],
-          'consumption_kwh': todayKwh * factors[index],
-          'device_id': deviceId,
-        };
-      });
-
-      final forecasts = <Map<String, dynamic>>[
-        {'period': 'next_day', 'predicted_kwh': todayKwh * 1.05},
-        {'period': 'next_week', 'predicted_kwh': todayKwh * 7.0},
-        {'period': 'next_month', 'predicted_kwh': todayKwh * 30.0},
-      ];
-
       setState(() {
-        _latestEnergy = latest;
-        _energyLogs = logs;
-        _forecasts = forecasts;
+        _latestEnergy = latestData;
+        _energyLogs = logsData;
+        _forecasts = forecastData;
         _isLoadingEnergy = false;
       });
     } catch (error) {
@@ -318,7 +222,7 @@ class _EnergyScreenState extends State<EnergyScreen>
     final logs = _energyLogs.reversed.take(7).toList();
 
     if (logs.isEmpty) {
-      return const [0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3];
+      return const [];
     }
 
     return logs.map((item) {
@@ -426,6 +330,18 @@ class _EnergyScreenState extends State<EnergyScreen>
         child: Text(
           'Backend connection error: $_energyError',
           style: const TextStyle(color: Colors.red),
+        ),
+      );
+    }
+
+    if (_latestEnergy == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: _cardDecoration(context, isDark),
+        child: Text(
+          'No energy readings available',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       );
     }
@@ -543,7 +459,7 @@ class _EnergyScreenState extends State<EnergyScreen>
                       const SizedBox(height: 8),
                       Text(
                         _latestEnergy == null
-                            ? 'Waiting for backend reading'
+                            ? 'No energy readings available'
                             : '${_fmt(_latestKwh)} ${l10n.kWh} today',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
@@ -569,6 +485,19 @@ class _EnergyScreenState extends State<EnergyScreen>
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final compact = constraints.maxWidth < 430;
+
+                    if (_latestEnergy == null || _energyLogs.isEmpty) {
+                      return Container(
+                        height: 300,
+                        padding: EdgeInsets.all(compact ? 8 : 24),
+                        decoration: _cardDecoration(context, isDark),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'No energy readings available',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      );
+                    }
 
                     return Container(
                       height: 300,
@@ -609,8 +538,7 @@ class _EnergyScreenState extends State<EnergyScreen>
       return kwh > max ? kwh : max;
     });
 
-    final nextDayKwh = _latestKwh > 0 ? _latestKwh * 1.05 : 0.0;
-    final monthlyTotalKwh = nextDayKwh * 30.0;
+    final monthlyTotalKwh = weeklyAverageKwh * 30.0;
 
     final reports = <Map<String, String>>[
       {
@@ -632,9 +560,9 @@ class _EnergyScreenState extends State<EnergyScreen>
       {
         'period': l10n.monthly,
         'total': _fmt(monthlyTotalKwh),
-        'avg': _fmt(monthlyTotalKwh / 30.0),
+        'avg': _fmt(weeklyAverageKwh),
         'avgUnit': '${l10n.kWh}/day',
-        'peak': _fmt(nextDayKwh),
+        'peak': _fmt(weeklyPeakKwh),
         'peakUnit': '${l10n.kWh}/day',
       },
     ];
@@ -724,35 +652,43 @@ class _EnergyScreenState extends State<EnergyScreen>
     AppLocalizations l10n,
     bool isDark,
   ) {
-    final nextDayKwh = _latestKwh > 0 ? _latestKwh * 1.05 : 0.0;
-    final nextWeekKwh = nextDayKwh * 7.0;
-    final nextMonthKwh = nextDayKwh * 30.0;
+    final sorted = List<Map<String, dynamic>>.from(_forecasts);
+    sorted.sort((a, b) => (a['forecast_date'] as String? ?? '').compareTo(b['forecast_date'] as String? ?? ''));
+
+    final week1 = sorted.isNotEmpty ? _num(sorted[0]['predicted_kwh']) : 0.0;
+    final week2 = sorted.length > 1 ? _num(sorted[1]['predicted_kwh']) : 0.0;
+    
+    final firstItem = sorted.isNotEmpty ? sorted[0] : <String, dynamic>{};
+    final monthlyTotal = (firstItem.containsKey('predicted_month_total_kwh') && firstItem['predicted_month_total_kwh'] != null)
+        ? _num(firstItem['predicted_month_total_kwh'])
+        : sorted.fold<double>(0.0, (sum, item) => sum + _num(item['predicted_kwh']));
 
     final predictions = [
       {
-        'period': l10n.nextDay,
-        'value': nextDayKwh,
-        'icon': LucideIcons.clock,
-        'comparison': _predictionWarning(nextDayKwh, _latestKwh, 'day'),
-        'isIncrease': _predictionRisk(nextDayKwh, _latestKwh) > 0,
-      },
-      {
         'period': l10n.nextWeek,
-        'value': nextWeekKwh,
+        'value': week1,
         'icon': LucideIcons.calendar,
-        'comparison': _predictionWarning(nextWeekKwh, _latestKwh * 7.0, 'week'),
-        'isIncrease': _predictionRisk(nextWeekKwh, _latestKwh * 7.0) > 0,
+        'comparison': _predictionWarning(week1, 0.0, 'week'),
+        'isIncrease': _predictionRisk(week1, 0.0) > 0,
       },
+      if (sorted.length > 1)
+        {
+          'period': Localizations.localeOf(context).languageCode == 'ar' ? 'الأسبوع الذي يليه' : 'Following Week',
+          'value': week2,
+          'icon': LucideIcons.calendar,
+          'comparison': _predictionWarning(week2, 0.0, 'week'),
+          'isIncrease': _predictionRisk(week2, 0.0) > 0,
+        },
       {
         'period': l10n.nextMonth,
-        'value': nextMonthKwh,
+        'value': monthlyTotal,
         'icon': LucideIcons.calendarDays,
         'comparison': _predictionWarning(
-          nextMonthKwh,
-          _latestKwh * 30.0,
+          monthlyTotal,
+          0.0,
           'month',
         ),
-        'isIncrease': _predictionRisk(nextMonthKwh, _latestKwh * 30.0) > 0,
+        'isIncrease': _predictionRisk(monthlyTotal, 0.0) > 0,
       },
     ];
 
@@ -785,9 +721,9 @@ class _EnergyScreenState extends State<EnergyScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _latestEnergy == null
+                      _forecasts.isEmpty
                           ? 'No backend forecast yet. Run the forecast API first.'
-                          : 'Based on previous readings',
+                          : 'AI Model Forecast (HistGBR)',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),

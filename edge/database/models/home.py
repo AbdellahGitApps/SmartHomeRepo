@@ -11,3 +11,4 @@ class Home(Base):
     owner_email = Column(String, nullable=True)
     owner_phone = Column(String, nullable=True)
     apartment_number = Column(String, nullable=True)
+    energy_profile = Column(String, default="Residential Type A")

@@ -16,7 +16,7 @@ def mean_absolute_percentage_error_safe(y_true, y_pred):
 
     return float(np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100.0)
 
-def train_energy_model(feature_df):
+def train_energy_model(feature_df, model_out_path=None, features_out_path=None):
     feature_columns = [
         "day_of_week",
         "day_of_month",
@@ -88,9 +88,12 @@ def train_energy_model(feature_df):
         "test_size": int(len(X_test)),
     }
 
-    joblib.dump(model, settings.ENERGY_MODEL_PATH)
+    out_model = model_out_path if model_out_path else settings.ENERGY_MODEL_PATH
+    out_features = features_out_path if features_out_path else settings.ENERGY_FEATURES_PATH
 
-    with open(settings.ENERGY_FEATURES_PATH, "w", encoding="utf-8") as f:
+    joblib.dump(model, out_model)
+
+    with open(out_features, "w", encoding="utf-8") as f:
         json.dump(feature_columns, f, ensure_ascii=False, indent=2)
 
     return model, metrics

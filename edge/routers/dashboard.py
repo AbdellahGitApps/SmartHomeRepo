@@ -85,7 +85,8 @@ def _build_home_summary(h: dict, devices: list, conn: sqlite3.Connection) -> dic
         "devices_count": len(home_devices),
         "members_count": members_count,
         "home_status": "Online" if any_online else "Offline",
-        "search_text": f"{h.get('name', '')} {home_code} {apt} {h.get('owner_name', '')} {h.get('owner_email', '')}".lower(),
+        "energy_profile": h.get("energy_profile") or "Residential Type A",
+        "search_text": f"{h.get('name', '')} {home_code} {apt} {h.get('owner_name', '')} {h.get('owner_email', '')} {h.get('energy_profile', '')}".lower(),
     }
 
 @router.get("/home-overview-data")
@@ -210,7 +211,7 @@ async def edit_home(home_id_param: int, request: Request, conn: sqlite3.Connecti
     payload = await request.json()
     cur = conn.cursor()
     
-    allowed = ["owner_name", "owner_email", "owner_phone", "apartment_number"]
+    allowed = ["owner_name", "owner_email", "owner_phone", "apartment_number", "energy_profile"]
     updates = []
     values = []
     

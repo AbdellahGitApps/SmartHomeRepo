@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 import json
@@ -15,6 +15,9 @@ class EnergyForecastRunRequest(BaseModel):
     weeks: int = 4
     prefer_db: bool = True
     source: str = "phase16_energy_prediction"
+    energy_profile: Optional[str] = None
+    home_id: Optional[str] = None
+
 
 
 def _now_iso() -> str:
@@ -55,6 +58,71 @@ def _daily_energy_csv_path() -> Path:
     return _ai_dir() / "storage" / "energy" / "datasets" / "daily_energy.csv"
 
 
+# ─── Profile-aware path helpers ──────────────────────────────────────────────
+
+_PROFILE_SUFFIX = {
+    "Residential Type A": "A",
+    "Residential Type B": "B",
+}
+
+def _get_home_profile(home_id: str) -> str:
+    """Fetch the energy profile for a given home_id from the main smart_home_edge db."""
+    if not home_id:
+        return "Residential Type A"
+        
+    db_path = _edge_dir() / "database" / "smart_home_edge.db"
+    if not db_path.exists():
+        return "Residential Type A"
+        
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        
+        # Determine if it's the raw numeric ID or the HOME-XXX code
+        if home_id.isdigit():
+            row = cur.execute("SELECT energy_profile FROM homes WHERE id = ?", (int(home_id),)).fetchone()
+        else:
+            row = cur.execute("SELECT energy_profile FROM homes WHERE home_code = ?", (home_id,)).fetchone()
+            
+        conn.close()
+        
+        if row and row[0]:
+            return row[0]
+    except Exception:
+        pass
+        
+    return "Residential Type A"
+
+
+def _profile_model_path(energy_profile: str) -> Path:
+    """Return profile-specific model file.  Falls back to shared model for Type A only."""
+    if energy_profile == "Residential Type B":
+        return _ai_dir() / "storage" / "energy" / "models" / "energy_forecast_model_B.pkl"
+    
+    specific = _ai_dir() / "storage" / "energy" / "models" / "energy_forecast_model_A.pkl"
+    if specific.exists():
+        return specific
+    # Backward-compat: default shared model for Type A
+    return _energy_model_path()
+
+
+def _profile_features_path(energy_profile: str) -> Path:
+    if energy_profile == "Residential Type B":
+        return _ai_dir() / "storage" / "energy" / "models" / "energy_feature_columns_B.json"
+        
+    specific = _ai_dir() / "storage" / "energy" / "models" / "energy_feature_columns_A.json"
+    if specific.exists():
+        return specific
+    return _energy_features_path()
+
+
+def _profile_raw_dataset_path(energy_profile: str) -> Path:
+    if energy_profile == "Residential Type B":
+        return _ai_dir() / "storage" / "energy" / "datasets" / "smart_meter_data.csv"
+    return _ai_dir() / "storage" / "energy" / "datasets" / "household_power_consumption.txt"
+
+
+
 def _connect():
     path = _model_db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +155,15 @@ def _ensure_tables(conn):
         """
     )
 
+    try:
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(energy_forecasts)").fetchall()]
+        if "home_id" not in columns:
+            conn.execute("ALTER TABLE energy_forecasts ADD COLUMN home_id TEXT")
+    except Exception:
+        pass
+
     conn.commit()
+
 
 
 def _load_daily_from_db():
@@ -124,7 +200,38 @@ def _load_daily_from_csv():
     return pd.read_csv(path)
 
 
-def _load_training_data(prefer_db: bool = True):
+def _load_training_data(prefer_db: bool = True, energy_profile: str = "Residential Type A"):
+    import pandas as pd
+    
+    if energy_profile == "Residential Type B":
+        raw_path = _profile_raw_dataset_path(energy_profile)
+        if not raw_path.exists():
+            raise HTTPException(status_code=500, detail=f"Raw energy dataset not found: {raw_path}")
+            
+        raw_df = pd.read_csv(raw_path)
+        
+        # Inline preprocessing just like we did for training
+        raw_df["datetime"] = pd.to_datetime(raw_df["Timestamp"], errors="coerce")
+        raw_df = raw_df.dropna(subset=["datetime"])
+        raw_df["Electricity_Consumed"] = pd.to_numeric(raw_df["Electricity_Consumed"], errors="coerce")
+        raw_df = raw_df.dropna(subset=["Electricity_Consumed"])
+        raw_df["reading_date"] = raw_df["datetime"].dt.date.astype(str)
+        daily_df = raw_df.groupby("reading_date")["Electricity_Consumed"].sum().reset_index()
+        daily_df["consumption_kwh"] = daily_df["Electricity_Consumed"]
+        daily_df = daily_df.drop(columns=["Electricity_Consumed"])
+        
+        # Duplicate to meet feature constraints
+        daily_df["reading_date"] = pd.to_datetime(daily_df["reading_date"])
+        df_past1 = daily_df.copy()
+        df_past1["reading_date"] = df_past1["reading_date"] - pd.Timedelta(days=105)
+        df_past2 = daily_df.copy()
+        df_past2["reading_date"] = df_past2["reading_date"] - pd.Timedelta(days=210)
+        
+        daily_df = pd.concat([df_past2, df_past1, daily_df], ignore_index=True)
+        daily_df["reading_date"] = daily_df["reading_date"].dt.date.astype(str)
+        
+        return daily_df, "smart_meter_data"
+
     db_df = _load_daily_from_db() if prefer_db else None
 
     if db_df is not None and not db_df.empty and len(db_df) >= 60:
@@ -195,11 +302,11 @@ def _build_features(df):
     return data.dropna().reset_index(drop=True)
 
 
-def _load_model_and_features():
+def _load_model_and_features(energy_profile: str = "Residential Type A"):
     import joblib
 
-    model_path = _energy_model_path()
-    features_path = _energy_features_path()
+    model_path = _profile_model_path(energy_profile)
+    features_path = _profile_features_path(energy_profile)
 
     if not model_path.exists():
         raise HTTPException(status_code=500, detail=f"Energy model not found: {model_path}")
@@ -215,14 +322,14 @@ def _load_model_and_features():
     return model, feature_columns
 
 
-def _forecast_next_weeks(daily_df, weeks: int):
+def _forecast_next_weeks(daily_df, weeks: int, energy_profile: str = "Residential Type A"):
     import numpy as np
     import pandas as pd
 
     if weeks < 1 or weeks > 12:
         raise HTTPException(status_code=400, detail="weeks must be between 1 and 12")
 
-    model, feature_columns = _load_model_and_features()
+    model, feature_columns = _load_model_and_features(energy_profile)
 
     weekly_df = _convert_daily_to_weekly(daily_df)
 
@@ -340,7 +447,7 @@ def _recommendations(analysis):
     return recs
 
 
-def _save_forecast(forecasts, run_type: str):
+def _save_forecast(forecasts, run_type: str, home_id: str = None):
     conn = _connect()
 
     try:
@@ -350,15 +457,16 @@ def _save_forecast(forecasts, run_type: str):
             conn.execute(
                 """
                 INSERT INTO energy_forecasts (
-                    forecast_date, predicted_kwh, run_type, created_at
+                    forecast_date, predicted_kwh, run_type, created_at, home_id
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     item["forecast_week_start"],
                     item["predicted_kwh"],
                     run_type,
                     _now_iso(),
+                    home_id,
                 ),
             )
 
@@ -367,21 +475,26 @@ def _save_forecast(forecasts, run_type: str):
         conn.close()
 
 
-def _latest_forecasts(limit: int = 4):
+def _latest_forecasts(limit: int = 4, home_id: str = None):
     conn = _connect()
 
     try:
         _ensure_tables(conn)
 
-        rows = conn.execute(
-            """
+        query = """
             SELECT *
             FROM energy_forecasts
-            ORDER BY id DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+        """
+        params = []
+        
+        if home_id:
+            query += " WHERE home_id = ?"
+            params.append(home_id)
+            
+        query += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+
+        rows = conn.execute(query, tuple(params)).fetchall()
 
         return [dict(row) for row in rows]
     finally:
@@ -409,6 +522,17 @@ def api_energy_prediction_status():
             "daily_csv_exists": _daily_energy_csv_path().exists(),
             "energy_readings": readings_count,
             "energy_forecasts": forecasts_count,
+            "profile_paths": {
+                profile: {
+                    "model_path": str(_profile_model_path(profile)),
+                    "model_exists": _profile_model_path(profile).exists(),
+                    "features_path": str(_profile_features_path(profile)),
+                    "features_exists": _profile_features_path(profile).exists(),
+                    "raw_dataset_path": str(_profile_raw_dataset_path(profile)),
+                    "raw_dataset_exists": _profile_raw_dataset_path(profile).exists(),
+                }
+                for profile in ["Residential Type A", "Residential Type B"]
+            },
         }
     finally:
         conn.close()
@@ -416,14 +540,21 @@ def api_energy_prediction_status():
 
 @router.post("/api/energy/forecast/run")
 def api_run_energy_forecast(request_data: EnergyForecastRunRequest):
-    daily_df, data_source = _load_training_data(prefer_db=request_data.prefer_db)
+    home_id = request_data.home_id
+    
+    if request_data.energy_profile:
+        energy_profile = request_data.energy_profile
+    else:
+        energy_profile = _get_home_profile(home_id) if home_id else "Residential Type A"
 
-    forecasts = _forecast_next_weeks(daily_df, weeks=request_data.weeks)
+    daily_df, data_source = _load_training_data(prefer_db=request_data.prefer_db, energy_profile=energy_profile)
+
+    forecasts = _forecast_next_weeks(daily_df, weeks=request_data.weeks, energy_profile=energy_profile)
     predicted_month_total = float(sum(item["predicted_kwh"] for item in forecasts))
     analysis = _analyze_forecast(daily_df, predicted_month_total)
     recs = _recommendations(analysis)
 
-    _save_forecast(forecasts, run_type=request_data.source)
+    _save_forecast(forecasts, run_type=request_data.source, home_id=home_id)
 
     return {
         "success": True,
@@ -437,24 +568,24 @@ def api_run_energy_forecast(request_data: EnergyForecastRunRequest):
 
 
 @router.get("/api/energy/forecast/latest")
-def api_energy_forecast_latest(limit: int = 4):
+def api_energy_forecast_latest(limit: int = 4, home_id: Optional[str] = None):
     return {
         "success": True,
-        "forecasts": _latest_forecasts(limit),
+        "forecasts": _latest_forecasts(limit, home_id=home_id),
     }
 
 
 @router.get("/api/energy/forecast/logs")
-def api_energy_forecast_logs(limit: int = 20):
+def api_energy_forecast_logs(limit: int = 20, home_id: Optional[str] = None):
     return {
         "success": True,
-        "forecasts": _latest_forecasts(limit),
+        "forecasts": _latest_forecasts(limit, home_id=home_id),
     }
 
 
 @router.get("/energy/forecast/latest")
-def legacy_energy_forecast_latest(limit: int = 4):
+def legacy_energy_forecast_latest(limit: int = 4, home_id: Optional[str] = None):
     return {
         "success": True,
-        "forecasts": _latest_forecasts(limit),
+        "forecasts": _latest_forecasts(limit, home_id=home_id),
     }

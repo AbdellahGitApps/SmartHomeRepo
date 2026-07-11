@@ -1,7 +1,7 @@
 import pandas as pd
 from sqlalchemy.orm import Session
-from app.core.config import ENERGY_RAW_DATA_PATH, ENERGY_DAILY_DATA_PATH
-from app.core.models import EnergyReading
+from ai.core.config import ENERGY_RAW_DATA_PATH, ENERGY_DAILY_DATA_PATH
+from database.models.ai_energy import EnergyReading
 
 def load_raw_energy_dataset() -> pd.DataFrame:
     df = pd.read_csv(
