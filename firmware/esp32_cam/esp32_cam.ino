@@ -18,7 +18,7 @@ const char* device_id =
 // ================= MQTT =================
 
 const char* mqtt_server =
-"10.0.0.149";
+"10.0.0.36";
 
 const int mqtt_port = 1883;
 
@@ -345,21 +345,18 @@ void mqttCallback(
   String action =
       doc["action"] | "";
 
-  if (
-      command == "open" ||
-      action == "open"
-  ) {
-
-    Serial.println(
-        "OPEN COMMAND RECEIVED"
-    );
+ if (command == "open" || action == "open")
+{
+    Serial.println("OPEN COMMAND RECEIVED");
 
     doorServo.write(90);
 
-    delay(5000);
+    delay(500);   // نصف ثانية فقط
 
     doorServo.write(0);
-  }
+
+    Serial.println("SERVO COMMAND FINISHED");
+}
 }
 
 // =========================================
@@ -458,13 +455,11 @@ void setup() {
 
   connectMQTT();
 
-  doorServo.attach(SERVO_PIN);
+ doorServo.attach(SERVO_PIN);
 
-  Serial.println("SERVO TEST");
+doorServo.write(0);
 
-  doorServo.write(90);
-  delay(3000);
-  doorServo.write(0);
+Serial.println("SERVO READY");
 
   if (!setupCamera()) {
 
