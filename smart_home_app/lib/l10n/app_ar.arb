@@ -197,5 +197,13 @@
   "couldNotResetPassword": "تعذر إعادة تعيين كلمة المرور.",
   "couldNotGenerateRecoveryCode": "تعذر إنشاء رمز الاسترداد.",
   "pleaseAuthenticate": "يرجى المصادقة لتسجيل الدخول",
-  "ipUpdatedTo": "تم تحديث عنوان IP للخادم إلى: {ip}"
+  "ipUpdatedTo": "تم تحديث عنوان IP للخادم إلى: {ip}",
+  "welcomeChooseOption": "كيف تود أن تبدأ؟",
+  "welcomeImNew": "مستخدم لأول مرة",
+  "@welcomeImNew": {
+    "description": "Button for first-time registration"
+  },
+  "welcomeImNewSubtitle": "إعداد منزلك الذكي لأول مرة",
+  "welcomeHaveAccount": "لديّ حساب مسبقاً",
+  "welcomeHaveAccountSubtitle": "تسجيل الدخول إلى حسابك الحالي"
 }

@@ -617,4 +617,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String ipUpdatedTo(String ip) {
     return 'Server IP updated to: $ip';
   }
+
+  @override
+  String get welcomeChooseOption => 'How would you like to start?';
+
+  @override
+  String get welcomeImNew => 'First Time User';
+
+  @override
+  String get welcomeImNewSubtitle =>
+      'Set up your smart home for the first time';
+
+  @override
+  String get welcomeHaveAccount => 'I Already Have an Account';
+
+  @override
+  String get welcomeHaveAccountSubtitle => 'Sign in to your existing account';
 }

@@ -1067,11 +1067,21 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void logout() {
+  Future<void> logout() async {
     _isLoggedIn = false;
     _activeAlertCount = 0;
     _homeSummary = null;
     _stopAccountStatusWatcher();
+
+    _userName = '';
+    _userRole = 'Admin';
+    
+    _familyMembers.clear();
+    _familyPhotoDataById.clear();
+
+    // We explicitly DO NOT wipe _adminName, _password, _homeCode, etc. here or call _saveAccountState() with empty values.
+    // Wiping them destroys the secure persistent storage that Face Recognition uses to automatically re-authenticate returning users.
+
     touchLastUpdate();
     notifyListeners();
   }

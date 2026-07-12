@@ -615,4 +615,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String ipUpdatedTo(String ip) {
     return 'تم تحديث عنوان IP للخادم إلى: $ip';
   }
+
+  @override
+  String get welcomeChooseOption => 'كيف تود أن تبدأ؟';
+
+  @override
+  String get welcomeImNew => 'مستخدم لأول مرة';
+
+  @override
+  String get welcomeImNewSubtitle => 'إعداد منزلك الذكي لأول مرة';
+
+  @override
+  String get welcomeHaveAccount => 'لديّ حساب مسبقاً';
+
+  @override
+  String get welcomeHaveAccountSubtitle => 'تسجيل الدخول إلى حسابك الحالي';
 }

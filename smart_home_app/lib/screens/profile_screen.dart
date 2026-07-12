@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
+import 'welcome_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -1003,7 +1004,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () => appState.logout(),
+        onPressed: () async {
+          await appState.logout();
+          if (context.mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              PageRouteBuilder(
+                transitionDuration: const Duration(milliseconds: 400),
+                pageBuilder: (context, animation, secondaryAnimation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: const WelcomeScreen(),
+                  );
+                },
+              ),
+              (Route<dynamic> route) => false,
+            );
+          }
+        },
         icon: const Icon(LucideIcons.logOut, size: 18),
         label: Text(
           l10n.logout,

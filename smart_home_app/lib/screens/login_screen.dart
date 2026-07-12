@@ -5,9 +5,23 @@ import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
+import 'welcome_screen.dart';
+import 'main_layout.dart';
+
+/// Controls which form the LoginScreen shows initially.
+enum LoginMode {
+  /// Show the first-time registration/sign-in form.
+  newUser,
+  /// Show the existing-user login form.
+  existingUser,
+}
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  /// Which mode to start in. Defaults to [LoginMode.existingUser] for
+  /// backward compatibility.
+  final LoginMode initialMode;
+
+  const LoginScreen({super.key, this.initialMode = LoginMode.existingUser});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -50,7 +64,9 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkBiometricAutoLogin();
+      if (widget.initialMode == LoginMode.existingUser) {
+        _checkBiometricAutoLogin();
+      }
     });
   }
 
@@ -89,6 +105,22 @@ class _LoginScreenState extends State<LoginScreen>
         _attemptUserLogin();
       }
     }
+  }
+
+  /// Navigate to the main app after successful authentication.
+  void _navigateToMainLayout() {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: const MainLayout(),
+          );
+        },
+      ),
+    );
   }
 
   Future<bool> _authenticateWithBiometrics() async {
@@ -261,6 +293,7 @@ class _LoginScreenState extends State<LoginScreen>
           _errorMessage = appState.lastAuthError ?? AppLocalizations.of(context)!.loginFailedAfterRegistration;
         } else {
           _errorMessage = null;
+          _navigateToMainLayout();
         }
       });
     }
@@ -290,6 +323,7 @@ class _LoginScreenState extends State<LoginScreen>
       } else {
         _failedAdminAttempts = 0;
         _errorMessage = null;
+        _navigateToMainLayout();
       }
     });
   }
@@ -316,6 +350,7 @@ class _LoginScreenState extends State<LoginScreen>
         _errorMessage = appState.lastAuthError ?? AppLocalizations.of(context)!.invalidUserPassword;
       } else {
         _errorMessage = null;
+        _navigateToMainLayout();
       }
     });
   }
@@ -523,10 +558,21 @@ class _LoginScreenState extends State<LoginScreen>
         _errorBox(),
         _button(AppLocalizations.of(context)!.loginButton, _attemptAdminLogin),
         const SizedBox(height: 16),
-        IconButton(
-          icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
-          onPressed: () => _checkBiometricAutoLogin(manual: true),
-          tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.face, size: 48, color: Color(0xFFF2BE2E)),
+              onPressed: () => _checkBiometricAutoLogin(manual: true),
+              tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
+            ),
+            const SizedBox(width: 24),
+            IconButton(
+              icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
+              onPressed: () => _checkBiometricAutoLogin(manual: true),
+              tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
+            ),
+          ],
         ),
       ],
     );
@@ -568,10 +614,21 @@ class _LoginScreenState extends State<LoginScreen>
         _errorBox(),
         _button(AppLocalizations.of(context)!.enterAsUser, _attemptUserLogin),
         const SizedBox(height: 16),
-        IconButton(
-          icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
-          onPressed: () => _checkBiometricAutoLogin(manual: true),
-          tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.face, size: 48, color: Color(0xFFF2BE2E)),
+              onPressed: () => _checkBiometricAutoLogin(manual: true),
+              tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
+            ),
+            const SizedBox(width: 24),
+            IconButton(
+              icon: const Icon(Icons.fingerprint, size: 48, color: Color(0xFFF2BE2E)),
+              onPressed: () => _checkBiometricAutoLogin(manual: true),
+              tooltip: AppLocalizations.of(context)!.loginWithBiometrics,
+            ),
+          ],
         ),
       ],
     );
@@ -690,6 +747,10 @@ class _LoginScreenState extends State<LoginScreen>
     final appState = Provider.of<AppStateProvider>(context);
     final isDark = appState.themeMode == ThemeMode.dark;
 
+    // Use the initialMode passed from the WelcomeScreen to decide which form
+    // to display, rather than relying on isDeviceLinked.
+    final showRegistration = widget.initialMode == LoginMode.newUser;
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
       extendBodyBehindAppBar: true,
@@ -697,6 +758,23 @@ class _LoginScreenState extends State<LoginScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: Icon(LucideIcons.arrowLeft,
+              color: isDark ? Colors.white70 : Colors.grey),
+          onPressed: () {
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder(
+                transitionDuration: const Duration(milliseconds: 400),
+                pageBuilder: (context, animation, secondaryAnimation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: const WelcomeScreen(),
+                  );
+                },
+              ),
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: Icon(isDark ? LucideIcons.sun : LucideIcons.moon,
@@ -747,7 +825,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   child: Column(
                     children: [
-                      if (!appState.isDeviceLinked) ...[
+                      if (showRegistration) ...[
                         Text(
                           AppLocalizations.of(context)!.firstLoginNewDevice,
                           style: const TextStyle(

@@ -172,19 +172,25 @@
   "increaseComparedToToday": "+{value}% increase compared to today",
   "@increaseComparedToToday": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "decreaseComparedToWeek": "-{value}% decrease compared to this week",
   "@decreaseComparedToWeek": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "increaseComparedToMonth": "+{value}% increase compared to last month",
   "@increaseComparedToMonth": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "smartHome": "Smart Home",
@@ -225,7 +231,17 @@
   "ipUpdatedTo": "Server IP updated to: {ip}",
   "@ipUpdatedTo": {
     "placeholders": {
-      "ip": { "type": "String" }
+      "ip": {
+        "type": "String"
+      }
     }
-  }
+  },
+  "welcomeChooseOption": "How would you like to start?",
+  "welcomeImNew": "First Time User",
+  "@welcomeImNew": {
+    "description": "Button for first-time registration"
+  },
+  "welcomeImNewSubtitle": "Set up your smart home for the first time",
+  "welcomeHaveAccount": "I Already Have an Account",
+  "welcomeHaveAccountSubtitle": "Sign in to your existing account"
 }

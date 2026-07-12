@@ -6,7 +6,6 @@ import 'l10n/app_localizations.dart';
 import 'theme/app_theme.dart';
 import 'providers/app_state_provider.dart';
 import 'screens/main_layout.dart';
-import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 
 void main() {

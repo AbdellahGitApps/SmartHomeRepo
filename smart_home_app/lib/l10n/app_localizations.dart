@@ -1291,6 +1291,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Server IP updated to: {ip}'**
   String ipUpdatedTo(String ip);
+
+  /// No description provided for @welcomeChooseOption.
+  ///
+  /// In en, this message translates to:
+  /// **'How would you like to start?'**
+  String get welcomeChooseOption;
+
+  /// Button for first-time registration
+  ///
+  /// In en, this message translates to:
+  /// **'First Time User'**
+  String get welcomeImNew;
+
+  /// No description provided for @welcomeImNewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your smart home for the first time'**
+  String get welcomeImNewSubtitle;
+
+  /// No description provided for @welcomeHaveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'I Already Have an Account'**
+  String get welcomeHaveAccount;
+
+  /// No description provided for @welcomeHaveAccountSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to your existing account'**
+  String get welcomeHaveAccountSubtitle;
 }
 
 class _AppLocalizationsDelegate

@@ -4,7 +4,7 @@ import 'dart:async';
 
 import '../providers/app_state_provider.dart';
 import 'main_layout.dart';
-import 'login_screen.dart';
+import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -81,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen>
             opacity: animation,
             child: appState.isLoggedIn
                 ? const MainLayout()
-                : const LoginScreen(),
+                : const WelcomeScreen(),
           );
         },
       ),
