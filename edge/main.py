@@ -2211,6 +2211,15 @@ def _d7_ensure_users_schema():
     cols = _d7_cols(con, "homes")
     if "last_login_at" not in cols:
         cur.execute("ALTER TABLE homes ADD COLUMN last_login_at TEXT")
+    cols = _d7_cols(con, "homes")
+    if "is_online" not in cols:
+        cur.execute("ALTER TABLE homes ADD COLUMN is_online INTEGER DEFAULT 0")
+    cols = _d7_cols(con, "homes")
+    if "login_state" not in cols:
+        cur.execute("ALTER TABLE homes ADD COLUMN login_state TEXT DEFAULT 'logged_out'")
+    cols = _d7_cols(con, "homes")
+    if "last_heartbeat_at" not in cols:
+        cur.execute("ALTER TABLE homes ADD COLUMN last_heartbeat_at TEXT")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS system_logs (
@@ -2397,7 +2406,7 @@ def d7_toggle_home_owner(home_id: str):
         con.close()
         raise _D7HTTPException(status_code=500, detail="Homes table is missing required columns")
 
-    row = con.execute(f"SELECT * FROM homes WHERE {id_col} = ?", (home_id,)).fetchone()
+    row = con.execute(f"SELECT * FROM homes WHERE CAST({id_col} AS TEXT) = CAST(? AS TEXT)", (str(home_id),)).fetchone()
     if not row:
         con.close()
         raise _D7HTTPException(status_code=404, detail="Home owner not found")
@@ -2405,7 +2414,10 @@ def d7_toggle_home_owner(home_id: str):
     current = (row[status_col] or "active").lower()
     new_status = "disabled" if current == "active" else "active"
 
-    con.execute(f"UPDATE homes SET {status_col} = ? WHERE {id_col} = ?", (new_status, home_id))
+    if new_status == "disabled":
+        con.execute(f"UPDATE homes SET {status_col} = ?, is_online = 0, login_state = 'logged_out' WHERE CAST({id_col} AS TEXT) = CAST(? AS TEXT)", (new_status, str(home_id)))
+    else:
+        con.execute(f"UPDATE homes SET {status_col} = ? WHERE CAST({id_col} AS TEXT) = CAST(? AS TEXT)", (new_status, str(home_id)))
     con.commit()
 
     apt = row[apt_col] if apt_col else ""
@@ -4596,11 +4608,26 @@ def d7final_alert_decision(alert_key: str, payload: dict = _D7FinalBody(default_
 
         elif action == "add_family":
             face_enrolled = str(payload.get("face_enrolled", "")).strip().lower() in {"1", "true", "yes", "on", "enabled"}
+            
+            snapshot_path = None
+            try:
+                alert_key_str = str(alert_key)
+                if "system_logs:" in alert_key_str:
+                    row_id = alert_key_str.split("system_logs:")[-1]
+                    log_row = conn.execute("SELECT details FROM system_logs WHERE id = ?", (row_id,)).fetchone()
+                    if log_row and log_row["details"]:
+                        import json
+                        details_data = json.loads(log_row["details"])
+                        snapshot_path = details_data.get("snapshot")
+            except Exception:
+                pass
+
             _d7m16_insert_family_member_from_unknown(
                 conn,
                 values["home_id"],
                 member_name,
                 face_enrolled=face_enrolled,
+                snapshot_path=snapshot_path
             )
 
             family_add_details = (
@@ -5170,11 +5197,77 @@ def _d7m16_same_home_sql(alias_a="a", alias_b="b"):
     )
     """
 
-def _d7m16_insert_family_member_from_unknown(conn, home_id, name, face_enrolled=False):
+def _d7m16_insert_family_member_from_unknown(conn, home_id, name, face_enrolled=False, snapshot_path=None):
     try:
         clean_name = _d7m16_log_norm(name) or "Unknown person"
         if not clean_name:
             return
+
+        person_id = None
+        if face_enrolled and snapshot_path:
+            import cv2
+            import json
+            import os
+            from api.face_recognition_flow import (
+                _ensure_face_tables,
+                _connect_model_db,
+                _preprocess_face,
+                _extract_embedding,
+                _now_iso
+            )
+            
+            try:
+                full_snapshot_path = snapshot_path
+                if not os.path.isabs(full_snapshot_path):
+                    full_snapshot_path = os.path.abspath(os.path.join(os.getcwd(), snapshot_path))
+                
+                if os.path.exists(full_snapshot_path):
+                    frame = cv2.imread(full_snapshot_path)
+                    if frame is not None:
+                        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+                        detector = cv2.CascadeClassifier(cascade_path)
+                        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                        faces = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(80, 80))
+                        
+                        if len(faces) > 0:
+                            box = faces[0]
+                            face_img = _preprocess_face(frame, box)
+                            embedding = _extract_embedding(face_img)
+                            
+                            model_conn = _connect_model_db()
+                            try:
+                                _ensure_face_tables(model_conn)
+                                cur = model_conn.cursor()
+                                hid = int(str(home_id or "1")) if str(home_id or "1").isdigit() else 1
+                                cur.execute("INSERT INTO persons (home_id, name, role, created_at) VALUES (?, ?, ?, ?)", 
+                                            (hid, clean_name, "Family", _now_iso()))
+                                person_id = cur.lastrowid
+                                
+                                emb_json = json.dumps(embedding)
+                                cur.execute("INSERT INTO face_embeddings (person_id, embedding_json, created_at) VALUES (?, ?, ?)",
+                                            (person_id, emb_json, _now_iso()))
+                                
+                                model_conn.commit()
+
+                                # Also add to main DB for ORM sync
+                                from database.models.ai_face import Person, FaceEmbedding
+                                from database.connection.database import SessionLocal
+                                db_sync = SessionLocal()
+                                try:
+                                    orm_person = Person(home_id=hid, name=clean_name, role="Family")
+                                    db_sync.add(orm_person)
+                                    db_sync.commit()
+                                    db_sync.refresh(orm_person)
+                                    orm_embedding = FaceEmbedding(person_id=orm_person.id, embedding_json=emb_json)
+                                    db_sync.add(orm_embedding)
+                                    db_sync.commit()
+                                finally:
+                                    db_sync.close()
+
+                            finally:
+                                model_conn.close()
+            except Exception as e:
+                print(f"[UNKNOWN ENROLLMENT] Error extracting face from snapshot: {e}")
 
         from database.connection.database import SessionLocal
         from database.models.family import FamilyMember
@@ -5185,8 +5278,9 @@ def _d7m16_insert_family_member_from_unknown(conn, home_id, name, face_enrolled=
                 home_id=int(str(home_id or "1")) if str(home_id or "1").isdigit() else 1,
                 name=clean_name,
                 role="Family",
-                face_enrolled=bool(face_enrolled),
+                face_enrolled=bool(face_enrolled) or (person_id is not None),
                 enabled=True,
+                person_id=person_id,
                 notes="Added from Unknown Face alert.",
                 created_at=datetime.now(),
                 updated_at=datetime.now()
@@ -5949,6 +6043,20 @@ def _d7m16_auth_ensure_schema(conn):
     except Exception:
         pass
 
+    # Ensure homes table has login tracking columns
+    if "homes" in _d7m16_auth_tables(conn):
+        homes_cols = _d7m16_auth_cols(conn, "homes")
+        if "is_online" not in homes_cols:
+            conn.execute("ALTER TABLE homes ADD COLUMN is_online INTEGER DEFAULT 0")
+        if "login_state" not in homes_cols:
+            conn.execute("ALTER TABLE homes ADD COLUMN login_state TEXT DEFAULT 'logged_out'")
+        if "last_login_at" not in homes_cols:
+            conn.execute("ALTER TABLE homes ADD COLUMN last_login_at TEXT")
+        if "account_status" not in homes_cols:
+            conn.execute("ALTER TABLE homes ADD COLUMN account_status TEXT DEFAULT 'active'")
+        if "last_heartbeat_at" not in homes_cols:
+            conn.execute("ALTER TABLE homes ADD COLUMN last_heartbeat_at TEXT")
+
     conn.commit()
 
 
@@ -6166,6 +6274,9 @@ async def d7m16_app_auth_phone_username_middleware(request, call_next):
                 (cur.lastrowid,),
             ).fetchone()
 
+            # Update login tracking on registration
+            _d7m16_update_login_tracking(conn, home["id"])
+
             return _D7M16AuthJSONResponse(_d7m16_auth_response(account, home, "Admin"))
 
         if path == "/api/app/auth/login-admin":
@@ -6189,6 +6300,18 @@ async def d7m16_app_auth_phone_username_middleware(request, call_next):
                 return _d7m16_auth_error("Invalid password.", 401)
 
             home = _d7m16_find_home_by_id(conn, account.get("home_id"))
+
+            # Check if account is disabled
+            if home:
+                home_dict = dict(home)
+                status = str(home_dict.get("account_status") or "active").strip().lower()
+                if status in {"disabled", "inactive", "blocked", "suspended"}:
+                    return _d7m16_auth_error("Your account has been disabled by the administrator. Please contact support.", 403)
+
+            # Update login tracking
+            if home:
+                _d7m16_update_login_tracking(conn, home["id"])
+
             return _D7M16AuthJSONResponse(_d7m16_auth_response(account, home, "Admin"))
 
         if path == "/api/app/auth/login-user":
@@ -6216,6 +6339,18 @@ async def d7m16_app_auth_phone_username_middleware(request, call_next):
                 return _d7m16_auth_error("Invalid user password.", 401)
 
             home = _d7m16_find_home_by_id(conn, account.get("home_id"))
+
+            # Check if account is disabled
+            if home:
+                home_dict = dict(home)
+                status = str(home_dict.get("account_status") or "active").strip().lower()
+                if status in {"disabled", "inactive", "blocked", "suspended"}:
+                    return _d7m16_auth_error("Your account has been disabled by the administrator. Please contact support.", 403)
+
+            # Update login tracking
+            if home:
+                _d7m16_update_login_tracking(conn, home["id"])
+
             return _D7M16AuthJSONResponse(_d7m16_auth_response(account, home, "User"))
 
         if path == "/api/app/auth/settings":
@@ -6627,6 +6762,8 @@ async def d7m16_auth_phone_username_hard_fix_middleware(request, call_next):
             conn.commit()
 
             account = conn.execute("SELECT * FROM app_accounts WHERE id=? LIMIT 1", (cur.lastrowid,)).fetchone()
+            if home:
+                _d7m16_update_login_tracking(conn, home["id"])
             return _d7m16_hard_json(_d7m16_hard_response(account, home, "Admin"))
 
         if path == "/api/app/auth/login-admin":
@@ -6675,6 +6812,8 @@ async def d7m16_auth_phone_username_hard_fix_middleware(request, call_next):
 
             account = conn.execute("SELECT * FROM app_accounts WHERE id=? LIMIT 1", (account["id"],)).fetchone()
             home = _d7m16_hard_find_home_by_id(conn, account["home_id"])
+            if home:
+                _d7m16_update_login_tracking(conn, home["id"])
             return _d7m16_hard_json(_d7m16_hard_response(account, home, "Admin"))
 
         if path == "/api/app/auth/login-user":
@@ -6701,6 +6840,8 @@ async def d7m16_auth_phone_username_hard_fix_middleware(request, call_next):
                 return _d7m16_hard_error("Invalid user password.", 401)
 
             home = _d7m16_hard_find_home_by_id(conn, account["home_id"])
+            if home:
+                _d7m16_update_login_tracking(conn, home["id"])
             return _d7m16_hard_json(_d7m16_hard_response(account, home, "User"))
 
         if path == "/api/app/auth/settings":
@@ -7016,6 +7157,214 @@ def _d7m16_filter_dashboard_logs_list(logs, limit=200):
         return filtered
     finally:
         conn.close()
+
+
+# ===================== LOGIN STATUS TRACKING START =====================
+def _d7m16_update_login_tracking(conn, home_id):
+    """Update last_login_at, is_online, login_state on the homes table for a given home_id."""
+    try:
+        now = _d7m16_auth_datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
+        conn.execute(
+            """
+            UPDATE homes
+            SET last_login_at = ?,
+                is_online = 1,
+                login_state = 'logged_in'
+            WHERE CAST(id AS TEXT) = CAST(? AS TEXT)
+            """,
+            (now, str(home_id)),
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"[LOGIN TRACKING] Error updating login tracking: {e}")
+
+
+@app.post("/api/app/auth/heartbeat")
+async def d7m16_app_auth_heartbeat(request: _D7Request):
+    """Flutter app sends periodic heartbeat to keep online status alive."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    home_id = str(data.get("home_id") or data.get("home_db_id") or "").strip()
+    home_code = str(data.get("home_code") or "").strip()
+    admin_login = str(data.get("admin_login") or "").strip()
+
+    conn = _d7m16_auth_conn()
+    try:
+        _d7m16_auth_ensure_schema(conn)
+
+        home = None
+        if home_id:
+            home = _d7m16_find_home_by_id(conn, home_id)
+        if not home and home_code:
+            home = conn.execute(
+                "SELECT * FROM homes WHERE lower(home_code)=lower(?) LIMIT 1",
+                (home_code,),
+            ).fetchone()
+        if not home and admin_login:
+            account = _d7m16_find_account_by_admin_phone(conn, _d7m16_phone(admin_login))
+            if account:
+                home = _d7m16_find_home_by_id(conn, dict(account).get("home_id"))
+
+        if home:
+            home_dict = dict(home)
+            # Check if account is disabled
+            status = str(home_dict.get("account_status") or "active").strip().lower()
+            if status in {"disabled", "inactive", "blocked", "suspended"}:
+                conn.execute(
+                    "UPDATE homes SET is_online = 0, login_state = 'logged_out' WHERE CAST(id AS TEXT) = CAST(? AS TEXT)",
+                    (str(home_dict["id"]),),
+                )
+                conn.commit()
+                return _D7JSONResponse({
+                    "success": True,
+                    "active": False,
+                    "status": "disabled",
+                    "message": "Your account has been disabled by the administrator. Please contact support.",
+                })
+
+            now = _d7m16_auth_datetime.now().isoformat()
+            conn.execute(
+                "UPDATE homes SET is_online = 1, last_heartbeat_at = ? WHERE CAST(id AS TEXT) = CAST(? AS TEXT)",
+                (now, str(home_dict["id"]),),
+            )
+            conn.commit()
+            return _D7JSONResponse({"success": True, "active": True, "status": "active"})
+
+        return _D7JSONResponse({"success": False, "detail": "Home not found"}, status_code=404)
+    finally:
+        conn.close()
+
+
+@app.post("/api/app/auth/logout")
+async def d7m16_app_auth_logout(request: _D7Request):
+    """Mark user as offline/logged_out when they log out from the Flutter app."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    home_id = str(data.get("home_id") or data.get("home_db_id") or "").strip()
+    home_code = str(data.get("home_code") or "").strip()
+    admin_login = str(data.get("admin_login") or "").strip()
+
+    conn = _d7m16_auth_conn()
+    try:
+        _d7m16_auth_ensure_schema(conn)
+
+        home = None
+        if home_id:
+            home = _d7m16_find_home_by_id(conn, home_id)
+        if not home and home_code:
+            home = conn.execute(
+                "SELECT * FROM homes WHERE lower(home_code)=lower(?) LIMIT 1",
+                (home_code,),
+            ).fetchone()
+        if not home and admin_login:
+            account = _d7m16_find_account_by_admin_phone(conn, _d7m16_phone(admin_login))
+            if account:
+                home = _d7m16_find_home_by_id(conn, dict(account).get("home_id"))
+
+        if home:
+            conn.execute(
+                "UPDATE homes SET is_online = 0, login_state = 'logged_out' WHERE CAST(id AS TEXT) = CAST(? AS TEXT)",
+                (str(dict(home)["id"]),),
+            )
+            conn.commit()
+            return _D7JSONResponse({"success": True, "message": "Logged out successfully"})
+
+        return _D7JSONResponse({"success": True, "message": "OK"})
+    finally:
+        conn.close()
+
+# ===================== LOGIN STATUS TRACKING END =====================
+
+
+# ===================== USERS MANAGEMENT ENHANCED LIST START =====================
+# Override the users management list to include real login tracking data
+_d7_original_users_management_list = d7_users_management_list
+
+@app.get("/api/users-management/list")
+def d7_users_management_list_enhanced():
+    _d7_ensure_users_schema()
+    con = _d7_conn()
+
+    owner = con.execute("SELECT * FROM dashboard_system_owner WHERE id = 1").fetchone()
+    users = [{
+        "id": "system_owner",
+        "kind": "system_owner",
+        "name": "System Owner",
+        "username": owner["username"] if owner and "username" in owner.keys() else "system_owner",
+        "email": owner["email"] if owner and "email" in owner.keys() else "admin@edge-system.local",
+        "role": "SYSTEM OWNER",
+        "associated_home": "-- (All)",
+        "status": "active",
+        "last_login": "Just now",
+        "is_online": True,
+        "login_state": "logged_in",
+        "can_edit": True,
+        "can_toggle": False,
+    }]
+
+    home_cols = _d7_cols(con, "homes")
+    id_col = _d7_col(home_cols, "id", "home_id")
+    apt_col = _d7_col(home_cols, "apartment_number", "apartment", "apt_number")
+    name_col = _d7_col(home_cols, "owner_name", "name", "owner")
+    email_col = _d7_col(home_cols, "owner_email", "email")
+    status_col = _d7_col(home_cols, "account_status")
+    last_login_col = _d7_col(home_cols, "last_login_at")
+    online_col = _d7_col(home_cols, "is_online")
+    login_state_col = _d7_col(home_cols, "login_state")
+    heartbeat_col = _d7_col(home_cols, "last_heartbeat_at")
+
+    now_ts = _d7_datetime.now().timestamp()
+
+    if id_col and apt_col:
+        rows = con.execute(f"SELECT * FROM homes ORDER BY CAST({apt_col} AS INTEGER), {apt_col}").fetchall()
+        for r in rows:
+            home_id = r[id_col]
+            apt = r[apt_col]
+            status = (r[status_col] if status_col and r[status_col] else "active").lower()
+            login_state = (r[login_state_col] if login_state_col and login_state_col in r.keys() and r[login_state_col] else "logged_out")
+
+            # Calculate actual online status based on heartbeat
+            is_online = False
+            if login_state == "logged_in":
+                last_hb = r[heartbeat_col] if heartbeat_col and heartbeat_col in r.keys() else None
+                if last_hb:
+                    try:
+                        hb_dt = _d7_datetime.fromisoformat(str(last_hb))
+                        # If heartbeat is within last 45 seconds, consider online
+                        if now_ts - hb_dt.timestamp() <= 45:
+                            is_online = True
+                    except Exception:
+                        is_online = bool(r[online_col]) if online_col and online_col in r.keys() else False
+                else:
+                    is_online = bool(r[online_col]) if online_col and online_col in r.keys() else False
+
+            users.append({
+                "id": str(home_id),
+                "kind": "home_owner",
+                "name": r[name_col] if name_col and r[name_col] else "Home Owner",
+                "username": "",
+                "email": r[email_col] if email_col and r[email_col] else "",
+                "role": "HOME OWNER",
+                "associated_home": f"Apartment {apt}",
+                "apartment_number": str(apt),
+                "status": status,
+                "last_login": _d7_dashboard_format_last_login(r[last_login_col]) if last_login_col and r[last_login_col] else "Not logged in yet",
+                "is_online": is_online,
+                "login_state": login_state,
+                "can_edit": False,
+                "can_toggle": True,
+            })
+
+    con.close()
+    return {"users": users}
+
+# ===================== USERS MANAGEMENT ENHANCED LIST END =====================
 
 
 from api.door import router as door_router

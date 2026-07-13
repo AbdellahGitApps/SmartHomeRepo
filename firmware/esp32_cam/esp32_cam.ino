@@ -15,7 +15,7 @@
 const char* device_id = "DOOR-HOME001-001";
 
 // ================= MQTT =================
-const char* mqtt_server = "172.17.235.4";
+const char* mqtt_server = "10.0.0.117";
 const int mqtt_port = 1883;
 
 WiFiClient espClient;
@@ -176,7 +176,13 @@ void connectWiFi() {
 
   WiFi.mode(WIFI_STA);
 
- WiFi.begin(
+Serial.print("SSID = ");
+Serial.println(WIFI_SSID);
+
+Serial.print("PASSWORD = ");
+Serial.println(WIFI_PASSWORD);
+
+WiFi.begin(
     WIFI_SSID,
     WIFI_PASSWORD
 );

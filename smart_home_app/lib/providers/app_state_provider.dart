@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/backend_api_service.dart';
 import '../utils/date_formatter.dart';
 import '../config/backend_config.dart';
+import '../screens/splash_screen.dart';
 
 class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
   final BackendApiService _api = BackendApiService();
@@ -201,21 +202,47 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
     return null;
   }
 
+  /// Global navigator key for showing dialogs from the provider.
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   void _startAccountStatusWatcher() {
     _accountStatusTimer?.cancel();
 
     if (!_isLoggedIn) return;
 
     _accountStatusTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _sendHeartbeat();
       checkCurrentAccountStatus();
     });
 
+    _sendHeartbeat();
     checkCurrentAccountStatus();
   }
 
   void _stopAccountStatusWatcher() {
     _accountStatusTimer?.cancel();
     _accountStatusTimer = null;
+  }
+
+  Future<void> _sendHeartbeat() async {
+    if (!_isLoggedIn) return;
+    try {
+      final response = await _api.sendHeartbeat(
+        homeId: _homeDbId.trim().isEmpty ? null : _homeDbId.trim(),
+        homeCode: _homeCode,
+        adminLogin: _adminName,
+      );
+
+      // Heartbeat also returns disabled status
+      final active = response['active'];
+      if (active is bool && !active) {
+        _forceLogoutDisabled(
+          (response['message'] ?? 'Your account has been disabled by the administrator. Please contact support.').toString(),
+        );
+      }
+    } catch (_) {
+      // Network errors during heartbeat are non-fatal
+    }
   }
 
   @override
@@ -292,7 +319,66 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
     _stopAccountStatusWatcher();
     touchLastUpdate();
     _saveAccountState();
+
+    // Notify backend that user is now offline
+    _api.notifyLogout(
+      homeId: _homeDbId.trim().isEmpty ? null : _homeDbId.trim(),
+      homeCode: _homeCode,
+      adminLogin: _adminName,
+    ).catchError((_) => <String, dynamic>{});
+
     notifyListeners();
+
+    // Show disabled account dialog
+    _showAccountDisabledDialog(message);
+  }
+
+  void _showAccountDisabledDialog(String message) {
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+
+    showDialog<void>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.block, color: Colors.red, size: 28),
+              SizedBox(width: 10),
+              Expanded(child: Text('Account Disabled', style: TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+          content: Text(
+            message.isNotEmpty
+                ? message
+                : 'Your account has been disabled by the administrator.\nPlease contact support.',
+            style: const TextStyle(fontSize: 15, height: 1.5),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2BE2E),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                // Navigate to login screen
+                navigatorKey.currentState?.pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (_) => const _AccountDisabledRedirectScreen(),
+                  ),
+                  (route) => false,
+                );
+              },
+              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> loadHomeSummary() async {
@@ -1068,6 +1154,13 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> logout() async {
+    // Notify backend that user is logging out
+    _api.notifyLogout(
+      homeId: _homeDbId.trim().isEmpty ? null : _homeDbId.trim(),
+      homeCode: _homeCode,
+      adminLogin: _adminName,
+    ).catchError((_) => <String, dynamic>{});
+
     _isLoggedIn = false;
     _activeAlertCount = 0;
     _homeSummary = null;
@@ -1640,6 +1733,90 @@ class FamilyMember {
       timeEnd: json['time_end']?.toString(),
       createdAt: (json['createdAt'] ?? json['created_at'] ?? '').toString(),
       updatedAt: (json['updatedAt'] ?? json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
+/// A minimal screen that redirects to the login flow when an account is disabled.
+class _AccountDisabledRedirectScreen extends StatelessWidget {
+  const _AccountDisabledRedirectScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _DisabledLandingPage();
+  }
+}
+
+/// Simple landing page shown after account is disabled, with a message and login button.
+class _DisabledLandingPage extends StatelessWidget {
+  const _DisabledLandingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock_outline,
+                size: 80,
+                color: isDark ? Colors.white24 : Colors.black12,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Session Ended',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Your account has been disabled or your session has expired.\nPlease contact your administrator or try logging in again.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isDark ? Colors.white54 : Colors.black54,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: 200,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF2BE2E),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => const SplashScreen(),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  child: const Text(
+                    'Go to Login',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

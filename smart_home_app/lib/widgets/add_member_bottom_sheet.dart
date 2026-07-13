@@ -21,11 +21,12 @@ class AddMemberBottomSheet {
     Future<void> Function(String name, String role, bool faceEnrolled)?
     onSaveOverride,
     String? fixedRole,
+    bool initialFaceEnrolled = false,
   }) {
     final nameController = TextEditingController(
       text: memberToEdit?.name ?? '',
     );
-    bool faceEnrolled = memberToEdit?.faceEnrolled ?? false;
+    bool faceEnrolled = memberToEdit?.faceEnrolled ?? initialFaceEnrolled;
     String? faceImageData;
     String selectedRole = memberToEdit?.role ?? fixedRole ?? 'Family';
     String selectedAccessType = memberToEdit?.accessType ?? 'Always';

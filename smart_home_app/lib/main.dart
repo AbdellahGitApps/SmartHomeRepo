@@ -25,6 +25,7 @@ class SmartHomeApp extends StatelessWidget {
     return Consumer<AppStateProvider>(
       builder: (context, appState, child) {
         return MaterialApp(
+          navigatorKey: AppStateProvider.navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'Smart Home App',
           theme: AppTheme.lightTheme(appState.locale),

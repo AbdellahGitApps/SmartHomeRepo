@@ -1,3 +1,3 @@
 #pragma once
 
-#define DEVICE_TOKEN "tok_e10ffdc24215e9d3"
+#define DEVICE_TOKEN "tok_4bba7920b5077004"

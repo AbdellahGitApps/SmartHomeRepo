@@ -308,6 +308,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
       appState: appState,
       isDark: isDark,
       fixedRole: 'Family',
+      initialFaceEnrolled: true,
       onSaveOverride: (name, role, faceEnrolled) async {
         await _handleUnknownDecision(
           alert,

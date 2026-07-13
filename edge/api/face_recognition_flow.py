@@ -220,6 +220,59 @@ def _recognize_embedding(embedding, source, snapshot_path=None, home_id=None):
             from api.door_official_flow import _publish_open_command, DoorOpenRequest, _connect, _insert_system_log
             main_conn = _connect()
             try:
+                # Verify that the recognized family member is ACTIVE
+                member_row = main_conn.execute(
+                    "SELECT enabled FROM family_members WHERE person_id = ? LIMIT 1",
+                    (person["person_id"],)
+                ).fetchone()
+
+                is_enabled = True
+                if member_row is not None:
+                    is_enabled = bool(member_row["enabled"])
+
+                if not is_enabled:
+                    door_device = main_conn.execute(
+                        """
+                        SELECT * FROM devices 
+                        WHERE home_id = ? AND lower(device_type) IN ('smart_door', 'esp32_cam', 'door_camera', 'camera') LIMIT 1
+                        """,
+                        (home_id,)
+                    ).fetchone()
+                    
+                    device_id = door_device["device_id"] if door_device else "unknown_device"
+                    device_name = door_device["device_name"] if door_device and "device_name" in door_device.keys() else "Camera"
+                    
+                    import json
+                    details_str = json.dumps({"reason": "disabled_user_attempt", "source": source, "snapshot": snapshot_path, "person_name": person["name"]})
+                    
+                    main_conn.execute(
+                        """
+                        INSERT INTO system_logs (
+                            timestamp, created_at, event_type, severity, source, actor, action_taken, device_id, device_name, details, message, home_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            _now_iso(), _now_iso(), "face_recognition", "warning",
+                            source, person["name"], "Disabled User Attempt", device_id, device_name,
+                            details_str, f"Authentication rejected. {person['name']} is currently disabled.", home_id
+                        )
+                    )
+                    main_conn.commit()
+
+                    return {
+                        "success": True,
+                        "recognized": False,
+                        "event_type": "disabled_attempt",
+                        "person": {
+                            "id": person["person_id"],
+                            "name": person["name"],
+                            "role": person["role"],
+                        },
+                        "score": score,
+                        "gallery_count": len(gallery),
+                        "snapshot_path": snapshot_path,
+                    }
+
                 door_device = main_conn.execute(
                     """
                     SELECT *

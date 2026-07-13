@@ -557,6 +557,42 @@ class BackendApiService {
     );
   }
 
+  Future<Map<String, dynamic>> sendHeartbeat({
+    String? homeId,
+    String? homeCode,
+    String? adminLogin,
+  }) {
+    return _post(
+      '/api/app/auth/heartbeat',
+      body: {
+        if (homeId != null && homeId.trim().isNotEmpty)
+          'home_id': homeId.trim(),
+        if (homeCode != null && homeCode.trim().isNotEmpty)
+          'home_code': homeCode.trim(),
+        if (adminLogin != null && adminLogin.trim().isNotEmpty)
+          'admin_login': adminLogin.trim(),
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> notifyLogout({
+    String? homeId,
+    String? homeCode,
+    String? adminLogin,
+  }) {
+    return _post(
+      '/api/app/auth/logout',
+      body: {
+        if (homeId != null && homeId.trim().isNotEmpty)
+          'home_id': homeId.trim(),
+        if (homeCode != null && homeCode.trim().isNotEmpty)
+          'home_code': homeCode.trim(),
+        if (adminLogin != null && adminLogin.trim().isNotEmpty)
+          'admin_login': adminLogin.trim(),
+      },
+    );
+  }
+
   void close() {
     // Shared singleton instance client should not be closed.
   }
