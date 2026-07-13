@@ -257,37 +257,44 @@ class MQTTClient:
         )
 
     def publish(
-        self,
-        topic: str,
-        payload: str,
-        qos: int = 0,
-        retain: bool = False
-    ):
+    self,
+    topic: str,
+    payload: str,
+    qos: int = 0,
+    retain: bool = False
+):
 
-        if self._connected:
+     if self._connected:
 
-            self.client.publish(
-                topic,
-                payload,
-                qos,
-                retain
-            )
+        info = self.client.publish(
+            topic,
+            payload,
+            qos,
+            retain
+        )
 
-            logger.info(
-                f"Published → "
-                f"{topic}: {payload}"
-            )
+        print("MQTT MID =", info.mid)
+        print("MQTT RC =", info.rc)
 
-        else:
+        info.wait_for_publish()
 
-            logger.error(
-                "Publish failed: "
-                "MQTT not connected"
-            )
+        print("MQTT PUBLISHED =", info.is_published())
+
+        logger.info(
+            f"Published → "
+            f"{topic}: {payload}"
+        )
+
+     else:
+
+        logger.error(
+            "Publish failed: "
+            "MQTT not connected"
+        )
 
     # =========================
     # STATUS
-    # =========================
+    # ========================= 
 
     def is_connected(self) -> bool:
 

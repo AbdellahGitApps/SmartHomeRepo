@@ -2,7 +2,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "secrets.h"
-
+#define MQTT_MAX_PACKET_SIZE 1024
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
@@ -12,14 +12,10 @@
 
 // ================= DEVICE =================
 
-const char* device_id =
-"DOOR-HOME110-001";
+const char* device_id = "DOOR-HOME001-001";
 
 // ================= MQTT =================
-
-const char* mqtt_server =
-"10.0.0.36";
-
+const char* mqtt_server = "172.17.235.4";
 const int mqtt_port = 1883;
 
 WiFiClient espClient;
@@ -192,12 +188,14 @@ void connectWiFi() {
   int retries = 0;
 
   while (
-      WiFi.status() != WL_CONNECTED
-  ) {
+    WiFi.status() != WL_CONNECTED
+) {
 
     delay(500);
 
     Serial.print(".");
+    Serial.print(" Status=");
+    Serial.println(WiFi.status());
 
     retries++;
 
@@ -303,7 +301,6 @@ http.addHeader(
 
   esp_camera_fb_return(fb);
 }
-
 void mqttCallback(
     char* topic,
     byte* payload,
@@ -318,12 +315,15 @@ void mqttCallback(
     message += (char)payload[i];
   }
 
+  Serial.print("Payload length = ");
+  Serial.println(length);
+
+  Serial.print("RAW = ");
+  Serial.println(message);
+
   Serial.println("========== MQTT ==========");
   Serial.print("Topic: ");
   Serial.println(topic);
-
-  Serial.print("Payload: ");
-  Serial.println(message);
 
   DynamicJsonDocument doc(512);
 
@@ -332,9 +332,7 @@ void mqttCallback(
 
   if (err) {
 
-    Serial.println(
-        "Invalid JSON"
-    );
+    Serial.println("Invalid JSON");
 
     return;
   }
@@ -345,20 +343,22 @@ void mqttCallback(
   String action =
       doc["action"] | "";
 
- if (command == "open" || action == "open")
-{
+  if (
+      command == "open" ||
+      action == "open"
+  ) {
+
     Serial.println("OPEN COMMAND RECEIVED");
 
     doorServo.write(90);
 
-    delay(500);   // نصف ثانية فقط
+    delay(500);
 
     doorServo.write(0);
 
     Serial.println("SERVO COMMAND FINISHED");
+  }
 }
-}
-
 // =========================================
 // SETUP
 // =========================================
@@ -369,7 +369,7 @@ void connectMQTT() {
       mqtt_server,
       mqtt_port
   );
-
+  mqttClient.setBufferSize(1024);
   mqttClient.setCallback(
       mqttCallback
   );
@@ -395,7 +395,11 @@ void connectMQTT() {
       Serial.println(
           "CONNECTED"
       );
+      Serial.print("MQTT SERVER = ");
+Serial.println(mqtt_server);
 
+Serial.print("LOCAL IP = ");
+Serial.println(WiFi.localIP());
       cmdTopic =
           "device/" +
           String(device_id) +
@@ -406,11 +410,14 @@ void connectMQTT() {
           String(device_id) +
           "/control";
 
-      bool sub = mqttClient.subscribe("device/DOOR-HOME110-001/#");
+      bool sub = mqttClient.subscribe("device/DOOR-HOME001-001/#");
 
       Serial.print("WILDCARD SUBSCRIBE = ");
       Serial.println(sub);
+      bool sub2 = mqttClient.subscribe("device/DOOR-HOME001-001/cmd");
 
+     Serial.print("CMD SUBSCRIBE = ");
+     Serial.println(sub2);
       Serial.println(
           cmdTopic
       );
@@ -450,17 +457,16 @@ void setup() {
       ECHO_PIN,
       INPUT
   );
+connectWiFi();
 
-  connectWiFi();
-
-  connectMQTT();
-
- doorServo.attach(SERVO_PIN);
+connectMQTT();
+Serial.print("MQTT BUFFER SIZE = ");
+Serial.println(mqttClient.getBufferSize());
+doorServo.attach(SERVO_PIN);
 
 doorServo.write(0);
 
 Serial.println("SERVO READY");
-
   if (!setupCamera()) {
 
     Serial.println(
@@ -531,16 +537,25 @@ mqttClient.loop();
 
     delay(300);
 
-    captureAndUpload();
+   captureAndUpload();
 
-    Serial.println("WAITING FOR MQTT RESPONSE");
+Serial.print("MQTT STATE AFTER POST = ");
+Serial.println(mqttClient.state());
+
+Serial.println("WAITING FOR MQTT RESPONSE");
 
     unsigned long startWait = millis();
 
     while (millis() - startWait < 5000) {
-      mqttClient.loop();
-      delay(10);
+
+    bool ok = mqttClient.loop();
+
+    if (ok) {
+        Serial.println("MQTT LOOP OK");
     }
+
+    delay(10);
+}
 
     Serial.println("MQTT WAIT FINISHED");
 

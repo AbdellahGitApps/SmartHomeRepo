@@ -225,7 +225,9 @@ def _publish_open_command(device, request_data: DoorOpenRequest):
     print("MQTT CONNECTED =", mqtt_client.is_connected())
 
     payload_text = json.dumps(payload)
-
+    print("DEVICE ID =", device["device_id"])
+    print("PAYLOAD =", payload_text)
+    print("PAYLOAD SIZE =", len(payload_text), "bytes")
     for topic in topics:
         print("PUBLISHING TO =", topic)
         mqtt_client.publish(topic, payload_text)
