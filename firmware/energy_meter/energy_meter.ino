@@ -7,6 +7,8 @@
 
 #include "wifi_manager.h"
 #include "energy_meter.h"
+
+
 // ======================================================
 // Runtime
 // ======================================================
@@ -33,6 +35,8 @@ void setup()
     connectWiFi();
 
     Serial.println("System Ready");
+
+ 
 }
 
 // ======================================================
@@ -68,21 +72,33 @@ void loop()
     // Read Sensors
     //----------------------------------------------------
 
-    float voltage =
-        readVoltageSensor();
+   float voltage =
+    readVoltageSensor();
 
-    float current =
-        readCurrentSensor();
+float current =
+    readCurrentSensor();
 
-    float power =
-        calculatePower(
-            voltage,
-            current);
+if (voltage < 100.0f)
+{
+  voltage = 0.0f;
+  current = 0.0f;
 
-    float energy =
-        calculateEnergy(
-            power,
-            READING_INTERVAL / 1000.0);
+  lastVoltage = 0.0f;
+  lastCurrent = 0.0f;
+  lastPower = 0.0f;
+ 
+}
+
+float power =
+    calculatePower(
+        voltage,
+        current);
+
+// لا نحسب الطاقة إذا الكهرباء مقطوعة
+float energy =
+    calculateEnergy(
+        power,
+        READING_INTERVAL / 1000.0);
 
     //----------------------------------------------------
     // Print

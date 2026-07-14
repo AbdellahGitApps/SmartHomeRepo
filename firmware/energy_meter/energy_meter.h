@@ -1,6 +1,9 @@
 #pragma once
 
 #include <Arduino.h>
+#include <math.h>
+
+#define NOISE_THRESHOLD 2.0
 
 // ======================================================
 // SMART ENERGY METER
@@ -16,33 +19,18 @@ static float totalEnergyKwh = 0.0f;
 static float lastVoltage = 220.0f;
 static float lastCurrent = 1.0f;
 static float lastPower = 220.0f;
+const int SAMPLE_COUNT = 1000;
+
+const float ADC_CENTER = 2048.0f;
+
+float voltageCalibration = 0.445f;
+float currentCalibration = 0.0042f;
 
 // ------------------------------------------------------
 // Fake Sensor Generator
 // سيتم استبداله لاحقاً بالحساسات الحقيقية
 // ------------------------------------------------------
 
-inline float fakeVoltage()
-{
-    float value =
-        220.0 +
-        random(-25, 26) / 10.0;
-
-    lastVoltage = value;
-
-    return value;
-}
-
-inline float fakeCurrent()
-{
-    float value =
-        0.80 +
-        random(0, 80) / 100.0;
-
-    lastCurrent = value;
-
-    return value;
-}
 
 // ------------------------------------------------------
 // لاحقاً فقط سنغير هاتين الدالتين
@@ -50,12 +38,67 @@ inline float fakeCurrent()
 
 inline float readVoltageSensor()
 {
-    return fakeVoltage();
+    double sum = 0;
+    double offset = 0;
+
+    for (int i = 0; i < SAMPLE_COUNT; i++)
+    {
+        offset += analogRead(VOLTAGE_PIN);
+    }
+
+    offset /= SAMPLE_COUNT;
+
+    for (int i = 0; i < SAMPLE_COUNT; i++)
+    {
+        float sample = analogRead(VOLTAGE_PIN) - offset;
+        sum += sample * sample;
+    }
+
+    float rms = sqrt(sum / SAMPLE_COUNT);
+
+    if (rms < NOISE_THRESHOLD)
+    {
+        lastVoltage = 0;
+        return lastVoltage;
+    }
+
+    lastVoltage = rms * voltageCalibration;
+
+    return lastVoltage;
 }
 
 inline float readCurrentSensor()
 {
-    return fakeCurrent();
+    double sum = 0;
+    double offset = 0;
+
+    for (int i = 0; i < SAMPLE_COUNT; i++)
+    {
+        offset += analogRead(CURRENT_PIN);
+    }
+
+    offset /= SAMPLE_COUNT;
+
+    for (int i = 0; i < SAMPLE_COUNT; i++)
+    {
+        float sample = analogRead(CURRENT_PIN) - offset;
+        sum += sample * sample;
+    }
+
+    float rms = sqrt(sum / SAMPLE_COUNT);
+
+    Serial.print("Current RMS ADC : ");
+    Serial.println(rms);
+
+    if (rms < NOISE_THRESHOLD)
+    {
+        lastCurrent = 0;
+        return lastCurrent;
+    }
+
+    lastCurrent = rms * currentCalibration;
+
+    return lastCurrent;
 }
 
 // ------------------------------------------------------

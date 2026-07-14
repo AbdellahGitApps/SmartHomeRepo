@@ -27,10 +27,10 @@
 // ==========================
 
 // ZMPT101B
-#define VOLTAGE_PIN 34
+#define VOLTAGE_PIN 35
 
 // SCT013
-#define CURRENT_PIN 35
+#define CURRENT_PIN 34
 
 // ==========================
 // ADC
