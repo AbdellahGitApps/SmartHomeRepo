@@ -6,6 +6,7 @@ import '../utils/date_formatter.dart';
 import '../providers/app_state_provider.dart';
 import '../widgets/simple_energy_chart.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'dart:async';
 
 class EnergyScreen extends StatefulWidget {
   const EnergyScreen({super.key});
@@ -17,6 +18,7 @@ class EnergyScreen extends StatefulWidget {
 class _EnergyScreenState extends State<EnergyScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  Timer? _refreshTimer;
   late Animation<double> _fade1;
   late Animation<Offset> _slide1;
   late Animation<double> _fade2;
@@ -69,6 +71,12 @@ class _EnergyScreenState extends State<EnergyScreen>
         );
     _controller.forward();
     _loadEnergyData();
+
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) {
+        _loadEnergyData();
+      }
+    });
   }
 
   @override
@@ -78,8 +86,9 @@ class _EnergyScreenState extends State<EnergyScreen>
     // Subscribe to AppStateProvider to detect home switches.
     // Provider.of with listen:true registers this widget as a dependent.
     final appState = Provider.of<AppStateProvider>(context);
-    final currentHomeId =
-        appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId;
+    final currentHomeId = appState.homeDbId.isNotEmpty
+        ? appState.homeDbId
+        : appState.homeId;
 
     if (!_homeIdInitialized) {
       // First call (right after initState). initState already called
@@ -100,6 +109,7 @@ class _EnergyScreenState extends State<EnergyScreen>
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _api.close();
     _controller.dispose();
     super.dispose();
@@ -115,8 +125,9 @@ class _EnergyScreenState extends State<EnergyScreen>
       // Always read homeId fresh at call time so we use the current home,
       // not whatever was cached when the widget was first built.
       final appState = Provider.of<AppStateProvider>(context, listen: false);
-      final homeId =
-          appState.homeDbId.isNotEmpty ? appState.homeDbId : appState.homeId;
+      final homeId = appState.homeDbId.isNotEmpty
+          ? appState.homeDbId
+          : appState.homeId;
 
       final latestRes = await _api.getEnergyLatest();
       final logsRes = await _api.getEnergyLogs();
@@ -125,15 +136,23 @@ class _EnergyScreenState extends State<EnergyScreen>
       if (!mounted) return;
 
       final latestData = latestRes['latest'] as Map<String, dynamic>?;
-      final logsData = (logsRes['logs'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      var forecastData = (forecastRes['forecasts'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final logsData =
+          (logsRes['logs'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      var forecastData =
+          (forecastRes['forecasts'] as List?)?.cast<Map<String, dynamic>>() ??
+          [];
 
       if (forecastData.isEmpty && latestData != null) {
         try {
           final runRes = await _api.runEnergyForecast(homeId: homeId);
           if (runRes['success'] == true) {
-            final newForecastRes = await _api.getEnergyForecastLatest(homeId: homeId);
-            forecastData = (newForecastRes['forecasts'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+            final newForecastRes = await _api.getEnergyForecastLatest(
+              homeId: homeId,
+            );
+            forecastData =
+                (newForecastRes['forecasts'] as List?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [];
           }
         } catch (e) {
           // Keep empty if forecast run fails (e.g. not enough data)
@@ -654,15 +673,24 @@ class _EnergyScreenState extends State<EnergyScreen>
   ) {
     final appState = Provider.of<AppStateProvider>(context);
     final sorted = List<Map<String, dynamic>>.from(_forecasts);
-    sorted.sort((a, b) => (a['forecast_date'] as String? ?? '').compareTo(b['forecast_date'] as String? ?? ''));
+    sorted.sort(
+      (a, b) => (a['forecast_date'] as String? ?? '').compareTo(
+        b['forecast_date'] as String? ?? '',
+      ),
+    );
 
     final week1 = sorted.isNotEmpty ? _num(sorted[0]['predicted_kwh']) : 0.0;
     final week2 = sorted.length > 1 ? _num(sorted[1]['predicted_kwh']) : 0.0;
-    
+
     final firstItem = sorted.isNotEmpty ? sorted[0] : <String, dynamic>{};
-    final monthlyTotal = (firstItem.containsKey('predicted_month_total_kwh') && firstItem['predicted_month_total_kwh'] != null)
+    final monthlyTotal =
+        (firstItem.containsKey('predicted_month_total_kwh') &&
+            firstItem['predicted_month_total_kwh'] != null)
         ? _num(firstItem['predicted_month_total_kwh'])
-        : sorted.fold<double>(0.0, (sum, item) => sum + _num(item['predicted_kwh']));
+        : sorted.fold<double>(
+            0.0,
+            (sum, item) => sum + _num(item['predicted_kwh']),
+          );
 
     final predictions = [
       {
@@ -674,7 +702,9 @@ class _EnergyScreenState extends State<EnergyScreen>
       },
       if (sorted.length > 1)
         {
-          'period': Localizations.localeOf(context).languageCode == 'ar' ? 'الأسبوع الذي يليه' : 'Following Week',
+          'period': Localizations.localeOf(context).languageCode == 'ar'
+              ? 'الأسبوع الذي يليه'
+              : 'Following Week',
           'value': week2,
           'icon': LucideIcons.calendar,
           'comparison': _predictionWarning(week2, 0.0, 'week'),
@@ -684,11 +714,7 @@ class _EnergyScreenState extends State<EnergyScreen>
         'period': l10n.nextMonth,
         'value': monthlyTotal,
         'icon': LucideIcons.calendarDays,
-        'comparison': _predictionWarning(
-          monthlyTotal,
-          0.0,
-          'month',
-        ),
+        'comparison': _predictionWarning(monthlyTotal, 0.0, 'month'),
         'isIncrease': _predictionRisk(monthlyTotal, 0.0) > 0,
       },
     ];
@@ -980,8 +1006,6 @@ class _EnergyScreenState extends State<EnergyScreen>
     );
   }
 
-
-
   void _showEnergySetupDialog(BuildContext context, AppStateProvider appState) {
     final rateController = TextEditingController(
       text: appState.electricityRate?.toString() ?? '',
@@ -996,8 +1020,13 @@ class _EnergyScreenState extends State<EnergyScreen>
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Text('Electricity Cost Setup', style: TextStyle(fontWeight: FontWeight.bold)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'Electricity Cost Setup',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               content: Form(
                 key: formKey,
                 child: Column(
@@ -1005,10 +1034,14 @@ class _EnergyScreenState extends State<EnergyScreen>
                   children: [
                     TextFormField(
                       controller: rateController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Electricity Rate (per kWh)',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(LucideIcons.zap),
                       ),
                       validator: (v) {
@@ -1022,13 +1055,24 @@ class _EnergyScreenState extends State<EnergyScreen>
                       value: selectedCurrency,
                       decoration: InputDecoration(
                         labelText: 'Billing Currency',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(LucideIcons.coins),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'YER', child: Text('Yemeni Rial (YER)')),
-                        DropdownMenuItem(value: 'SAR', child: Text('Saudi Riyal (SAR)')),
-                        DropdownMenuItem(value: 'USD', child: Text('US Dollar (USD)')),
+                        DropdownMenuItem(
+                          value: 'YER',
+                          child: Text('Yemeni Rial (YER)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'SAR',
+                          child: Text('Saudi Riyal (SAR)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'USD',
+                          child: Text('US Dollar (USD)'),
+                        ),
                       ],
                       onChanged: (v) {
                         if (v != null) {
@@ -1041,14 +1085,18 @@ class _EnergyScreenState extends State<EnergyScreen>
               ),
               actions: [
                 TextButton(
-                  onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: isSaving
                       ? null
@@ -1056,21 +1104,36 @@ class _EnergyScreenState extends State<EnergyScreen>
                           if (formKey.currentState!.validate()) {
                             setState(() => isSaving = true);
                             final rate = double.parse(rateController.text);
-                            final success = await appState.updateHomeEnergySettings(rate, selectedCurrency);
+                            final success = await appState
+                                .updateHomeEnergySettings(
+                                  rate,
+                                  selectedCurrency,
+                                );
                             if (dialogContext.mounted) {
                               setState(() => isSaving = false);
                               if (success) {
                                 Navigator.of(dialogContext).pop();
                               } else {
-                                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                  const SnackBar(content: Text('Failed to save settings.')),
+                                ScaffoldMessenger.of(
+                                  dialogContext,
+                                ).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Failed to save settings.'),
+                                  ),
                                 );
                               }
                             }
                           }
                         },
                   child: isSaving
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Save'),
                 ),
               ],
@@ -1115,7 +1178,9 @@ class CostEstimatorCard extends StatelessWidget {
             ? Theme.of(context).colorScheme.surface
             : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: isDark ? Border.all(color: const Color(0xFF334155), width: 1) : null,
+        border: isDark
+            ? Border.all(color: const Color(0xFF334155), width: 1)
+            : null,
         boxShadow: [
           if (!isDark)
             BoxShadow(
@@ -1154,10 +1219,7 @@ class CostEstimatorCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   const Text(
                     'Electricity Cost Estimator',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -1188,10 +1250,16 @@ class CostEstimatorCard extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                     icon: const Icon(LucideIcons.settings),
-                    label: const Text('Setup Now', style: TextStyle(fontWeight: FontWeight.w600)),
+                    label: const Text(
+                      'Setup Now',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     onPressed: onSetup,
                   ),
                 ],
@@ -1210,7 +1278,9 @@ class CostEstimatorCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      currency == 'YER' ? '﷼' : (currency == 'USD' ? '\$' : 'SAR '),
+                      currency == 'YER'
+                          ? '﷼'
+                          : (currency == 'USD' ? '\$' : 'SAR '),
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -1232,7 +1302,9 @@ class CostEstimatorCard extends StatelessWidget {
                             color: Theme.of(context).primaryColor,
                             shadows: [
                               Shadow(
-                                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                color: Theme.of(
+                                  context,
+                                ).primaryColor.withOpacity(0.3),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -1249,7 +1321,9 @@ class CostEstimatorCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor.withOpacity(0.7),
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.7),
                         ),
                       ),
                     ),
@@ -1259,7 +1333,9 @@ class CostEstimatorCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+                    color: isDark
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.black.withOpacity(0.03),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -1268,7 +1344,10 @@ class CostEstimatorCard extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Rate', style: Theme.of(context).textTheme.bodySmall),
+                          Text(
+                            'Rate',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                           const SizedBox(height: 2),
                           Text(
                             '${rate.toStringAsFixed(2)} $currency / kWh',
@@ -1279,7 +1358,10 @@ class CostEstimatorCard extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('Est. Consumption', style: Theme.of(context).textTheme.bodySmall),
+                          Text(
+                            'Est. Consumption',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                           const SizedBox(height: 2),
                           Text(
                             '${predictedMonthlyConsumption.toStringAsFixed(1)} kWh',
@@ -1293,7 +1375,11 @@ class CostEstimatorCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(LucideIcons.info, size: 14, color: Theme.of(context).hintColor),
+                    Icon(
+                      LucideIcons.info,
+                      size: 14,
+                      color: Theme.of(context).hintColor,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
