@@ -8,6 +8,8 @@ import '../services/backend_api_service.dart';
 import '../utils/date_formatter.dart';
 import '../config/backend_config.dart';
 import '../screens/splash_screen.dart';
+import '../screens/login_screen.dart';
+import 'package:provider/provider.dart';
 
 class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
   final BackendApiService _api = BackendApiService();
@@ -132,6 +134,20 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Map<String, dynamic>? get homeSummary => _homeSummary;
   bool get homeSummaryLoading => _homeSummaryLoading;
+
+  double? get electricityRate {
+    if (_homeSummary == null) return null;
+    final home = _d7AsMap(_d7AsMap(_homeSummary)['home']);
+    final rate = home['electricity_rate'];
+    if (rate == null) return null;
+    return double.tryParse(rate.toString());
+  }
+
+  String get currency {
+    if (_homeSummary == null) return 'YER';
+    final home = _d7AsMap(_d7AsMap(_homeSummary)['home']);
+    return (home['currency'] ?? 'YER').toString();
+  }
 
   List<Map<String, dynamic>> get homeSummaryDevices {
     final devices = _d7AsMapList(_d7AsMap(_homeSummary)['devices']);
@@ -341,8 +357,10 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
       context: ctx,
       barrierDismissible: false,
       builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.block, color: Colors.red, size: 28),
@@ -376,6 +394,7 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
               child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
+        ),
         );
       },
     );
@@ -721,6 +740,22 @@ class AppStateProvider with ChangeNotifier, WidgetsBindingObserver {
     _saveAccountState();
     touchLastUpdate();
     notifyListeners();
+  }
+
+  Future<bool> updateHomeEnergySettings(double rate, String newCurrency) async {
+    try {
+      await _api.updateHomeEnergySettings(
+        homeId: _homeDbId.trim().isEmpty ? null : _homeDbId.trim(),
+        homeCode: _homeCode,
+        adminLogin: _adminName,
+        electricityRate: rate,
+        currency: newCurrency,
+      );
+      await loadHomeSummary();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   void resetToDefaults() {
@@ -1755,9 +1790,11 @@ class _DisabledLandingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-      body: Center(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
@@ -1800,9 +1837,12 @@ class _DisabledLandingPage extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
+                    final provider = Provider.of<AppStateProvider>(context, listen: false);
+                    provider.logout();
+                    provider.resetToDefaults();
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (_) => const SplashScreen(),
+                        builder: (_) => const LoginScreen(),
                       ),
                       (route) => false,
                     );
@@ -1817,6 +1857,7 @@ class _DisabledLandingPage extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

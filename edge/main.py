@@ -3216,6 +3216,12 @@ class _D7AppSettingsUpdate(_D7AppBaseModel):
     user_password: str | None = None
     door_pin: str | None = None
 
+class _D7AppEnergySettingsUpdate(_D7AppBaseModel):
+    home_id: str | int | None = None
+    home_code: str | None = None
+    admin_login: str | None = None
+    electricity_rate: float
+    currency: str
 
 class _D7AppRecoveryRequest(_D7AppBaseModel):
     phone: str
@@ -3928,6 +3934,62 @@ def _d7_cleanup_duplicate_app_security_logs_once():
 
 
 
+# D7M16_APP_HOME_ENERGY_SETTINGS_ENDPOINT
+@app.post("/api/app/home/energy-settings")
+def d7m16_app_home_energy_settings(payload: _D7AppEnergySettingsUpdate):
+    import sqlite3 as _sqlite3
+    from pathlib import Path as _Path
+
+    db_path = _Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
+    conn = _sqlite3.connect(db_path)
+    conn.row_factory = _sqlite3.Row
+
+    try:
+        home = None
+
+        if payload.home_id:
+            home = conn.execute(
+                "SELECT * FROM homes WHERE CAST(id AS TEXT) = CAST(? AS TEXT) LIMIT 1",
+                (str(payload.home_id),),
+            ).fetchone()
+
+        if home is None and payload.home_code:
+            home = conn.execute(
+                "SELECT * FROM homes WHERE upper(home_code) = upper(?) LIMIT 1",
+                (str(payload.home_code).strip(),),
+            ).fetchone()
+
+        if home is None and payload.admin_login:
+            try:
+                home = conn.execute("""
+                    SELECT h.*
+                    FROM app_accounts a
+                    JOIN homes h ON CAST(h.id AS TEXT) = CAST(a.home_id AS TEXT)
+                    WHERE lower(a.admin_login) = lower(?)
+                    LIMIT 1
+                """, (str(payload.admin_login).strip(),)).fetchone()
+            except Exception:
+                pass
+
+        if home is None:
+            home = conn.execute("SELECT * FROM homes ORDER BY id LIMIT 1").fetchone()
+
+        if home is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Home not found.")
+            
+        home_dict = dict(home)
+        home_id = home_dict["id"]
+        
+        conn.execute(
+            "UPDATE homes SET electricity_rate = ?, currency = ? WHERE id = ?",
+            (payload.electricity_rate, payload.currency, home_id)
+        )
+        conn.commit()
+        return {"success": True, "message": "Energy settings updated"}
+    finally:
+        conn.close()
+
 # D7M16_APP_HOME_SUMMARY_ENDPOINT_START
 @app.get("/api/app/home-summary")
 def d7m16_app_home_summary(home_id=None, home_code=None, admin_login=None):
@@ -4102,6 +4164,8 @@ def d7m16_app_home_summary(home_id=None, home_code=None, admin_login=None):
                 "owner_name": home_dict.get("owner_name"),
                 "owner_email": home_dict.get("owner_email"),
                 "owner_phone": home_dict.get("owner_phone"),
+                "electricity_rate": home_dict.get("electricity_rate"),
+                "currency": home_dict.get("currency") or "YER",
             },
             "account": {
                 "admin_login": admin_login,

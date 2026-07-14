@@ -1,4 +1,4 @@
-﻿#include "esp_camera.h"
+#include "esp_camera.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "secrets.h"
@@ -12,10 +12,10 @@
 
 // ================= DEVICE =================
 
-const char* device_id = "DOOR-HOME001-001";
+// Removed device_id in favor of DEVICE_TOKEN from secrets.h
 
 // ================= MQTT =================
-const char* mqtt_server = "10.0.0.117";
+const char* mqtt_server = "172.17.235.4";
 const int mqtt_port = 1883;
 
 WiFiClient espClient;
@@ -27,6 +27,7 @@ String controlTopic;
 // ================= SERVO =================
 
 #define SERVO_PIN 12
+#define UNLOCK_DURATION_MS 3000  // Door stays unlocked for 3 seconds
 
 Servo doorServo;
 
@@ -38,8 +39,10 @@ Servo doorServo;
 
 const int DETECTION_DISTANCE = 100;
 const unsigned long COOLDOWN_MS = 10000;
+const unsigned long HEARTBEAT_INTERVAL_MS = 30000;
 
 unsigned long lastUploadTime = 0;
+unsigned long lastHeartbeatTime = 0;
 
 // ================= CAMERA PINS (AI THINKER) =================
 
@@ -307,11 +310,21 @@ http.addHeader(
 
   esp_camera_fb_return(fb);
 }
+// --- DEBUG COUNTERS ---
+int mqtt_received_count = 0;
+int servo_unlock_count = 0;
+// ----------------------
+
 void mqttCallback(
     char* topic,
     byte* payload,
     unsigned int length
 ) {
+  mqtt_received_count++;
+  Serial.print("MQTT received #");
+  Serial.print(mqtt_received_count);
+  Serial.print(" -> topic ");
+  Serial.println(topic);
 
   Serial.println("MQTT CALLBACK FIRED");
 
@@ -331,7 +344,7 @@ void mqttCallback(
   Serial.print("Topic: ");
   Serial.println(topic);
 
-  DynamicJsonDocument doc(512);
+  DynamicJsonDocument doc(1024);
 
   DeserializationError err =
       deserializeJson(doc, message);
@@ -353,16 +366,30 @@ void mqttCallback(
       command == "open" ||
       action == "open"
   ) {
+    servo_unlock_count++;
+    Serial.print("Servo unlock called #");
+    Serial.println(servo_unlock_count);
 
-    Serial.println("OPEN COMMAND RECEIVED");
-
+    // Unlock: rotate servo to 90 degrees
     doorServo.write(90);
 
-    delay(500);
+    // Publish acknowledgment that door is unlocked
+    String statusTopic = "device/" + String(DEVICE_TOKEN) + "/status";
+    String ackPayload = "{\"device_token\":\"" + String(DEVICE_TOKEN) + "\",\"state\":\"online\",\"door_state\":\"unlocked\"}";
+    mqttClient.publish(statusTopic.c_str(), ackPayload.c_str());
+    Serial.println("UNLOCK ACK PUBLISHED");
 
+    // Hold door open for configured duration
+    delay(UNLOCK_DURATION_MS);
+
+    // Lock: return servo to 0 degrees
     doorServo.write(0);
 
-    Serial.println("SERVO COMMAND FINISHED");
+    // Publish locked status
+    String lockPayload = "{\"device_token\":\"" + String(DEVICE_TOKEN) + "\",\"state\":\"online\",\"door_state\":\"locked\"}";
+    mqttClient.publish(statusTopic.c_str(), lockPayload.c_str());
+
+    Serial.println("SERVO COMMAND FINISHED - DOOR RE-LOCKED");
   }
 }
 // =========================================
@@ -390,7 +417,7 @@ void connectMQTT() {
 
     String clientId =
         "ESP32CAM-" +
-        String(device_id);
+        String(DEVICE_TOKEN);
 
     if (
         mqttClient.connect(
@@ -408,22 +435,21 @@ Serial.print("LOCAL IP = ");
 Serial.println(WiFi.localIP());
       cmdTopic =
           "device/" +
-          String(device_id) +
+          String(DEVICE_TOKEN) +
           "/cmd";
 
       controlTopic =
           "device/" +
-          String(device_id) +
+          String(DEVICE_TOKEN) +
           "/control";
 
-      bool sub = mqttClient.subscribe("device/DOOR-HOME001-001/#");
+      String wildcardTopic = "device/" + String(DEVICE_TOKEN) + "/#";
+      bool sub = mqttClient.subscribe(wildcardTopic.c_str());
 
       Serial.print("WILDCARD SUBSCRIBE = ");
       Serial.println(sub);
-      bool sub2 = mqttClient.subscribe("device/DOOR-HOME001-001/cmd");
+      // Removed duplicate exact subscription to cmdTopic to prevent double execution
 
-     Serial.print("CMD SUBSCRIBE = ");
-     Serial.println(sub2);
       Serial.println(
           cmdTopic
       );
@@ -567,6 +593,14 @@ Serial.println("WAITING FOR MQTT RESPONSE");
 
     lastUploadTime =
         millis();
+  }
+  // Publish heartbeat to keep backend's last_seen current
+  if (millis() - lastHeartbeatTime > HEARTBEAT_INTERVAL_MS) {
+    String statusTopic = "device/" + String(DEVICE_TOKEN) + "/status";
+    String heartbeat = "{\"device_token\":\"" + String(DEVICE_TOKEN) + "\",\"state\":\"online\"}";
+    mqttClient.publish(statusTopic.c_str(), heartbeat.c_str());
+    Serial.println("HEARTBEAT SENT");
+    lastHeartbeatTime = millis();
   }
 
   delay(300);

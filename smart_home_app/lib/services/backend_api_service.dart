@@ -597,6 +597,25 @@ class BackendApiService {
     // Shared singleton instance client should not be closed.
   }
 
+  Future<Map<String, dynamic>> updateHomeEnergySettings({
+    String? homeId,
+    String? homeCode,
+    String? adminLogin,
+    required double electricityRate,
+    required String currency,
+  }) {
+    return _post(
+      '/api/app/home/energy-settings',
+      body: {
+        if (homeId != null && homeId.trim().isNotEmpty) 'home_id': homeId.trim(),
+        if (homeCode != null && homeCode.trim().isNotEmpty) 'home_code': homeCode.trim(),
+        if (adminLogin != null && adminLogin.trim().isNotEmpty) 'admin_login': adminLogin.trim(),
+        'electricity_rate': electricityRate,
+        'currency': currency,
+      },
+    );
+  }
+
   // D7M16_REAL_ALERTS_LOG_DELETE_API_START
 
   Future<Map<String, dynamic>> fetchAppAlerts({

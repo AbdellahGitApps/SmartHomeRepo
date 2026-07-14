@@ -834,32 +834,84 @@ def clear_family_members(home_id: Optional[int] = None):
 
 @router.delete("/api/family/members/{member_id}")
 def delete_family_member(member_id: int):
+    import traceback
+    from sqlalchemy import text
+    from fastapi.responses import JSONResponse
+
     with _conn() as conn:
-        row = _get_member(conn, member_id)
+        try:
+            row = _get_member(conn, member_id)
+        except Exception:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "message": "Family member not found."
+                }
+            )
+
+        name = row["name"]
+        home_id = row["home_id"]
 
         db = SessionLocal()
+        
+        from api.face_recognition_flow import _connect_model_db
+        ai_conn = _connect_model_db()
+        ai_cur = ai_conn.cursor()
+        
         try:
             from database.models.family import FamilyMember
             member = db.query(FamilyMember).filter(FamilyMember.id == member_id).first()
             if member:
                 db.delete(member)
-                db.commit()
+                
+            from database.models.ai_face import Person, FaceEmbedding
+            main_persons = db.query(Person).filter(Person.name == name, Person.home_id == home_id).all()
+            for p in main_persons:
+                db.query(FaceEmbedding).filter(FaceEmbedding.person_id == p.id).delete(synchronize_session=False)
+                db.delete(p)
+                
+            db.execute(text("DELETE FROM family_member_photos WHERE member_id = :mid"), {"mid": str(member_id)})
+                
+            ai_persons = ai_cur.execute("SELECT id FROM persons WHERE name = ? AND home_id = ?", (name, home_id)).fetchall()
+            for ap in ai_persons:
+                ai_person_id = ap["id"]
+                ai_cur.execute("DELETE FROM face_embeddings WHERE person_id = ?", (ai_person_id,))
+                ai_cur.execute("DELETE FROM persons WHERE id = ?", (ai_person_id,))
+                
+            db.commit()
+            ai_conn.commit()
+            
+        except Exception as e:
+            db.rollback()
+            ai_conn.rollback()
+            print(f"[ERROR] Failed to delete family member {member_id}:")
+            traceback.print_exc()
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "message": "Unable to delete the family member. Please try again."
+                }
+            )
         finally:
             db.close()
+            ai_conn.close()
 
-        _log_family_action(
-            conn,
-            home_id=row["home_id"],
-            member_name=row["name"],
-            severity="WARNING",
-            details=f"Family member {row['name']} deleted.",
-            action_taken="FAMILY MEMBER DELETED",
-        )
-
-        conn.commit()
+        try:
+            _log_family_action(
+                conn,
+                home_id=row["home_id"],
+                member_name=row["name"],
+                severity="WARNING",
+                details=f"Family member {row['name']} deleted.",
+                action_taken="FAMILY MEMBER DELETED",
+            )
+            conn.commit()
+        except Exception as log_error:
+            print(f"[WARNING] Failed to log family member deletion: {log_error}")
 
         return {
             "success": True,
-            "message": "Family member deleted successfully",
-            "deleted_id": str(member_id),
+            "message": "Family member deleted successfully."
         }

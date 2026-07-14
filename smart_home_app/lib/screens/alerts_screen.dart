@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -427,11 +428,70 @@ class _AlertsScreenState extends State<AlertsScreen> {
     final color = _mainColor(alert);
     final resolved =
         alert['isResolved'] == true || alert['is_resolved'] == true;
-    final title = (alert['title'] ?? 'Alert').toString();
-    final message = (alert['message'] ?? '').toString();
+    String title = (alert['title'] ?? 'Alert').toString();
+    String message = (alert['message'] ?? '').toString();
     final time = _d7AlertDisplayTime(alert);
     final status = resolved ? 'Resolved' : 'Active';
     final type = (alert['type'] ?? '').toString();
+
+    String? snapshotPath;
+
+    try {
+      final parsed = jsonDecode(message);
+      if (parsed is Map) {
+        final reason = parsed['reason']?.toString() ?? '';
+        final cmd = parsed['command']?.toString() ?? '';
+        snapshotPath = parsed['snapshot_file']?.toString() ?? parsed['snapshot_path']?.toString();
+
+        if (reason == 'unknown_face' || type == 'unknownFace') {
+          title = 'Unknown Person Detected';
+          message = 'An unrecognized person was detected near your entrance.';
+        } else if (reason == 'recognized_face' || reason == 'known_face') {
+          title = 'Family Member Detected';
+          message = 'A family member was recognized successfully.';
+        } else if (reason == 'door_unlocked' || cmd == 'open' || reason.contains('manual_open')) {
+          title = 'Door Unlocked';
+          message = 'Your smart door was unlocked successfully.';
+        } else if (reason == 'door_locked' || cmd == 'lock' || reason.contains('manual_lock')) {
+          title = 'Door Locked';
+          message = 'Your smart door has been locked.';
+        } else if (reason == 'access_denied') {
+          title = 'Access Denied';
+          message = 'An unauthorized access attempt was blocked.';
+        } else {
+          message = 'System alert registered.';
+        }
+      }
+    } catch (_) {
+      final lowerMsg = message.toLowerCase();
+      final lowerTitle = title.toLowerCase();
+
+      if (lowerMsg.contains('reason: unknown_face') || lowerTitle.contains('unknown')) {
+        title = 'Unknown Person Detected';
+        message = 'An unrecognized person was detected near your entrance.';
+      } else if (lowerMsg.contains('reason: recognized_face') || lowerMsg.contains('reason: known_face') || lowerTitle.contains('family')) {
+        title = 'Family Member Detected';
+        message = 'A family member was recognized successfully.';
+      } else if (lowerMsg.contains('unlocked') || lowerMsg.contains('manual_open')) {
+        title = 'Door Unlocked';
+        message = 'Your smart door was unlocked successfully.';
+      } else if (lowerMsg.contains('locked') || lowerMsg.contains('manual_lock')) {
+        title = 'Door Locked';
+        message = 'Your smart door has been locked.';
+      } else if (lowerMsg.contains('denied') || lowerMsg.contains('unauthorized')) {
+        title = 'Access Denied';
+        message = 'An unauthorized access attempt was blocked.';
+      }
+
+      final snapMatch = RegExp(r"snapshot_file[^\w]+([\w/.-]+)").firstMatch(message);
+      if (snapMatch != null) {
+        snapshotPath = snapMatch.group(1);
+      } else {
+        if (message.trim().startsWith('{')) {
+          message = 'System alert registered.';
+        }
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -524,6 +584,36 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(message),
+              ),
+            ],
+            if (snapshotPath != null && snapshotPath.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final url = snapshotPath!.startsWith('/') ? '${_api.baseUrl}$snapshotPath' : snapshotPath!;
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => Dialog(
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Icon(LucideIcons.imageOff, size: 48, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(LucideIcons.image, size: 16),
+                label: const Text('View Image'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
               ),
             ],
             if (!resolved && _canManageAlerts(context)) ...[

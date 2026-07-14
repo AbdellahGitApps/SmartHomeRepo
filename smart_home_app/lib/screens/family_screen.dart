@@ -7,6 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../l10n/app_localizations.dart';
 import '../providers/app_state_provider.dart';
+import '../services/backend_api_service.dart';
 import '../widgets/add_member_bottom_sheet.dart';
 
 class FamilyScreen extends StatefulWidget {
@@ -138,6 +139,62 @@ class _FamilyScreenState extends State<FamilyScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('All family members deleted.')),
     );
+  }
+
+  Future<void> _confirmDeleteMember(
+    BuildContext context,
+    AppStateProvider appState,
+    FamilyMember member,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Member'),
+        content: Text('Are you sure you want to permanently delete ${member.name}? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    try {
+      await appState.deleteFamilyMember(member.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Family member deleted successfully.')),
+      );
+      appState.loadFamilyMembers();
+    } catch (e) {
+      if (!context.mounted) return;
+      
+      String errorMsg = 'Failed to delete member.';
+      if (e is BackendApiException) {
+        try {
+          final Map<String, dynamic> errJson = jsonDecode(e.message);
+          if (errJson.containsKey('message')) {
+            errorMsg = errJson['message'];
+          }
+        } catch (_) {
+          errorMsg = e.message;
+        }
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMsg)),
+      );
+    }
   }
 
   @override
@@ -536,6 +593,16 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           listen: false,
                         ).toggleFamilyMemberStatus(member.id);
                       },
+                    ),
+                    actionButton(
+                      icon: LucideIcons.trash2,
+                      label: 'Delete',
+                      color: Colors.red,
+                      onPressed: () => _confirmDeleteMember(
+                        context,
+                        Provider.of<AppStateProvider>(context, listen: false),
+                        member,
+                      ),
                     ),
                   ],
                 ),

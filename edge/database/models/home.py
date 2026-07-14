@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float
 from database.connection.database import Base
 
 class Home(Base):
@@ -12,3 +12,5 @@ class Home(Base):
     owner_phone = Column(String, nullable=True)
     apartment_number = Column(String, nullable=True)
     energy_profile = Column(String, default="Residential Type A")
+    electricity_rate = Column(Float, nullable=True)
+    currency = Column(String, default="YER")

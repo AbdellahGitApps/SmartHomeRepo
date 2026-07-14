@@ -652,6 +652,7 @@ class _EnergyScreenState extends State<EnergyScreen>
     AppLocalizations l10n,
     bool isDark,
   ) {
+    final appState = Provider.of<AppStateProvider>(context);
     final sorted = List<Map<String, dynamic>>.from(_forecasts);
     sorted.sort((a, b) => (a['forecast_date'] as String? ?? '').compareTo(b['forecast_date'] as String? ?? ''));
 
@@ -853,6 +854,14 @@ class _EnergyScreenState extends State<EnergyScreen>
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            CostEstimatorCard(
+              appState: appState,
+              predictedMonthlyConsumption: monthlyTotal,
+              isDark: isDark,
+              onSetup: () => _showEnergySetupDialog(context, appState),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -968,6 +977,336 @@ class _EnergyScreenState extends State<EnergyScreen>
                 offset: const Offset(0, 4),
               ),
             ],
+    );
+  }
+
+
+
+  void _showEnergySetupDialog(BuildContext context, AppStateProvider appState) {
+    final rateController = TextEditingController(
+      text: appState.electricityRate?.toString() ?? '',
+    );
+    String selectedCurrency = appState.currency;
+    final formKey = GlobalKey<FormState>();
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Electricity Cost Setup', style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: rateController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Electricity Rate (per kWh)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(LucideIcons.zap),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        if (double.tryParse(v) == null) return 'Invalid number';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedCurrency,
+                      decoration: InputDecoration(
+                        labelText: 'Billing Currency',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(LucideIcons.coins),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'YER', child: Text('Yemeni Rial (YER)')),
+                        DropdownMenuItem(value: 'SAR', child: Text('Saudi Riyal (SAR)')),
+                        DropdownMenuItem(value: 'USD', child: Text('US Dollar (USD)')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => selectedCurrency = v);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          if (formKey.currentState!.validate()) {
+                            setState(() => isSaving = true);
+                            final rate = double.parse(rateController.text);
+                            final success = await appState.updateHomeEnergySettings(rate, selectedCurrency);
+                            if (dialogContext.mounted) {
+                              setState(() => isSaving = false);
+                              if (success) {
+                                Navigator.of(dialogContext).pop();
+                              } else {
+                                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                  const SnackBar(content: Text('Failed to save settings.')),
+                                );
+                              }
+                            }
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      rateController.dispose();
+    });
+  }
+}
+
+class CostEstimatorCard extends StatelessWidget {
+  final AppStateProvider appState;
+  final double predictedMonthlyConsumption;
+  final bool isDark;
+  final VoidCallback onSetup;
+
+  const CostEstimatorCard({
+    super.key,
+    required this.appState,
+    required this.predictedMonthlyConsumption,
+    required this.isDark,
+    required this.onSetup,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rate = appState.electricityRate;
+    final currency = appState.currency;
+    final hasRate = rate != null;
+
+    final estimatedCost = hasRate ? predictedMonthlyConsumption * rate : 0.0;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Theme.of(context).colorScheme.surface
+            : Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: isDark ? Border.all(color: const Color(0xFF334155), width: 1) : null,
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Theme.of(context).primaryColor.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          if (isDark)
+            BoxShadow(
+              color: Theme.of(context).primaryColor.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.banknote,
+                      color: Theme.of(context).primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Electricity Cost Estimator',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              if (hasRate)
+                IconButton(
+                  icon: const Icon(LucideIcons.edit3, size: 20),
+                  color: Theme.of(context).primaryColor,
+                  tooltip: 'Edit Rate',
+                  onPressed: onSetup,
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          if (!hasRate)
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    'Set up your electricity rate to estimate your monthly bill.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    icon: const Icon(LucideIcons.settings),
+                    label: const Text('Setup Now', style: TextStyle(fontWeight: FontWeight.w600)),
+                    onPressed: onSetup,
+                  ),
+                ],
+              ),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Estimated Monthly Bill',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      currency == 'YER' ? '﷼' : (currency == 'USD' ? '\$' : 'SAR '),
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: estimatedCost),
+                      duration: const Duration(milliseconds: 1500),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, _) {
+                        return Text(
+                          value.toStringAsFixed(2),
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w900,
+                            height: 1.1,
+                            color: Theme.of(context).primaryColor,
+                            shadows: [
+                              Shadow(
+                                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        currency,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor.withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Rate', style: Theme.of(context).textTheme.bodySmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${rate.toStringAsFixed(2)} $currency / kWh',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('Est. Consumption', style: Theme.of(context).textTheme.bodySmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${predictedMonthlyConsumption.toStringAsFixed(1)} kWh',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(LucideIcons.info, size: 14, color: Theme.of(context).hintColor),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Estimated from your AI-predicted monthly energy consumption.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 }

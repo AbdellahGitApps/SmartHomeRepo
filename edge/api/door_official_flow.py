@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 import json
+import logging
 import sqlite3
 import uuid
 
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 
 from mqtt import mqtt_client
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -187,15 +189,121 @@ def _get_device(conn, device_ref: Optional[str] = None):
     return row
 
 
+def _is_device_online(device) -> bool:
+    """
+    Check whether the ESP32 door controller is reachable.
+    Uses the device status column and last_seen timestamp.
+    """
+    # 1. Check MQTT broker connection
+    if not mqtt_client.is_connected():
+        logger.warning("MQTT broker is not connected — cannot reach ESP32")
+        return False
+
+    # 2. Check device status in database
+    device_dict = dict(device)
+    status = str(device_dict.get("status") or "").lower().strip()
+    if status in ("offline", "disconnected", "disabled"):
+        logger.warning(f"Device {device_dict.get('device_id')} status is '{status}'")
+        return False
+
+    # 3. Check last_seen freshness (within 120 seconds)
+    last_seen_raw = (
+        device_dict.get("last_seen")
+        or device_dict.get("last_seen_at")
+        or ""
+    )
+    if last_seen_raw:
+        try:
+            raw = str(last_seen_raw).replace("T", " ").replace("Z", "").strip()
+            if "+" in raw:
+                raw = raw.split("+", 1)[0].strip()
+            if "." in raw:
+                raw = raw.split(".", 1)[0].strip()
+            last_seen_dt = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+            age_seconds = (datetime.now() - last_seen_dt).total_seconds()
+            if age_seconds > 120:
+                logger.warning(
+                    f"Device {device_dict.get('device_id')} last seen {age_seconds:.0f}s ago — treating as offline"
+                )
+                return False
+        except Exception as exc:
+            logger.debug(f"Could not parse last_seen '{last_seen_raw}': {exc}")
+
+    return True
+
+
+def _ensure_door_events_table(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS door_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            home_id INTEGER,
+            apartment_number TEXT,
+            device_id TEXT,
+            device_name TEXT,
+            status TEXT,
+            event_type TEXT,
+            details TEXT,
+            source TEXT,
+            reason TEXT,
+            actor TEXT,
+            action_taken TEXT,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.commit()
+
+
+def _insert_door_event(conn, device, payload):
+    _ensure_door_events_table(conn)
+
+    device_dict = dict(device)
+    now = _now_iso()
+    home_id = device_dict.get("home_id", "")
+    device_id = device_dict.get("device_id", "")
+    device_name = (
+        device_dict.get("device_name")
+        or device_dict.get("name")
+        or device_id
+    )
+    actor = payload.get("opened_by") or payload.get("source", "flutter_app")
+
+    conn.execute(
+        """
+        INSERT INTO door_events (
+            home_id, device_id, device_name, status,
+            event_type, details, source, reason, actor,
+            action_taken, timestamp, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            home_id,
+            device_id,
+            device_name,
+            "unlocked",
+            "mqtt_door_open",
+            f"Door open command sent to {device_id} via MQTT",
+            payload.get("source", "flutter_app"),
+            payload.get("reason", "manual_open"),
+            actor,
+            "MQTT DOOR OPEN",
+            now,
+            now,
+        ),
+    )
+    conn.commit()
+
+
 def _mqtt_topics_for_device(device):
     topics = []
 
-    if "mqtt_topic" in device.keys() and device["mqtt_topic"]:
-        topics.append(f"{device['mqtt_topic']}/cmd")
-        topics.append(f"{device['mqtt_topic']}/door/control")
-
-    topics.append(f"device/{device['device_id']}/cmd")
-    topics.append(f"device/{device['device_id']}/control")
+    device_token = device.get("device_token")
+    if device_token:
+        topics.append(f"device/{device_token}/cmd")
+    else:
+        topics.append(f"device/{device['device_id']}/cmd")
 
     clean = []
     for topic in topics:
@@ -204,15 +312,19 @@ def _mqtt_topics_for_device(device):
 
     return clean
 
+http_unlock_count = 0
+mqtt_publish_count = 0
+
 def _publish_open_command(device, request_data: DoorOpenRequest):
+    global mqtt_publish_count
+    device = dict(device)
     request_id = uuid.uuid4().hex[:12]
 
     payload = {
         "request_id": request_id,
         "command": "open",
         "action": "open",
-        "device_id": device["device_id"],
-        "device_token": device["device_token"] if "device_token" in device.keys() else None,
+        "device_token": device.get("device_token"),
         "source": request_data.source,
         "reason": request_data.reason,
         "opened_by": request_data.opened_by,
@@ -221,27 +333,41 @@ def _publish_open_command(device, request_data: DoorOpenRequest):
 
     topics = _mqtt_topics_for_device(device)
 
-    print("MQTT TOPICS =", topics)
-    print("MQTT CONNECTED =", mqtt_client.is_connected())
-
     payload_text = json.dumps(payload)
-    print("DEVICE ID =", device["device_id"])
-    print("PAYLOAD =", payload_text)
-    print("PAYLOAD SIZE =", len(payload_text), "bytes")
     for topic in topics:
-        print("PUBLISHING TO =", topic)
+        mqtt_publish_count += 1
+        print(f"Publishing MQTT #{mqtt_publish_count} -> topic {topic}")
         mqtt_client.publish(topic, payload_text)
 
     return payload, topics
 
 
 def _open_door(device_ref: Optional[str], request_data: DoorOpenRequest):
+    global http_unlock_count
+    http_unlock_count += 1
+    print(f"HTTP unlock request #{http_unlock_count}")
+
     conn = _connect()
 
     try:
         device = _get_device(conn, device_ref or request_data.device_id)
+
+        # Verify ESP32 is reachable before sending MQTT command
+        if not _is_device_online(device):
+            device_dict = dict(device)
+            device_id = device_dict.get("device_id", "unknown")
+            logger.warning(f"Door open rejected — device {device_id} is offline")
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Door controller is currently offline. "
+                    "Please check the device connection."
+                ),
+            )
+
         payload, topics = _publish_open_command(device, request_data)
         _insert_system_log(conn, device, payload, topics)
+        _insert_door_event(conn, device, payload)
 
         return {
             "success": True,
@@ -269,3 +395,33 @@ def legacy_open_door(request_data: DoorOpenRequest):
 @router.post("/api/devices/{device_ref}/door/open")
 def open_specific_door(device_ref: str, request_data: DoorOpenRequest):
     return _open_door(device_ref, request_data)
+
+
+@router.get("/api/door/device-status")
+def api_door_device_status():
+    """
+    Returns the current online/offline status of the primary door device.
+    Used by the Flutter app to show connection state.
+    """
+    conn = _connect()
+    try:
+        device = _get_device(conn)
+        online = _is_device_online(device)
+        device_dict = dict(device)
+        return {
+            "success": True,
+            "device_id": device_dict.get("device_id"),
+            "online": online,
+            "status": device_dict.get("status", "unknown"),
+            "last_seen": device_dict.get("last_seen") or device_dict.get("last_seen_at"),
+            "mqtt_connected": mqtt_client.is_connected(),
+        }
+    except HTTPException:
+        return {
+            "success": False,
+            "online": False,
+            "status": "no_device",
+            "message": "No door device registered",
+        }
+    finally:
+        conn.close()

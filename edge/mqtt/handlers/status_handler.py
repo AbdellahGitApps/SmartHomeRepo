@@ -16,7 +16,7 @@ def handle_device_status(topic: str, payload: str):
         parts = topic.split("/")
         if len(parts) < 3 or parts[0] != "device" or parts[2] != "status":
             return
-        device_id = parts[1]
+        topic_ref = parts[1]
         
         logger.info(f"Device Status Update on {topic}: {state}")
         
@@ -30,12 +30,18 @@ def handle_device_status(topic: str, payload: str):
         cur = conn.cursor()
         
         try:
-            device_row = cur.execute("SELECT * FROM devices WHERE device_id = ? OR id = ?", (device_id, device_id)).fetchone()
+            device_row = cur.execute("SELECT * FROM devices WHERE device_id = ? OR id = ? OR device_token = ?", (topic_ref, topic_ref, topic_ref)).fetchone()
             if not device_row:
-                logger.warning(f"Device status update received for unknown device: {device_id}")
+                payload_token = data.get("device_token")
+                if payload_token:
+                    device_row = cur.execute("SELECT * FROM devices WHERE device_token = ?", (payload_token,)).fetchone()
+            
+            if not device_row:
+                logger.warning(f"Device status update received for unknown device/token: {topic_ref}")
                 return
                 
             device = dict(device_row)
+            device_id = device.get("device_id")
             current_status = str(device.get("status") or "").lower().strip()
             device_name = device.get("device_name") or device_id
             home_id = device.get("home_id")
@@ -94,22 +100,26 @@ def handle_device_register(topic: str, payload: str):
         device_id = data.get("device_id")
         device_token = data.get("device_token")
         
-        if not device_id or not device_token:
+        if not device_token:
             logger.warning(f"Invalid registration payload: {payload}")
             return
             
-        logger.info(f"Registering device {device_id}")
+        logger.info(f"Registering device {device_id or device_token}")
         
         from database.connection.database import SessionLocal
         import services.device_service as device_service
         
         db = SessionLocal()
         try:
-            success = device_service.register_device(db, device_id, device_token)
-            if success:
-                logger.info(f"Device {device_id} successfully authenticated and is online.")
+            if device_id:
+                success = device_service.register_device(db, device_id, device_token)
             else:
-                logger.warning(f"Device {device_id} authentication failed (invalid token or id).")
+                success = device_service.register_device_by_token(db, device_token)
+                
+            if success:
+                logger.info(f"Device {device_id or device_token} successfully authenticated and is online.")
+            else:
+                logger.warning(f"Device {device_id or device_token} authentication failed (invalid token or id).")
         finally:
             db.close()
             
@@ -131,21 +141,26 @@ def handle_device_heartbeat(topic: str, payload: str):
     try:
         data = json.loads(payload)
         device_id = data.get("device_id")
+        device_token = data.get("device_token")
         
-        if not device_id:
+        if not device_id and not device_token:
             logger.warning(f"Invalid heartbeat payload: {payload}")
             return
             
-        logger.debug(f"Heartbeat received from device {device_id}")
+        logger.debug(f"Heartbeat received from device {device_id or device_token}")
         
         from database.connection.database import SessionLocal
         import services.device_service as device_service
         
         db = SessionLocal()
         try:
-            success = device_service.heartbeat_device(db, device_id)
+            if device_token:
+                success = device_service.heartbeat_device_by_token(db, device_token)
+            else:
+                success = device_service.heartbeat_device(db, device_id)
+                
             if not success:
-                logger.warning(f"Heartbeat received for unregistered device {device_id}")
+                logger.warning(f"Heartbeat received for unregistered device {device_id or device_token}")
         finally:
             db.close()
             

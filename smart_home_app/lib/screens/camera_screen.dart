@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'dart:io'; // For SocketException
@@ -673,13 +674,78 @@ class _CameraScreenState extends State<CameraScreen>
         itemBuilder: (context, index) {
           final event = _faceEvents[index];
 
-          final title = _text(event['title'], fallback: 'Face Event');
+          String title = _text(event['title'], fallback: 'Face Event');
           final status = _text(event['status'], fallback: 'Event');
           final severity = _text(event['severity'], fallback: 'info');
           final camera = _text(event['camera'], fallback: 'Smart Door');
-          final details = _text(event['details']);
+          String details = _text(event['details']);
           final memberName = _text(event['member_name']);
           final known = _readBool(event, ['known'], fallback: false);
+          
+          String? snapshotPath;
+
+          try {
+            final parsed = jsonDecode(details);
+            if (parsed is Map) {
+              final reason = parsed['reason']?.toString() ?? '';
+              final cmd = parsed['command']?.toString() ?? '';
+              snapshotPath = parsed['snapshot_file']?.toString() ?? parsed['snapshot_path']?.toString();
+
+              if (reason == 'unknown_face') {
+                title = 'Unknown Person Detected';
+                details = 'An unrecognized person was detected near your entrance.';
+              } else if (reason == 'recognized_face' || reason == 'known_face') {
+                title = 'Family Member Detected';
+                details = memberName.isNotEmpty 
+                    ? '$memberName was recognized successfully.' 
+                    : 'A family member was recognized successfully.';
+              } else if (reason == 'door_unlocked' || cmd == 'open' || reason.contains('manual_open')) {
+                title = 'Door Unlocked';
+                details = 'Your smart door was unlocked successfully.';
+              } else if (reason == 'door_locked' || cmd == 'lock' || reason.contains('manual_lock')) {
+                title = 'Door Locked';
+                details = 'Your smart door has been locked.';
+              } else if (reason == 'access_denied') {
+                title = 'Access Denied';
+                details = 'An unauthorized access attempt was blocked.';
+              } else {
+                details = 'System event logged.';
+              }
+            }
+          } catch (_) {
+            final lower = details.toLowerCase();
+            final lowerTitle = title.toLowerCase();
+            
+            if (lower.contains('reason: unknown_face') || lowerTitle.contains('unknown')) {
+              title = 'Unknown Person Detected';
+              details = 'An unrecognized person was detected near your entrance.';
+            } else if (lower.contains('reason: recognized_face') || lower.contains('reason: known_face') || lowerTitle.contains('family')) {
+              title = 'Family Member Detected';
+              details = memberName.isNotEmpty 
+                  ? '$memberName was recognized successfully.' 
+                  : 'A family member was recognized successfully.';
+            } else if (lower.contains('unlocked') || lower.contains('manual_open')) {
+              title = 'Door Unlocked';
+              details = 'Your smart door was unlocked successfully.';
+            } else if (lower.contains('locked') || lower.contains('manual_lock')) {
+              title = 'Door Locked';
+              details = 'Your smart door has been locked.';
+            } else if (lower.contains('denied') || lower.contains('unauthorized')) {
+              title = 'Access Denied';
+              details = 'An unauthorized access attempt was blocked.';
+            }
+
+            final snapMatch = RegExp(r"snapshot_file[^\w]+([\w/.-]+)").firstMatch(details);
+            if (snapMatch != null) {
+              snapshotPath = snapMatch.group(1);
+            } else {
+              // Hide raw JSON if it starts with {
+              if (details.trim().startsWith('{')) {
+                details = 'System event logged.';
+              }
+            }
+          }
+
           final color = _eventColor(severity, status);
 
           return Container(
@@ -745,6 +811,35 @@ class _CameraScreenState extends State<CameraScreen>
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 8),
+                      ],
+                      if (snapshotPath != null && snapshotPath.isNotEmpty) ...[
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => Dialog(
+                                clipBehavior: Clip.antiAlias,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Image.network(
+                                  _imageUrl(snapshotPath!, false),
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Padding(
+                                    padding: EdgeInsets.all(32),
+                                    child: Icon(LucideIcons.imageOff, size: 48, color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(LucideIcons.image, size: 16),
+                          label: const Text('View Image'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                       ],
                       Row(
                         children: [

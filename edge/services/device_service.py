@@ -157,6 +157,32 @@ def heartbeat_device(db: Session, device_id: str) -> bool:
     db.commit()
     return True
 
+def heartbeat_device_by_token(db: Session, device_token: str) -> bool:
+    from datetime import datetime
+    from database.repositories.device_repository import DeviceRepository
+    
+    device = DeviceRepository.get_device_by_token(db, device_token)
+    if not device:
+        return False
+        
+    device.status = "online"
+    device.last_seen = datetime.now()
+    db.commit()
+    return True
+
+def register_device_by_token(db: Session, device_token: str) -> bool:
+    from datetime import datetime
+    from database.repositories.device_repository import DeviceRepository
+    
+    device = DeviceRepository.get_device_by_token(db, device_token)
+    if not device:
+        return False
+        
+    device.status = "online"
+    device.last_seen = datetime.now()
+    db.commit()
+    return True
+
 
 def mark_inactive_devices_offline(db: Session) -> int:
     """

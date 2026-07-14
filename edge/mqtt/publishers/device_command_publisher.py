@@ -1,4 +1,4 @@
-﻿import json
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -20,6 +20,7 @@ def _device_to_dict(device):
         "id",
         "home_id",
         "device_id",
+        "device_token",
         "device_name",
         "name",
         "device_type",
@@ -71,6 +72,7 @@ def publish_device_command(
     device_data = _device_to_dict(device)
     command = str(command or "").strip().lower()
     device_id = str(device_data.get("device_id") or device_data.get("id") or "").strip()
+    device_token = str(device_data.get("device_token") or "").strip()
     base_topic = str(device_data.get("mqtt_topic") or "").strip()
 
     request_id = uuid.uuid4().hex[:12]
@@ -82,6 +84,7 @@ def publish_device_command(
         "source": source,
         "actor_role": actor_role,
         "device_id": device_id,
+        "device_token": device_token if device_token else None,
         "device_type": device_data.get("device_type"),
         "home_id": device_data.get("home_id"),
         "timestamp": now,
@@ -92,13 +95,12 @@ def publish_device_command(
 
     topics = []
 
-    if base_topic:
-        topics.append(f"{base_topic}/cmd")
-        topics.append(f"{base_topic}/control")
-
-    if device_id:
+    if device_token:
+        topics.append(f"device/{device_token}/cmd")
+        # topics.append(f"device/{device_token}/control")
+    elif device_id:
         topics.append(f"device/{device_id}/cmd")
-        topics.append(f"device/{device_id}/control")
+        # topics.append(f"device/{device_id}/control")
 
     topics = list(dict.fromkeys(topics))
     payload_text = json.dumps(payload, ensure_ascii=False)
@@ -106,6 +108,7 @@ def publish_device_command(
     results = []
 
     for topic in topics:
+        print(f"[MQTT LOG] Publishing to topic: {topic}")
         published, result = _publish_raw(mqtt_client, topic, payload_text)
         results.append(
             {

@@ -238,15 +238,12 @@ class _DoorsScreenState extends State<DoorsScreen>
                                 ? appState.adminName
                                 : appState.userName;
 
-                            await _api.logDoorManualAction(
-                              action: 'open',
-                              homeId: appState.homeDbId,
-                              homeCode: appState.homeCode,
+                            // Send MQTT unlock command via backend
+                            await _api.openDoor(
                               deviceId: doorDeviceId,
-                              deviceName: doorDeviceName,
                               source: 'flutter_app',
-                              actor: actorName,
                               reason: 'manual_open_from_flutter',
+                              openedBy: actorName,
                             );
 
                             if (!mounted) return;
@@ -258,7 +255,13 @@ class _DoorsScreenState extends State<DoorsScreen>
 
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(l10n.doorUnlockedManually),
+                                content: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text(l10n.doorUnlockedManually)),
+                                  ],
+                                ),
                                 backgroundColor: Colors.green,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
@@ -267,18 +270,45 @@ class _DoorsScreenState extends State<DoorsScreen>
                               ),
                             );
                           } catch (error) {
+                            final errorText = error.toString();
+                            final isOffline = errorText.contains('503') ||
+                                errorText.contains('offline') ||
+                                errorText.contains('currently offline');
+
+                            final userMessage = isOffline
+                                ? 'Door controller is currently offline. Please check the device connection.'
+                                : errorText.contains('404')
+                                    ? 'No door device found. Please verify device registration.'
+                                    : 'Failed to unlock door. Please try again.';
+
                             setDialogState(() {
                               isSubmitting = false;
-                              pinError = 'Backend error';
+                              pinError = isOffline ? 'Device offline' : 'Command failed';
                             });
 
                             if (!mounted) return;
 
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Door backend error: $error'),
-                                backgroundColor: Colors.red,
+                                content: Row(
+                                  children: [
+                                    Icon(
+                                      isOffline ? Icons.wifi_off : Icons.error_outline,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text(userMessage)),
+                                  ],
+                                ),
+                                backgroundColor: isOffline
+                                    ? Colors.orange.shade700
+                                    : Colors.red,
                                 behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                duration: const Duration(seconds: 5),
                               ),
                             );
                           }
