@@ -112,15 +112,10 @@ float energy =
 
     JsonDocument doc;
 
-    doc["device_id"] = DEVICE_ID;
-    doc["device_name"] = DEVICE_NAME;
-    doc["device_type"] = DEVICE_TYPE;
-
     doc["voltage"] = voltage;
     doc["current"] = current;
     doc["watts"] = power;
     doc["kwh_today"] = energy;
-
     doc["source"] = "esp32";
 
     String payload;

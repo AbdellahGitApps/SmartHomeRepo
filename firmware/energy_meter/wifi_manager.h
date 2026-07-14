@@ -41,6 +41,11 @@ bool sendEnergyData(String json) {
         "application/json"
     );
 
+    http.addHeader(
+        "device_token",
+        DEVICE_TOKEN
+    );
+    
     int code = http.POST(json);
 
     Serial.print("HTTP Code : ");

@@ -1,6 +1,18 @@
 ﻿from typing import Optional
-from fastapi import APIRouter
+
+from fastapi import (
+    APIRouter,
+    Request,
+    Depends,
+    HTTPException,
+)
+
+from sqlalchemy.orm import Session
+
 from pydantic import BaseModel
+
+from database.connection.database import get_db
+from services.device_service import get_device_from_token
 
 from services.energy_monitoring_service import (
     record_energy_payload,
@@ -8,7 +20,6 @@ from services.energy_monitoring_service import (
     get_energy_logs,
     get_energy_status,
 )
-
 
 router = APIRouter()
 
@@ -33,9 +44,48 @@ def api_energy_status():
 
 
 @router.post("/api/energy/ingest")
-def api_energy_ingest(request_data: EnergyIngestRequest):
+def api_energy_ingest(
+    request: Request,
+    request_data: EnergyIngestRequest,
+    db: Session = Depends(get_db),
+):
+
+    device_token = request.headers.get("device_token")
+
+    if not device_token:
+        raise HTTPException(
+            status_code=400,
+            detail="device_token is required",
+        )
+
+    device = get_device_from_token(db, device_token)
+
+    if device is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid device token",
+        )
+
+    if not getattr(device, "enabled", True):
+        raise HTTPException(
+            status_code=403,
+            detail="Device is disabled",
+        )
+
+    if device.device_type != "energy_monitor":
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid device type",
+        )
+
+    payload = request_data.model_dump()
+
+    # Never trust the ESP32 identity
+    payload["device_id"] = device.device_id
+    payload["home_id"] = device.home_id
+
     return record_energy_payload(
-        request_data.model_dump(),
+        payload,
         source=request_data.source,
     )
 
@@ -57,9 +107,47 @@ def api_energy_logs(limit: int = 50):
 
 
 @router.post("/energy/ingest")
-def legacy_energy_ingest(request_data: EnergyIngestRequest):
+def legacy_energy_ingest(
+    request: Request,
+    request_data: EnergyIngestRequest,
+    db: Session = Depends(get_db),
+):
+
+    device_token = request.headers.get("device_token")
+
+    if not device_token:
+        raise HTTPException(
+            status_code=400,
+            detail="device_token is required",
+        )
+
+    device = get_device_from_token(db, device_token)
+
+    if device is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid device token",
+        )
+
+    if not getattr(device, "enabled", True):
+        raise HTTPException(
+            status_code=403,
+            detail="Device is disabled",
+        )
+
+    if device.device_type != "energy_monitor":
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid device type",
+        )
+
+    payload = request_data.model_dump()
+
+    payload["device_id"] = device.device_id
+    payload["home_id"] = device.home_id
+
     return record_energy_payload(
-        request_data.model_dump(),
+        payload,
         source=request_data.source,
     )
 

@@ -3,7 +3,7 @@
 // ==========================
 // Device Information
 // ==========================
-#define DEVICE_ID "METER-HOME110-001"
+#define DEVICE_ID "METER-HOME100-001"
 
 #define DEVICE_NAME "Energy Meter"
 
