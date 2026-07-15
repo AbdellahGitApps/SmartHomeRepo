@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 import sqlite3
 from ai.energy_model.energy_aggregation import update_daily_consumption
-
+from pathlib import Path
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -11,28 +11,25 @@ def now_iso() -> str:
 
 def model_db_path() -> Path:
     edge_dir = Path(__file__).resolve().parents[1]
-    candidates = [
-        edge_dir / "ai" / "smart_home_models.db",
-        edge_dir / "smart_home_models.db",
-        edge_dir.parent / "smart_home_models.db",
-    ]
 
-    for path in candidates:
-        if path.exists():
-            return path
-
-    return edge_dir / "ai" / "smart_home_models.db"
+    return edge_dir / "database" / "smart_home_edge.db"
 
 
 def connect_energy_db():
     path = model_db_path()
+    print(f"[ENERGY DB] Using: {path}")
+
     path.parent.mkdir(parents=True, exist_ok=True)
+
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def ensure_energy_tables(conn):
+
+    print("[ENERGY] ensure_energy_tables() called")
+
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS energy_monitoring_readings (
@@ -52,6 +49,8 @@ def ensure_energy_tables(conn):
         """
     )
 
+    print("[ENERGY] energy_monitoring_readings verified")
+
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS energy_readings (
@@ -61,11 +60,22 @@ def ensure_energy_tables(conn):
             consumption_kwh REAL NOT NULL,
             created_at TEXT,
             UNIQUE(device_id, reading_date)
-)
+        )
         """
     )
 
+    print("[ENERGY] energy_readings verified")
+
     conn.commit()
+
+    tables = conn.execute("""
+        SELECT name
+        FROM sqlite_master
+        WHERE type='table'
+    """).fetchall()
+
+    print("[ENERGY] Tables:",
+          [t[0] for t in tables])
 
 
 def normalize_energy_payload(
@@ -148,43 +158,69 @@ def record_energy_payload(
         conn.close()
 
 
-def get_latest_energy_reading():
+def get_latest_energy_reading(device_id: str = None):
     conn = connect_energy_db()
 
     try:
         ensure_energy_tables(conn)
 
-        row = conn.execute(
-            """
-           SELECT *
-           FROM energy_monitoring_readings
-           ORDER BY id DESC
-           LIMIT 1
-            """,
-        ).fetchone()
+        if device_id:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM energy_monitoring_readings
+                WHERE device_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (device_id,),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM energy_monitoring_readings
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            ).fetchone()
 
         return dict(row) if row else None
+
     finally:
         conn.close()
 
 
-def get_energy_logs(limit: int = 50):
+def get_energy_logs(limit: int = 50, device_id: str = None):
     conn = connect_energy_db()
 
     try:
         ensure_energy_tables(conn)
 
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM energy_monitoring_readings
-            ORDER BY id DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+        if device_id:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM energy_monitoring_readings
+                WHERE device_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (device_id, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM energy_monitoring_readings
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
 
         return [dict(row) for row in rows]
+
     finally:
         conn.close()
 

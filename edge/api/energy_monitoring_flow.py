@@ -93,18 +93,20 @@ def api_energy_ingest(
 
 
 @router.get("/api/energy/latest")
-def api_energy_latest():
+def api_energy_latest(device_id: str | None = None):
     return {
         "success": True,
-        "latest": get_latest_energy_reading(),
+        "latest": get_latest_energy_reading(device_id),
     }
 
-
 @router.get("/api/energy/logs")
-def api_energy_logs(limit: int = 50):
+def api_energy_logs(
+    limit: int = 50,
+    device_id: str | None = None,
+):
     return {
         "success": True,
-        "logs": get_energy_logs(limit),
+        "logs": get_energy_logs(limit, device_id),
     }
 
 
@@ -168,10 +170,11 @@ def legacy_energy_logs(limit: int = 50):
         "success": True,
         "logs": get_energy_logs(limit),
     }
-
 @router.get("/api/energy/today")
-def api_energy_today():
+def api_energy_today(device_id: str | None = None):
+    from ai.energy_model.energy_aggregation import get_today_consumption
+
     return {
         "success": True,
-        "consumption_kwh": get_today_consumption(),
+        "consumption_kwh": get_today_consumption(device_id),
     }

@@ -1,4 +1,9 @@
 EXTRA_ROUTERS = """
+from services.energy_monitoring_service import (
+    get_latest_energy_reading,
+    get_energy_logs,
+)
+from ai.energy_model.energy_aggregation import get_today_consumption
 
 @router.get("/security-logs-data")
 @router.get("/logs")
@@ -15,9 +20,68 @@ def get_homes_lite(conn: sqlite3.Connection = Depends(get_db_connection)):
 
 @router.get("/energy-page-data-v2")
 def get_energy_page_data(conn: sqlite3.Connection = Depends(get_db_connection)):
+
     cur = conn.cursor()
-    homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
-    return {"success": True, "energy_records": [], "homes_count": len(homes)}
+
+    homes = [
+        dict(r)
+        for r in cur.execute(
+            "SELECT * FROM homes ORDER BY id"
+        ).fetchall()
+    ]
+
+    energy_records = []
+
+    for home in homes:
+
+        device = cur.execute(
+            '''
+            SELECT device_id, device_name
+            FROM devices
+            WHERE home_id = ?
+            AND device_type = 'energy_monitor'
+            LIMIT 1
+            ''',
+            (home["id"],),
+        ).fetchone()
+
+        if device is None:
+            continue
+
+        device = dict(device)
+
+        latest = get_latest_energy_reading(device["device_id"])
+        history = get_energy_logs(
+    limit=20,
+    device_id=device["device_id"],
+)
+        today = get_today_consumption(device["device_id"])
+
+        energy_records.append(
+            {
+                "home_id": home["id"],
+                "home_name": home["name"],
+                "device_id": device["device_id"],
+                "device_name": device["device_name"],
+                "apartment_number": home.get("apartment_number"),
+                "current_power_w": latest.get("watts", 0) if latest else 0,
+                "current_voltage": latest.get("voltage", 0) if latest else 0,
+                "current_current": latest.get("current", 0) if latest else 0,
+                "latest_timestamp": latest.get("timestamp") if latest else None,
+                "latest_timestamp_label": latest.get("timestamp") if latest else "No readings yet",
+                "monthly_forecast_kwh": round(today * 30, 2),
+                "has_readings": latest is not None,
+                "daily_kwh": today,
+                "history": history,
+            }
+        )
+
+    return {
+        "success": True,
+        "devices": energy_records,
+        "selected_device_id": energy_records[0]["device_id"] if energy_records else None,
+        "homes_count": len(homes),
+    }
 
 @router.post("/devices/{device_id}/actions/{action}")
 @router.post("/final-devices/{device_id}/actions/{action}")

@@ -137,7 +137,7 @@ def update_daily_consumption(device_id: str):
 # ==========================================================
 
 
-def get_today_consumption():
+def get_today_consumption(device_id: str = None):
 
     conn = connect_db()
 
@@ -145,19 +145,33 @@ def get_today_consumption():
 
         today = datetime.now().strftime("%Y-%m-%d")
 
-        row = conn.execute(
-            """
-           SELECT consumption_kwh
-           FROM energy_readings
-           WHERE reading_date = ?
-            """,
-            (today,),
-        ).fetchone()
+        if device_id:
+            row = conn.execute(
+                """
+                SELECT consumption_kwh
+                FROM energy_readings
+                WHERE device_id = ?
+                AND reading_date = ?
+                """,
+                (
+                    device_id,
+                    today,
+                ),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT SUM(consumption_kwh) AS consumption_kwh
+                FROM energy_readings
+                WHERE reading_date = ?
+                """,
+                (today,),
+            ).fetchone()
 
-        if row is None:
+        if row is None or row["consumption_kwh"] is None:
             return 0.0
 
-        return row["consumption_kwh"]
+        return float(row["consumption_kwh"])
 
     finally:
         conn.close()

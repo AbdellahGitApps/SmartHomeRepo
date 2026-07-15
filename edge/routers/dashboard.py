@@ -303,56 +303,141 @@ def get_homes_lite(conn: sqlite3.Connection = Depends(get_db_connection)):
 @router.get("/energy-page-data-v2")
 def get_energy_page_data(conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.cursor()
+
     try:
-        homes = [dict(r) for r in cur.execute("SELECT * FROM homes").fetchall()]
-    except sqlite3.OperationalError as e:
+        homes = [
+            dict(r)
+            for r in cur.execute(
+                "SELECT * FROM homes"
+            ).fetchall()
+        ]
+    except sqlite3.OperationalError:
         homes = []
 
     try:
-        devices = [dict(r) for r in cur.execute("SELECT * FROM devices WHERE device_type LIKE '%energy%' OR device_type LIKE '%meter%'").fetchall()]
-    except sqlite3.OperationalError as e:
+        devices = [
+            dict(r)
+            for r in cur.execute(
+                """
+                SELECT *
+                FROM devices
+                WHERE device_type LIKE '%energy%'
+                   OR device_type LIKE '%meter%'
+                """
+            ).fetchall()
+        ]
+    except sqlite3.OperationalError:
         devices = []
 
     energy_records = []
+
     for d in devices:
-        home = next((h for h in homes if str(h.get("id")) == str(d.get("home_id"))), {})
-        
+
+        home = next(
+            (
+                h
+                for h in homes
+                if str(h.get("id")) == str(d.get("home_id"))
+            ),
+            {},
+        )
+
+        # -------------------------------------------------
+        # Latest Reading
+        # -------------------------------------------------
+
         reading = {}
+
         try:
-            row = cur.execute("SELECT * FROM energy_readings WHERE device_id = ? ORDER BY id DESC LIMIT 1", (d.get("device_id"),)).fetchone()
-            if row: reading = dict(row)
-        except Exception:
-            pass
-            
+            row = cur.execute(
+                """
+                SELECT *
+                FROM energy_monitoring_readings
+                WHERE device_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (d.get("device_id"),),
+            ).fetchone()
+
+            if row:
+                reading = dict(row)
+
+        except Exception as e:
+            print("[ENERGY] Latest Reading Error:", e)
+
+        # -------------------------------------------------
+        # History
+        # -------------------------------------------------
+
         history_rows = []
+
         try:
-            history_rows = [dict(r) for r in cur.execute("SELECT * FROM energy_readings WHERE device_id = ? ORDER BY id DESC LIMIT 20", (d.get("device_id"),)).fetchall()]
-        except Exception:
-            pass
-            
+            history_rows = [
+                dict(r)
+                for r in cur.execute(
+                    """
+                    SELECT *
+                    FROM energy_monitoring_readings
+                    WHERE device_id = ?
+                    ORDER BY id DESC
+                    LIMIT 20
+                    """,
+                    (d.get("device_id"),),
+                ).fetchall()
+            ]
+
+        except Exception as e:
+            print("[ENERGY] History Error:", e)
+
         history = []
+
         for hr in reversed(history_rows):
-            history.append({
-                "kwh": hr.get("total_kwh") or hr.get("consumption_kwh") or hr.get("kwh_today", 0.0),
-                "timestamp_label": hr.get("timestamp", "N/A")
-            })
+            history.append(
+                {
+                    "kwh": hr.get("consumption_kwh") or 0.0,
+                    "watts": hr.get("watts") or 0.0,
+                    "timestamp_label": hr.get("timestamp"),
+                }
+            )
 
-        kwh = reading.get("total_kwh") or reading.get("consumption_kwh") or reading.get("kwh_today", 0.0)
-            
-        energy_records.append({
-            "device_id": d.get("device_id"),
-            "device_name": d.get("device_name") or d.get("name") or "Energy Monitor",
-            "apartment_number": home.get("apartment_number") or d.get("home_id", "-"),
-            "daily_kwh": kwh,
-            "monthly_forecast_kwh": float(kwh) * 30.0 if kwh else 0.0,
-            "current_power_w": reading.get("power_w") or reading.get("power") or reading.get("watts", 0.0),
-            "has_readings": bool(reading),
-            "latest_timestamp_label": reading.get("timestamp") or d.get("last_seen", "N/A"),
-            "history": history
-        })
+        daily_kwh = reading.get("consumption_kwh") or 0.0
 
-    return {"success": True, "devices": energy_records, "homes_count": len(homes)}
+        energy_records.append(
+            {
+                "device_id": d.get("device_id"),
+                "device_name": d.get("device_name")
+                or d.get("name")
+                or "Energy Monitor",
 
+                "apartment_number": home.get("apartment_number")
+                or d.get("home_id")
+                or "-",
+
+                "daily_kwh": daily_kwh,
+
+                "monthly_forecast_kwh": round(daily_kwh * 30, 3),
+
+                "current_power_w": reading.get("watts", 0.0),
+
+                "has_readings": len(history_rows) > 0,
+
+                "latest_timestamp_label": (
+                    reading.get("timestamp")
+                    if reading
+                    else "No readings"
+                ),
+
+                "history": history,
+            }
+        )
+
+    return {
+        "success": True,
+        "devices": energy_records,
+        "homes_count": len(homes),
+    }
+    
 @router.post("/devices/{device_id}/actions/{action}")
 @router.post("/final-devices/{device_id}/actions/{action}")
 @router.post("/final-devices-v3/{device_id}/actions/{action}")
