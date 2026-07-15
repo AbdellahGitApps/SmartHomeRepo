@@ -21,6 +21,8 @@ from services.energy_monitoring_service import (
     get_energy_status,
 )
 
+from ai.energy_model.energy_aggregation import get_today_consumption
+
 router = APIRouter()
 
 
@@ -165,4 +167,11 @@ def legacy_energy_logs(limit: int = 50):
     return {
         "success": True,
         "logs": get_energy_logs(limit),
+    }
+
+@router.get("/api/energy/today")
+def api_energy_today():
+    return {
+        "success": True,
+        "consumption_kwh": get_today_consumption(),
     }

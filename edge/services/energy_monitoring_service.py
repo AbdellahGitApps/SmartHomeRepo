@@ -2,6 +2,7 @@
 from pathlib import Path
 from typing import Optional
 import sqlite3
+from ai.energy_model.energy_aggregation import update_daily_consumption
 
 
 def now_iso() -> str:
@@ -55,17 +56,21 @@ def ensure_energy_tables(conn):
         """
         CREATE TABLE IF NOT EXISTS energy_readings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            reading_date TEXT NOT NULL UNIQUE,
+            device_id TEXT NOT NULL,
+            reading_date TEXT NOT NULL,
             consumption_kwh REAL NOT NULL,
-            created_at TEXT
-        )
+            created_at TEXT,
+            UNIQUE(device_id, reading_date)
+)
         """
     )
 
     conn.commit()
 
 
-def normalize_energy_payload(payload: dict, source: str = "api", topic: Optional[str] = None) -> dict:
+def normalize_energy_payload(
+    payload: dict, source: str = "api", topic: Optional[str] = None
+) -> dict:
     timestamp = payload.get("timestamp") or now_iso()
     reading_date = payload.get("reading_date") or timestamp[:10]
 
@@ -77,11 +82,6 @@ def normalize_energy_payload(payload: dict, source: str = "api", topic: Optional
 
     voltage = payload.get("voltage")
     current = payload.get("current")
-    kwh_today = payload.get("kwh_today")
-    consumption_kwh = payload.get("consumption_kwh")
-
-    if consumption_kwh is None and kwh_today is not None:
-        consumption_kwh = kwh_today
 
     return {
         "timestamp": str(timestamp),
@@ -92,12 +92,15 @@ def normalize_energy_payload(payload: dict, source: str = "api", topic: Optional
         "voltage": float(voltage) if voltage is not None else None,
         "current": float(current) if current is not None else None,
         "watts": float(watts) if watts is not None else None,
-        "kwh_today": float(kwh_today) if kwh_today is not None else None,
-        "consumption_kwh": float(consumption_kwh) if consumption_kwh is not None else None,
+        # سيتم حساب الاستهلاك داخل السيرفر لاحقاً
+        "kwh_today": None,
+        "consumption_kwh": None,
     }
 
 
-def record_energy_payload(payload: dict, source: str = "api", topic: Optional[str] = None) -> dict:
+def record_energy_payload(
+    payload: dict, source: str = "api", topic: Optional[str] = None
+) -> dict:
     import json
 
     data = normalize_energy_payload(payload, source=source, topic=topic)
@@ -130,26 +133,8 @@ def record_energy_payload(payload: dict, source: str = "api", topic: Optional[st
             ),
         )
 
-        if data["consumption_kwh"] is not None:
-            conn.execute(
-                """
-                INSERT INTO energy_readings (
-                    reading_date, consumption_kwh, created_at
-                )
-                VALUES (?, ?, ?)
-                ON CONFLICT(reading_date)
-                DO UPDATE SET
-                    consumption_kwh = excluded.consumption_kwh,
-                    created_at = excluded.created_at
-                """,
-                (
-                    data["reading_date"],
-                    data["consumption_kwh"],
-                    data["timestamp"],
-                ),
-            )
-
         conn.commit()
+        update_daily_consumption(data["device_id"])
 
         latest_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
@@ -171,11 +156,11 @@ def get_latest_energy_reading():
 
         row = conn.execute(
             """
-            SELECT *
-            FROM energy_monitoring_readings
-            ORDER BY id DESC
-            LIMIT 1
-            """
+           SELECT *
+           FROM energy_monitoring_readings
+           ORDER BY id DESC
+           LIMIT 1
+            """,
         ).fetchone()
 
         return dict(row) if row else None
@@ -218,7 +203,7 @@ def get_energy_status():
             "SELECT COUNT(*) AS c FROM energy_readings"
         ).fetchone()["c"]
 
-        latest = get_latest_energy_reading()
+        latest = None
 
         return {
             "success": True,

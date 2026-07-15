@@ -616,6 +616,10 @@ class BackendApiService {
     );
   }
 
+  Future<Map<String, dynamic>> getTodayEnergyConsumption() {
+    return _get('/api/energy/today');
+  }
+  
   // D7M16_REAL_ALERTS_LOG_DELETE_API_START
 
   Future<Map<String, dynamic>> fetchAppAlerts({

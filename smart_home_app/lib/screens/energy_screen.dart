@@ -31,6 +31,7 @@ class _EnergyScreenState extends State<EnergyScreen>
   Map<String, dynamic>? _latestEnergy;
   List<Map<String, dynamic>> _energyLogs = [];
   List<Map<String, dynamic>> _forecasts = [];
+  double _todayConsumption = 0.0;
 
   // Home-change detection
   String? _lastHomeId;
@@ -131,6 +132,7 @@ class _EnergyScreenState extends State<EnergyScreen>
 
       final latestRes = await _api.getEnergyLatest();
       final logsRes = await _api.getEnergyLogs();
+      final todayRes = await _api.getTodayEnergyConsumption();
       var forecastRes = await _api.getEnergyForecastLatest(homeId: homeId);
 
       if (!mounted) return;
@@ -173,6 +175,8 @@ class _EnergyScreenState extends State<EnergyScreen>
         _latestEnergy = latestData;
         _energyLogs = logsData;
         _forecasts = forecastData;
+        _todayConsumption =
+            (todayRes["consumption_kwh"] as num?)?.toDouble() ?? 0.0;
         _isLoadingEnergy = false;
       });
     } catch (error) {
@@ -225,10 +229,7 @@ class _EnergyScreenState extends State<EnergyScreen>
   double get _latestCurrent => _num(_latestEnergy?['current'], 0.0);
   double get _latestWatts => _num(_latestEnergy?['watts'], 0.0);
   double get _latestKw => _latestWatts / 1000.0;
-  double get _latestKwh => _num(
-    _latestEnergy?['kwh_today'],
-    _num(_latestEnergy?['consumption_kwh']),
-  );
+  double get _latestKwh => _todayConsumption;
 
   double get _forecastTotal {
     return _forecasts.fold<double>(
