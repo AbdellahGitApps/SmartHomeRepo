@@ -96,7 +96,10 @@ def _ensure_system_logs_table(conn):
             device_name TEXT,
             details TEXT,
             message TEXT,
-            status TEXT
+            status TEXT,
+            home_id INTEGER,
+            apartment_number TEXT,
+            home TEXT
         )
         """
     )
@@ -108,7 +111,7 @@ def _table_columns(conn, table_name: str):
     return {row[1] for row in rows}
 
 
-def _insert_system_log(conn, device, payload, topics):
+def _insert_system_log(conn, device, payload, topics, custom_message: Optional[str] = None):
     _ensure_system_logs_table(conn)
 
     columns = _table_columns(conn, "system_logs")
@@ -124,6 +127,8 @@ def _insert_system_log(conn, device, payload, topics):
     if payload["source"] == "face_recognition":
         actor_val = "Server"
 
+    device_dict = dict(device)
+
     values = {
         "timestamp": _now_iso(),
         "created_at": _now_iso(),
@@ -133,11 +138,14 @@ def _insert_system_log(conn, device, payload, topics):
         "source": payload["source"],
         "actor": actor_val,
         "action_taken": "MQTT DOOR OPEN",
-        "device_id": device["device_id"],
-        "device_name": device["name"] if "name" in device.keys() else device["device_id"],
+        "device_id": device_dict.get("device_id"),
+        "device_name": device_dict.get("name") or device_dict.get("device_name") or device_dict.get("device_id"),
         "details": json.dumps(details),
-        "message": f"Door open command sent to {device['device_id']}",
+        "message": custom_message or f"Door open command sent to {device_dict.get('device_id')}",
         "status": "sent",
+        "home_id": device_dict.get("home_id"),
+        "apartment_number": device_dict.get("apartment_number"),
+        "home": device_dict.get("home_id"),
     }
 
     insert_columns = [key for key in values.keys() if key in columns]
@@ -342,7 +350,7 @@ def _publish_open_command(device, request_data: DoorOpenRequest):
     return payload, topics
 
 
-def _open_door(device_ref: Optional[str], request_data: DoorOpenRequest):
+def _open_door(device_ref: Optional[str], request_data: DoorOpenRequest, custom_message: Optional[str] = None):
     global http_unlock_count
     http_unlock_count += 1
     print(f"HTTP unlock request #{http_unlock_count}")
@@ -366,7 +374,7 @@ def _open_door(device_ref: Optional[str], request_data: DoorOpenRequest):
             )
 
         payload, topics = _publish_open_command(device, request_data)
-        _insert_system_log(conn, device, payload, topics)
+        _insert_system_log(conn, device, payload, topics, custom_message=custom_message)
         _insert_door_event(conn, device, payload)
 
         return {

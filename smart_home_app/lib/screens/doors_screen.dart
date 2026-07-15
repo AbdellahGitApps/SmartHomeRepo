@@ -776,10 +776,9 @@ class _DoorsScreenState extends State<DoorsScreen>
                                     ),
                                     const SizedBox(height: 5),
                                     Text(
-                                      log['time_label'] ??
-                                          _formatLogTime(
-                                            log['timestamp'] ?? log['time'],
-                                          ),
+                                      _formatLogTime(
+                                        log['timestamp'] ?? log['time'],
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: Theme.of(

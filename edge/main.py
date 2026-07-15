@@ -4428,11 +4428,12 @@ def _d7final_ensure_system_logs(conn):
 
 def _d7final_log(conn, *, severity="INFO", actor="Server", home_id="", apartment="", event_type="System Event", details="", action_taken="", device_id="", device_name=""):
     _d7final_ensure_system_logs(conn)
-    now = _d7final_now()
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
     cols = _d7final_cols(conn, "system_logs")
     data = {
-        "timestamp": now,
-        "created_at": now,
+        "timestamp": now_iso,
+        "created_at": now_iso,
         "severity": severity,
         "actor": actor,
         "source": actor,
@@ -4728,16 +4729,43 @@ def d7final_alert_decision(alert_key: str, payload: dict = _D7FinalBody(default_
             )
 
         else:
-            _d7final_log(
-                conn,
-                severity="INFO",
-                actor="Admin App",
-                home_id=values["home_id"],
-                apartment=values["apartment"],
-                event_type="Face Recognition",
-                details="Unknown person opened once by Admin App.",
-                action_taken="UNKNOWN OPEN ONCE",
-                device_name="Smart Door",
+            from api.door_official_flow import _open_door, DoorOpenRequest
+            from fastapi import HTTPException
+            
+            device_row = conn.execute(
+                """
+                SELECT device_id FROM devices 
+                WHERE home_id = ? 
+                AND lower(device_type) IN ('smart_door', 'esp32_cam', 'door_camera', 'camera')
+                LIMIT 1
+                """,
+                (values["home_id"],)
+            ).fetchone()
+            
+            if not device_row:
+                device_row = conn.execute(
+                    """
+                    SELECT device_id FROM devices 
+                    WHERE lower(device_type) IN ('smart_door', 'esp32_cam', 'door_camera', 'camera')
+                    LIMIT 1
+                    """
+                ).fetchone()
+                
+            if not device_row:
+                raise HTTPException(status_code=404, detail="No smart door device found")
+                
+            req = DoorOpenRequest(
+                device_id=device_row["device_id"],
+                source="admin_app",
+                reason="manual_open_from_unknown_alert",
+                opened_by=admin_login or "Admin App",
+            )
+            
+            # This correctly checks online status, sends MQTT, and logs the single entry via door_official_flow
+            _open_door(
+                device_ref=device_row["device_id"],
+                request_data=req,
+                custom_message="Door opened remotely by Admin after unknown person detection."
             )
 
         _d7m16_cleanup_unknown_face_family_rows(conn)

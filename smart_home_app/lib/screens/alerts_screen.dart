@@ -22,6 +22,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   int _filterIndex = 0;
   bool _loading = false;
   List<Map<String, dynamic>> _alerts = [];
+  final Set<String> _processingAlerts = {};
 
   @override
   void initState() {
@@ -285,18 +286,44 @@ class _AlertsScreenState extends State<AlertsScreen> {
     final id = (alert['id'] ?? '').toString();
 
     if (id.isEmpty) return;
+    
+    if (_processingAlerts.contains(id)) return;
+    setState(() {
+      _processingAlerts.add(id);
+    });
 
-    await _api.decideAppAlert(
-      alertId: id,
-      action: action,
-      homeId: appState.homeDbId,
-      homeCode: appState.homeCode,
-      adminLogin: appState.adminName,
-      memberName: memberName,
-      faceEnrolled: faceEnrolled,
-    );
+    try {
+      await _api.decideAppAlert(
+        alertId: id,
+        action: action,
+        homeId: appState.homeDbId,
+        homeCode: appState.homeCode,
+        adminLogin: appState.adminName,
+        memberName: memberName,
+        faceEnrolled: faceEnrolled,
+      );
 
-    await _loadAlerts();
+      await _loadAlerts();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains('503') || e.toString().contains('offline')
+                ? 'Door controller is currently offline. Please check the device connection.'
+                : 'Failed to process request. Please try again.',
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processingAlerts.remove(id);
+        });
+      }
+    }
   }
 
   void _addUnknownToFamily(Map<String, dynamic> alert, bool isDark) {
@@ -493,6 +520,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
       }
     }
 
+    final idStr = (alert['id'] ?? '').toString();
+    final isProcessing = _processingAlerts.contains(idStr);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -511,7 +541,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ],
       ),
       child: Opacity(
-        opacity: resolved ? 0.55 : 1,
+        opacity: resolved ? 0.55 : (isProcessing ? 0.7 : 1),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -569,7 +599,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 if (true)
                   IconButton(
                     tooltip: 'Delete alert',
-                    onPressed: () => _deleteAlert(alert),
+                    onPressed: isProcessing ? null : () => _deleteAlert(alert),
                     icon: const Icon(LucideIcons.trash2, color: Colors.red),
                   ),
               ],
@@ -623,8 +653,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => _handleUnknownDecision(alert, 'open'),
-                        icon: const Icon(LucideIcons.unlock, size: 16),
+                        onPressed: isProcessing ? null : () => _handleUnknownDecision(alert, 'open'),
+                        icon: isProcessing 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(LucideIcons.unlock, size: 16),
                         label: const Text('Open'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
@@ -635,8 +667,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => _handleUnknownDecision(alert, 'deny'),
-                        icon: const Icon(LucideIcons.xCircle, size: 16),
+                        onPressed: isProcessing ? null : () => _handleUnknownDecision(alert, 'deny'),
+                        icon: isProcessing 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(LucideIcons.xCircle, size: 16),
                         label: const Text('Deny'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
@@ -647,7 +681,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _addUnknownToFamily(alert, isDark),
+                        onPressed: isProcessing ? null : () => _addUnknownToFamily(alert, isDark),
                         icon: const Icon(LucideIcons.userPlus, size: 16),
                         label: const Text('Add'),
                       ),
@@ -658,8 +692,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () => _resolveAlert(alert),
-                    icon: const Icon(LucideIcons.checkCircle),
+                    onPressed: isProcessing ? null : () => _resolveAlert(alert),
+                    icon: isProcessing
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(LucideIcons.checkCircle),
                     label: const Text('Resolve'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.green,

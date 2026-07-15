@@ -415,7 +415,7 @@ def d7m16_app_door_access_logs(home_id=None, home_code=None, admin_login=None, l
 async def d7m16_app_door_manual_action(request: Request):
     import sqlite3 as _sqlite3
     from pathlib import Path as _Path
-    from datetime import datetime as _datetime
+    from datetime import datetime as _datetime, timezone as _timezone
 
     data = await request.json()
 
@@ -424,7 +424,7 @@ async def d7m16_app_door_manual_action(request: Request):
         db_path = get_database_path()
     except Exception:
         db_path = _Path(__file__).resolve().parent / "database" / "smart_home_edge.db"
-    now = _datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = _datetime.now(_timezone.utc).isoformat()
 
     home_id = str(data.get("home_id") or "").strip()
     home_code = str(data.get("home_code") or "").strip()
@@ -996,8 +996,8 @@ def _d7final_log_item(row):
         "source_table": "system_logs",
         "source_id": _d7final_s(_d7final_val(row, "id")),
         "timestamp": ts,
-        "time": _d7final_time_label(ts),
-        "time_label": _d7final_time_label(ts),
+        "time": None,
+        "time_label": None,
         "door": device_name,
         "doorKey": device_name,
         "user": actor,
