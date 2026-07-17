@@ -1,5 +1,7 @@
 import time
 import logging
+from collections import deque
+import threading
 
 # pyrefly: ignore [missing-import]
 import paho.mqtt.client as mqtt
@@ -43,6 +45,9 @@ class MQTTClient:
         self.callbacks: Dict[str, Callable] = {}
 
         self._connected = False
+        
+        self._msg_timestamps = deque()
+        self._msg_lock = threading.Lock()
 
     # =========================
     # CONNECTION EVENTS
@@ -113,6 +118,9 @@ class MQTTClient:
         payload = msg.payload.decode(
             "utf-8"
         )
+
+        with self._msg_lock:
+            self._msg_timestamps.append(time.time())
 
         logger.debug(
             f"[MQTT] {topic} → {payload}"
@@ -299,3 +307,10 @@ class MQTTClient:
     def is_connected(self) -> bool:
 
         return self._connected
+
+    def get_messages_per_min(self) -> int:
+        with self._msg_lock:
+            now = time.time()
+            while self._msg_timestamps and self._msg_timestamps[0] < now - 60:
+                self._msg_timestamps.popleft()
+            return len(self._msg_timestamps)

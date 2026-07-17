@@ -12,7 +12,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
   intl: ^0.20.2
-  google_fonts: ^6.3.2
   flutter_iconly: ^1.0.2
   lucide_icons: ^0.257.0
   flutter_localizations:
@@ -51,9 +50,25 @@ flutter:
   assets:
     - assets/images/
   
-#   fonts:
-#     - family: DIN Next Arabic
-#       fonts:
-#         - asset: assets/fonts/DINNextLTArabic-Regular.ttf
-#         - asset: assets/fonts/DINNextLTArabic-Bold.ttf
-#           weight: 700
+  fonts:
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/Montserrat-Regular.ttf
+        - asset: assets/fonts/Montserrat-Light.ttf
+          weight: 300
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: Noto Sans Arabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-Regular.ttf
+        - asset: assets/fonts/NotoSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansArabic-Bold.ttf
+          weight: 700

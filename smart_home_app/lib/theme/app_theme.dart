@@ -20,7 +20,7 @@ class AppTheme {
   static const Color darkTextSecondary = Color(0xFF94A3B8);
 
   static ThemeData lightTheme(Locale locale) {
-    String? fontFamily = locale.languageCode == 'ar' ? null : 'Inter';
+    String? fontFamily = locale.languageCode == 'ar' ? 'Noto Sans Arabic' : 'Inter';
 
     return ThemeData(
       brightness: Brightness.light,
@@ -98,7 +98,7 @@ class AppTheme {
   }
 
   static ThemeData darkTheme(Locale locale) {
-    String? fontFamily = locale.languageCode == 'ar' ? null : 'Inter';
+    String? fontFamily = locale.languageCode == 'ar' ? 'Noto Sans Arabic' : 'Inter';
 
     return ThemeData(
       brightness: Brightness.dark,

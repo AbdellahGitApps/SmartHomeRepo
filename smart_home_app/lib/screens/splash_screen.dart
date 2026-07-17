@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 
 import '../providers/app_state_provider.dart';
@@ -132,7 +131,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     opacity: _textFadeAnim.value,
                     child: Text(
                       'Edge',
-                      style: GoogleFonts.montserrat(
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
                         fontSize: 56,
                         fontWeight: FontWeight.w300, // Elegant lightweight font
                         letterSpacing: 16.0,

@@ -15,7 +15,7 @@
 // Removed device_id in favor of DEVICE_TOKEN from secrets.h
 
 // ================= MQTT =================
-const char* mqtt_server = "10.0.0.23";
+const char* mqtt_server = "172.17.235.4";
 const int mqtt_port = 1883;
 
 WiFiClient espClient;

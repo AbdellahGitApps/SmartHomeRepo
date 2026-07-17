@@ -1,63 +1,6 @@
 {% extends "base.html" %}
-{% block title %}System Status
-<script>
-/* STATUS_RUNTIME_METRICS_JS_START */
-(function () {
-    function setText(id, value) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
-    }
+{% block title %}System Status{% endblock %}
 
-    function setBar(id, value) {
-        const el = document.getElementById(id);
-        if (el) el.style.width = Math.max(0, Math.min(100, value)) + "%";
-    }
-
-    function fmt(value) {
-        const n = Number(value);
-        if (!Number.isFinite(n)) return "--";
-        return n.toFixed(1).replace(".0", "");
-    }
-
-    async function loadRuntimeMetrics() {
-        try {
-            const res = await fetch("/api/system/runtime?ts=" + Date.now(), { cache: "no-store" });
-            if (!res.ok) return;
-
-            const data = await res.json();
-
-            if (data.cpu_percent !== null && data.cpu_percent !== undefined) {
-                setText("runtimeCpuText", fmt(data.cpu_percent) + "%");
-                setBar("runtimeCpuBar", Number(data.cpu_percent));
-            }
-
-            if (data.memory_percent !== null && data.memory_percent !== undefined) {
-                setText(
-                    "runtimeMemoryText",
-                    fmt(data.memory_used_gb) + " / " + fmt(data.memory_total_gb) + " GB (" + fmt(data.memory_percent) + "%)"
-                );
-                setBar("runtimeMemoryBar", Number(data.memory_percent));
-            }
-
-            if (data.storage_percent !== null && data.storage_percent !== undefined) {
-                setText(
-                    "runtimeStorageText",
-                    fmt(data.storage_used_gb) + " / " + fmt(data.storage_total_gb) + " GB (" + fmt(data.storage_percent) + "%)"
-                );
-                setBar("runtimeStorageBar", Number(data.storage_percent));
-            }
-        } catch (e) {
-            console.warn("Runtime metrics failed:", e);
-        }
-    }
-
-    document.addEventListener("DOMContentLoaded", loadRuntimeMetrics);
-    setInterval(loadRuntimeMetrics, 15000);
-})();
-/* STATUS_RUNTIME_METRICS_JS_END */
-</script>
-
-{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -175,21 +118,21 @@
                 <i class="ph-fill ph-broadcast" style="color: var(--accent-primary);"></i>
                 <span data-i18n="mqtt_broker">MQTT Broker</span>
             </h3>
-            <span class="badge badge-success" data-i18n="badge_healthy">Healthy</span>
+            <span class="badge badge-success" id="mqttHealthBadge" data-i18n="badge_healthy">Healthy</span>
         </div>
 
         <div class="status-lines-clean">
             <div class="status-line-clean">
                 <span class="status-label-clean">MQTT Broker:</span>
-                <span class="status-value-clean">smarthome.local:1883</span>
+                <span class="status-value-clean" id="mqttBrokerHost">Loading...</span>
             </div>
             <div class="status-line-clean">
                 <span class="status-label-clean" data-i18n="label_status">Status:</span>
-                <span class="status-value-clean" data-i18n="status_connected">Connected</span>
+                <span class="status-value-clean" id="mqttStatus" data-i18n="status_connected">Loading...</span>
             </div>
             <div class="status-line-clean">
                 <span class="status-label-clean" data-i18n="label_messages_min">Messages/min:</span>
-                <span class="status-value-clean">~145</span>
+                <span class="status-value-clean" id="mqttMsgs">-</span>
             </div>
         </div>
     </div>
@@ -201,21 +144,21 @@
                 <i class="ph-fill ph-hard-drives" style="color: var(--accent-primary);"></i>
                 <span data-i18n="edge_server">Edge Server</span>
             </h3>
-            <span class="badge badge-success" data-i18n="badge_running">Running</span>
+            <span class="badge badge-success" id="serverHealthBadge" data-i18n="badge_running">Running</span>
         </div>
 
         <div class="status-lines-clean">
             <div class="status-line-clean">
                 <span class="status-label-clean">Server URL:</span>
-                <span class="status-value-clean">http://smarthome.local:8000</span>
+                <span class="status-value-clean" id="serverUrl">Loading...</span>
             </div>
             <div class="status-line-clean">
                 <span class="status-label-clean">Current LAN IP:</span>
-                <span class="status-value-clean">192.168.1.100</span>
+                <span class="status-value-clean" id="lanIp">Loading...</span>
             </div>
             <div class="status-line-clean">
                 <span class="status-label-clean">API Status:</span>
-                <span class="status-value-clean" style="color: var(--status-success);" data-i18n="status_online">Online</span>
+                <span class="status-value-clean" id="apiStatus" style="color: var(--status-success);" data-i18n="status_online">Loading...</span>
             </div>
 
             <hr class="status-divider-clean">
@@ -253,21 +196,21 @@
                 <i class="ph-fill ph-database" style="color: var(--accent-primary);"></i>
                 <span data-i18n="sqlite_db">SQLite Database</span>
             </h3>
-            <span class="badge badge-success" data-i18n="badge_healthy">Healthy</span>
+            <span class="badge badge-success" id="sqliteHealthBadge" data-i18n="badge_healthy">Healthy</span>
         </div>
 
         <div class="status-lines-clean">
             <div class="status-line-clean">
                 <span class="status-label-clean" data-i18n="label_status">Status:</span>
-                <span class="status-value-clean" data-i18n="status_connected">Connected</span>
+                <span class="status-value-clean" id="sqliteStatus" data-i18n="status_connected">Loading...</span>
             </div>
             <div class="status-line-clean">
                 <span class="status-label-clean" data-i18n="label_size">Size:</span>
-                <span class="status-value-clean">14.2 MB</span>
+                <span class="status-value-clean" id="sqliteSize">-</span>
             </div>
             <div class="status-line-clean">
                 <span class="status-label-clean" data-i18n="label_location">Location:</span>
-                <span class="status-value-clean" style="font-size: 0.8rem;">/database/smart_home_edge.db</span>
+                <span class="status-value-clean" id="sqliteLocation" style="font-size: 0.8rem;">Loading...</span>
             </div>
         </div>
     </div>
@@ -279,18 +222,16 @@
         <span>Recent Infrastructure Logs</span>
     </h3>
 
-    <div class="infra-log-box-clean">
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:15 - MQTT broker connection checked.</div>
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:16 - Edge server API is online.</div>
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:30:17 - SQLite database connection verified.</div>
-        <div style="margin-bottom: 4px;">[INFO] 2026-05-13 20:35:22 - Infrastructure status refresh completed.</div>
-        <div style="margin-bottom: 4px; color: #FCD34D;">[WARN] 2026-05-13 20:42:10 - Hardware runtime metrics will be fully real after deployment.</div>
+    <div class="infra-log-box-clean" id="infraLogs">
+        <div style="margin-bottom: 4px; color: #94A3B8;">Loading real infrastructure logs...</div>
     </div>
 </div>
 
 <script>
 /* STATUS_RUNTIME_METRICS_JS_START */
 (function () {
+    let _fetching = false;
+
     function setText(id, value) {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
@@ -301,6 +242,13 @@
         if (el) el.style.width = Math.max(0, Math.min(100, value)) + "%";
     }
 
+    function setBadge(id, isHealthy, text) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = isHealthy ? "badge badge-success" : "badge badge-danger";
+        el.textContent = text;
+    }
+
     function fmt(value) {
         const n = Number(value);
         if (!Number.isFinite(n)) return "--";
@@ -308,39 +256,81 @@
     }
 
     async function loadRuntimeMetrics() {
+        if (_fetching) return;
+        _fetching = true;
         try {
-            const res = await fetch("/api/system/runtime?ts=" + Date.now(), { cache: "no-store" });
-            if (!res.ok) return;
+            const res = await fetch("/api/system-status/live?ts=" + Date.now(), { cache: "no-store" });
+            if (!res.ok) throw new Error("API not ok");
 
             const data = await res.json();
 
-            if (data.cpu_percent !== null && data.cpu_percent !== undefined) {
-                setText("runtimeCpuText", fmt(data.cpu_percent) + "%");
-                setBar("runtimeCpuBar", Number(data.cpu_percent));
+            // MQTT
+            if (data.mqtt) {
+                setText("mqttBrokerHost", data.mqtt.host + ":" + data.mqtt.port);
+                setText("mqttStatus", data.mqtt.status);
+                setText("mqttMsgs", data.mqtt.messages_per_min);
+                setBadge("mqttHealthBadge", data.mqtt.health === "healthy", data.mqtt.health === "healthy" ? "Healthy" : "Error");
             }
 
-            if (data.memory_percent !== null && data.memory_percent !== undefined) {
-                setText(
-                    "runtimeMemoryText",
-                    fmt(data.memory_used_gb) + " / " + fmt(data.memory_total_gb) + " GB (" + fmt(data.memory_percent) + "%)"
-                );
-                setBar("runtimeMemoryBar", Number(data.memory_percent));
+            // Server
+            if (data.server) {
+                setText("serverUrl", data.server.server_url);
+                setText("lanIp", data.server.lan_ip);
+                setText("apiStatus", data.server.api_status);
+                setBadge("serverHealthBadge", data.server.status === "Running", data.server.status);
+
+                if (data.server.cpu_percent !== null && data.server.cpu_percent !== undefined) {
+                    setText("runtimeCpuText", fmt(data.server.cpu_percent) + "%");
+                    setBar("runtimeCpuBar", Number(data.server.cpu_percent));
+                }
+
+                if (data.server.memory_percent !== null && data.server.memory_percent !== undefined) {
+                    setText("runtimeMemoryText", fmt(data.server.memory_used) + " / " + fmt(data.server.memory_total) + " GB (" + fmt(data.server.memory_percent) + "%)");
+                    setBar("runtimeMemoryBar", Number(data.server.memory_percent));
+                }
+
+                if (data.server.storage_percent !== null && data.server.storage_percent !== undefined) {
+                    setText("runtimeStorageText", fmt(data.server.storage_used) + " / " + fmt(data.server.storage_total) + " GB (" + fmt(data.server.storage_percent) + "%)");
+                    setBar("runtimeStorageBar", Number(data.server.storage_percent));
+                }
             }
 
-            if (data.storage_percent !== null && data.storage_percent !== undefined) {
-                setText(
-                    "runtimeStorageText",
-                    fmt(data.storage_used_gb) + " / " + fmt(data.storage_total_gb) + " GB (" + fmt(data.storage_percent) + "%)"
-                );
-                setBar("runtimeStorageBar", Number(data.storage_percent));
+            // SQLite
+            if (data.sqlite) {
+                setText("sqliteStatus", data.sqlite.status);
+                setText("sqliteSize", data.sqlite.size);
+                setText("sqliteLocation", data.sqlite.location);
+                setBadge("sqliteHealthBadge", data.sqlite.health === "healthy", data.sqlite.health === "healthy" ? "Healthy" : "Warning");
             }
+
+            // Logs
+            if (data.system_logs && Array.isArray(data.system_logs)) {
+                const logsBox = document.getElementById("infraLogs");
+                if (logsBox) {
+                    logsBox.innerHTML = data.system_logs.map(log => `<div style="margin-bottom: 4px;">${log}</div>`).join("");
+                }
+            }
+
         } catch (e) {
             console.warn("Runtime metrics failed:", e);
+        } finally {
+            _fetching = false;
         }
     }
 
     document.addEventListener("DOMContentLoaded", loadRuntimeMetrics);
-    setInterval(loadRuntimeMetrics, 15000);
+    // Overwrite the manual refresh button
+    const btnRefresh = document.querySelector('button[onclick="window.location.reload()"]');
+    if (btnRefresh) {
+        btnRefresh.onclick = (e) => {
+            e.preventDefault();
+            btnRefresh.classList.add("loading");
+            loadRuntimeMetrics().then(() => {
+                btnRefresh.classList.remove("loading");
+            });
+        };
+    }
+    setInterval(loadRuntimeMetrics, 3000);
 })();
 /* STATUS_RUNTIME_METRICS_JS_END */
 </script>

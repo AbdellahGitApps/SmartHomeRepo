@@ -282,9 +282,18 @@ def startup_event():
 
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
+        try:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+        except Exception:
+            try:
+                # Fallback to a common local gateway address to force Wi-Fi adapter selection
+                s.connect(("192.168.1.254", 80))
+                local_ip = s.getsockname()[0]
+            except Exception:
+                local_ip = socket.gethostbyname(socket.gethostname())
+        finally:
+            s.close()
 
         print("\n" + "=" * 60)
         print(f"👉 LOCAL SERVER IP FOR MOBILE APP: {local_ip}")
@@ -2986,9 +2995,17 @@ def api_system_status_live():
     def _lan_ip():
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
+            try:
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+            except Exception:
+                try:
+                    s.connect(("192.168.1.254", 80))
+                    ip = s.getsockname()[0]
+                except Exception:
+                    ip = socket.gethostbyname(socket.gethostname())
+            finally:
+                s.close()
             return ip
         except Exception:
             return "127.0.0.1"
@@ -3078,19 +3095,16 @@ def api_system_status_live():
         except Exception:
             port = 1883
 
-        connected = False
-        try:
-            with socket.create_connection((host, port), timeout=0.35):
-                connected = True
-        except Exception:
-            connected = False
+        from mqtt import mqtt_client
+        connected = mqtt_client.is_connected()
+        msgs_min = mqtt_client.get_messages_per_min()
 
         return {
             "host": host,
             "port": port,
             "status": "Connected" if connected else "Not connected",
             "health": "healthy" if connected else "warning",
-            "messages_per_min": "~0" if not connected else "~ live",
+            "messages_per_min": str(msgs_min),
         }
 
     metrics = _memory_cpu()
@@ -3111,7 +3125,7 @@ def api_system_status_live():
         "server": {
             "status": "Running",
             "api_status": "Online",
-            "server_url": "http://127.0.0.1:8000",
+            "server_url": f"http://{_lan_ip()}:8000",
             "lan_ip": _lan_ip(),
             **metrics,
         },
